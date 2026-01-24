@@ -5,14 +5,14 @@ const API_KEY = 'TIRES2026';
 
 // Store list with warehouse assignments
 const STORES = [
-  { id: 609, name: 'Store 609 - Long Beach', warehouse: 'fresno' },
-  { id: 1002, name: 'Store 1002 - Downey', warehouse: 'fresno' },
-  { id: 1257, name: 'Store 1257 - Valencia', warehouse: 'santa_clarita' },
-  { id: 1270, name: 'Store 1270 - Lakewood', warehouse: 'fresno' },
-  { id: 1396, name: 'Store 1396 - Santa Clarita', warehouse: 'santa_clarita' },
-  { id: 1932, name: 'Store 1932 - Bellflower', warehouse: 'fresno' },
-  { id: 2911, name: 'Store 2911 - Cerritos', warehouse: 'fresno' },
-  { id: 4182, name: 'Store 4182 - Canyon Country', warehouse: 'santa_clarita' },
+  { id: 609, name: 'Store 609', warehouse: 'fresno' },
+  { id: 1002, name: 'Store 1002', warehouse: 'fresno' },
+  { id: 1257, name: 'Store 1257', warehouse: 'santa_clarita' },
+  { id: 1270, name: 'Store 1270', warehouse: 'fresno' },
+  { id: 1396, name: 'Store 1396', warehouse: 'santa_clarita' },
+  { id: 1932, name: 'Store 1932', warehouse: 'fresno' },
+  { id: 2911, name: 'Store 2911', warehouse: 'fresno' },
+  { id: 4182, name: 'Store 4182', warehouse: 'santa_clarita' },
 ];
 
 // Tire types for filtering
@@ -247,6 +247,9 @@ const TireCard = ({ tire, primaryWarehouse }) => {
   const isPriority = tire.brand_code === 'NEX' || tire.brand_code === 'ADV';
   const primaryQty = primaryWarehouse === 'fresno' ? tire.qty_fresno : tire.qty_santa_clarita;
   const secondaryQty = primaryWarehouse === 'fresno' ? tire.qty_santa_clarita : tire.qty_fresno;
+  
+  // Consumer price: cost × 1.5, round up to whole dollar, minus $0.01
+  const consumerPrice = Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01;
 
   return (
     <div style={{
@@ -311,7 +314,7 @@ const TireCard = ({ tire, primaryWarehouse }) => {
         {/* Right: Pricing & Inventory */}
         <div style={{ textAlign: 'right', minWidth: '150px' }}>
           <div style={{ fontSize: '22px', fontWeight: '700', color: '#9b59b6' }}>
-            ${parseFloat(tire.cost).toFixed(2)}
+            ${consumerPrice.toFixed(2)}
           </div>
           {tire.fet > 0 && (
             <div style={{ fontSize: '10px', color: '#888' }}>
