@@ -15,13 +15,8 @@ const STORES = [
   { id: 4182, name: 'Store 4182', warehouse: 'santa_clarita' },
 ];
 
-// Tire types for filtering
-const TIRE_TYPES = [
-  { value: '', label: 'ALL TYPES' },
-  { value: 'PASSENGER/CUV/SUV', label: 'PASSENGER' },
-  { value: 'LIGHT TRUCK', label: 'LIGHT TRUCK' },
-  { value: 'TRAILER', label: 'TRAILER' },
-];
+// Quantity options
+const QTY_OPTIONS = [1, 2, 4, 5, 6, 8];
 
 // Styled Select Dropdown
 const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => (
@@ -194,7 +189,7 @@ const SpecBox = ({ label, value, highlight }) => (
 );
 
 // Inventory Results Component
-const InventoryResults = ({ results, storeId, loading }) => {
+const InventoryResults = ({ results, storeId, loading, qtyNeeded }) => {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px', color: '#9b59b6' }}>
@@ -230,7 +225,8 @@ const InventoryResults = ({ results, storeId, loading }) => {
         Available Tires ({results.length})
       </h3>
       <p style={{ textAlign: 'center', color: '#888', fontSize: '11px', marginBottom: '20px' }}>
-        Primary: {primaryWarehouse === 'fresno' ? 'Fresno (4703)' : 'Santa Clarita (4708)'} • Sorted: NEXEN → ADVANTA → Cost
+        Primary: {primaryWarehouse === 'fresno' ? 'Fresno (4703)' : 'Santa Clarita (4708)'} • 
+        Min Qty: {qtyNeeded} • Sorted: NEXEN → ADVANTA → Price
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -334,14 +330,13 @@ const TireCard = ({ tire, primaryWarehouse }) => {
             <div style={{ color: '#888' }}>
               {primaryWarehouse === 'fresno' ? 'Santa Clarita' : 'Fresno'}: {parseInt(secondaryQty) || 0}
             </div>
-            {tire.store_qty !== undefined && (
+            {tire.store_qty > 0 && (
               <div style={{
-                color: tire.store_qty > 0 ? '#2980b9' : '#bdc3c7',
-                fontWeight: tire.store_qty > 0 ? '600' : '400',
+                color: '#2980b9',
+                fontWeight: '600',
                 marginTop: '4px',
               }}>
-                Store On-Hand: {tire.store_qty}
-                {tire.store_qty > 0 && ' 🏪'}
+                Store On-Hand: {tire.store_qty} 🏪
               </div>
             )}
           </div>
@@ -374,6 +369,9 @@ export default function TireFinder() {
   // Store selection
   const [selectedStore, setSelectedStore] = useState('609');
 
+  // Quantity needed
+  const [qtyNeeded, setQtyNeeded] = useState(4);
+
   // Search mode
   const [searchMode, setSearchMode] = useState('ymm'); // 'ymm', 'size', 'part'
 
@@ -391,14 +389,16 @@ export default function TireFinder() {
   const [selectedModel, setSelectedModel] = useState('');
   const [selectedSubmodel, setSelectedSubmodel] = useState('');
 
-  // Tire size lookup state
+  // Tire size lookup state - dynamic options from inventory
+  const [tireTypeOptions, setTireTypeOptions] = useState([]);
+  const [widthOptions, setWidthOptions] = useState([]);
+  const [aspectOptions, setAspectOptions] = useState([]);
+  const [rimOptions, setRimOptions] = useState([]);
   const [selectedTireType, setSelectedTireType] = useState('');
-  const [widths] = useState(['145','155','165','175','185','195','205','215','225','235','245','255','265','275','285','295','305','315','325','335','345','355']);
-  const [ratios] = useState(['25','30','35','40','45','50','55','60','65','70','75','80','85']);
-  const [rimSizes] = useState(['13','14','15','16','17','18','19','20','21','22','24','26']);
   const [selectedWidth, setSelectedWidth] = useState('');
-  const [selectedRatio, setSelectedRatio] = useState('');
+  const [selectedAspect, setSelectedAspect] = useState('');
   const [selectedRim, setSelectedRim] = useState('');
+  const [optionsLoading, setOptionsLoading] = useState(false);
 
   // Part number search
   const [partNumber, setPartNumber] = useState('');
@@ -420,6 +420,36 @@ export default function TireFinder() {
       })
       .catch(() => setError('Failed to connect to server'));
   }, []);
+
+  // Fetch tire size options when switching to size mode or when filters change
+  useEffect(() => {
+    if (searchMode !== 'size') return;
+    
+    const fetchOptions = async () => {
+      setOptionsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (selectedTireType) params.append('tire_type', selectedTireType);
+        if (selectedWidth) params.append('width', selectedWidth);
+        if (selectedAspect) params.append('aspect', selectedAspect);
+        
+        const response = await fetch(`${API_BASE}/tire-inventory-options?${params}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setTireTypeOptions(data.options.tire_types || []);
+          setWidthOptions(data.options.widths || []);
+          setAspectOptions(data.options.aspects || []);
+          setRimOptions(data.options.rims || []);
+        }
+      } catch (e) {
+        console.error('Failed to fetch options:', e);
+      }
+      setOptionsLoading(false);
+    };
+    
+    fetchOptions();
+  }, [searchMode, selectedTireType, selectedWidth, selectedAspect]);
 
   // Fetch makes when year changes
   useEffect(() => {
@@ -480,13 +510,33 @@ export default function TireFinder() {
     setError(null);
   };
 
+  const handleTireTypeChange = (type) => {
+    setSelectedTireType(type);
+    setSelectedWidth('');
+    setSelectedAspect('');
+    setSelectedRim('');
+    setInventoryResults(null);
+  };
+
+  const handleWidthChange = (width) => {
+    setSelectedWidth(width);
+    setSelectedAspect('');
+    setSelectedRim('');
+    setInventoryResults(null);
+  };
+
+  const handleAspectChange = (aspect) => {
+    setSelectedAspect(aspect);
+    setSelectedRim('');
+    setInventoryResults(null);
+  };
+
   // Search inventory by tire size
   const searchInventory = async (tireSize) => {
     setInventoryLoading(true);
     setError(null);
     
     try {
-      // Convert tire size to compressed format if needed (225/55R17 -> 2255517)
       const compressedSize = tireSize.replace(/[^0-9]/g, '');
       
       const response = await fetch(`${API_BASE}/tire-inventory-search`, {
@@ -496,6 +546,7 @@ export default function TireFinder() {
           tire_size: compressedSize,
           store_id: parseInt(selectedStore),
           tire_type: selectedTireType || undefined,
+          qty_needed: qtyNeeded,
           limit: 100,
         }),
       });
@@ -528,6 +579,7 @@ export default function TireFinder() {
         body: JSON.stringify({
           part_number: partNumber.trim(),
           store_id: parseInt(selectedStore),
+          qty_needed: qtyNeeded,
           limit: 50,
         }),
       });
@@ -536,6 +588,9 @@ export default function TireFinder() {
       
       if (data.success) {
         setInventoryResults(data.results);
+        if (data.results.length === 0) {
+          setError('No tires found matching that part number');
+        }
       } else {
         setError(data.error || 'Part number not found');
       }
@@ -569,8 +624,8 @@ export default function TireFinder() {
       setLoading(false);
       
     } else if (searchMode === 'size') {
-      if (!selectedWidth || !selectedRatio || !selectedRim) return;
-      const tireSize = `${selectedWidth}${selectedRatio}${selectedRim}`;
+      if (!selectedWidth || !selectedAspect || !selectedRim) return;
+      const tireSize = `${selectedWidth}${selectedAspect}${selectedRim}`;
       await searchInventory(tireSize);
       
     } else if (searchMode === 'part') {
@@ -580,7 +635,7 @@ export default function TireFinder() {
 
   const canSearch = 
     (searchMode === 'ymm' && selectedYear && selectedMake && selectedModel && selectedSubmodel) ||
-    (searchMode === 'size' && selectedWidth && selectedRatio && selectedRim) ||
+    (searchMode === 'size' && selectedWidth && selectedAspect && selectedRim) ||
     (searchMode === 'part' && partNumber.trim());
 
   return (
@@ -593,32 +648,60 @@ export default function TireFinder() {
             alt="Jiffy Lube Multicare"
             style={{ height: '45px' }}
           />
-          {/* Store Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '1px' }}>STORE:</span>
-            <select
-              value={selectedStore}
-              onChange={(e) => setSelectedStore(e.target.value)}
-              style={{
-                padding: '8px 30px 8px 12px',
-                border: '2px solid #9b59b6',
-                borderRadius: '20px',
-                backgroundColor: 'white',
-                color: '#333',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                outline: 'none',
-                appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 10px center',
-              }}
-            >
-              {STORES.map(store => (
-                <option key={store.id} value={store.id}>{store.name}</option>
-              ))}
-            </select>
+          {/* Store & Qty Selectors */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '1px' }}>STORE:</span>
+              <select
+                value={selectedStore}
+                onChange={(e) => setSelectedStore(e.target.value)}
+                style={{
+                  padding: '8px 30px 8px 12px',
+                  border: '2px solid #9b59b6',
+                  borderRadius: '20px',
+                  backgroundColor: 'white',
+                  color: '#333',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  appearance: 'none',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 10px center',
+                }}
+              >
+                {STORES.map(store => (
+                  <option key={store.id} value={store.id}>{store.name}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '1px' }}>QTY:</span>
+              <select
+                value={qtyNeeded}
+                onChange={(e) => setQtyNeeded(parseInt(e.target.value))}
+                style={{
+                  padding: '8px 30px 8px 12px',
+                  border: '2px solid #9b59b6',
+                  borderRadius: '20px',
+                  backgroundColor: 'white',
+                  color: '#333',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  appearance: 'none',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 10px center',
+                }}
+              >
+                {QTY_OPTIONS.map(qty => (
+                  <option key={qty} value={qty}>{qty}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </header>
@@ -730,39 +813,61 @@ export default function TireFinder() {
 
           {searchMode === 'size' && (
             <div>
-              {/* Tire Type Filter */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                {TIRE_TYPES.map(type => (
-                  <RadioButton
-                    key={type.value}
-                    name="tireType"
-                    value={type.value}
-                    checked={selectedTireType === type.value}
-                    onChange={setSelectedTireType}
-                    label={type.label}
+              {/* Tire Type Selector */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                <div style={{ minWidth: '200px', maxWidth: '300px' }}>
+                  <SelectDropdown 
+                    value={selectedTireType} 
+                    onChange={handleTireTypeChange} 
+                    options={tireTypeOptions.map(t => ({ value: t, label: t.replace('PASSENGER/CUV/SUV', 'PASSENGER') }))} 
+                    placeholder="TIRE TYPE" 
                   />
-                ))}
+                </div>
               </div>
 
               {/* Size Dropdowns */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <div style={{ minWidth: '120px' }}>
-                  <SelectDropdown value={selectedWidth} onChange={setSelectedWidth} options={widths} placeholder="WIDTH" />
+                  <SelectDropdown 
+                    value={selectedWidth} 
+                    onChange={handleWidthChange} 
+                    options={widthOptions.map(w => String(w))} 
+                    placeholder="WIDTH" 
+                    disabled={optionsLoading}
+                  />
                 </div>
                 <span style={{ color: '#9b59b6', fontWeight: '700' }}>/</span>
                 <div style={{ minWidth: '120px' }}>
-                  <SelectDropdown value={selectedRatio} onChange={setSelectedRatio} options={ratios} placeholder="ASPECT" />
+                  <SelectDropdown 
+                    value={selectedAspect} 
+                    onChange={handleAspectChange} 
+                    options={aspectOptions.map(a => String(a))} 
+                    placeholder="ASPECT" 
+                    disabled={!selectedWidth || optionsLoading}
+                  />
                 </div>
                 <span style={{ color: '#9b59b6', fontWeight: '700' }}>R</span>
                 <div style={{ minWidth: '120px' }}>
-                  <SelectDropdown value={selectedRim} onChange={setSelectedRim} options={rimSizes} placeholder="RIM" />
+                  <SelectDropdown 
+                    value={selectedRim} 
+                    onChange={setSelectedRim} 
+                    options={rimOptions.map(r => String(r))} 
+                    placeholder="RIM" 
+                    disabled={!selectedAspect || optionsLoading}
+                  />
                 </div>
               </div>
 
               {/* Preview */}
-              {selectedWidth && selectedRatio && selectedRim && (
+              {selectedWidth && selectedAspect && selectedRim && (
                 <p style={{ textAlign: 'center', marginTop: '15px', color: '#9b59b6', fontWeight: '700', fontSize: '18px' }}>
-                  {selectedWidth}/{selectedRatio}R{selectedRim}
+                  {selectedWidth}/{selectedAspect}R{selectedRim}
+                </p>
+              )}
+              
+              {optionsLoading && (
+                <p style={{ textAlign: 'center', marginTop: '10px', color: '#888', fontSize: '11px' }}>
+                  Loading options...
                 </p>
               )}
             </div>
@@ -843,6 +948,7 @@ export default function TireFinder() {
             results={inventoryResults} 
             storeId={selectedStore}
             loading={inventoryLoading}
+            qtyNeeded={qtyNeeded}
           />
         </div>
       </div>
