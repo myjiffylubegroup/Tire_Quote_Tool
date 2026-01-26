@@ -18,7 +18,7 @@ const STORES = [
 // Quantity options
 const QTY_OPTIONS = [1, 2, 4, 5, 6, 8];
 
-// Styled Select Dropdown
+// Styled Select Dropdown matching Nexen exactly
 const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => (
   <select
     value={value}
@@ -53,53 +53,7 @@ const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => 
   </select>
 );
 
-// Radio Button Component
-const RadioButton = ({ name, value, checked, onChange, label }) => (
-  <label style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    cursor: 'pointer',
-    fontSize: '12px',
-    fontWeight: '600',
-    color: checked ? '#9b59b6' : '#666',
-    letterSpacing: '0.5px',
-  }}>
-    <input
-      type="radio"
-      name={name}
-      value={value}
-      checked={checked}
-      onChange={(e) => onChange(e.target.value)}
-      style={{ accentColor: '#9b59b6' }}
-    />
-    {label}
-  </label>
-);
-
-// Checkbox Component
-const Checkbox = ({ checked, onChange, label }) => (
-  <label style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    cursor: 'pointer',
-    fontSize: '11px',
-    fontWeight: '600',
-    color: checked ? '#9b59b6' : '#666',
-    letterSpacing: '0.5px',
-  }}>
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={(e) => onChange(e.target.checked)}
-      style={{ accentColor: '#9b59b6', width: '14px', height: '14px' }}
-    />
-    {label}
-  </label>
-);
-
-// Tire Specs Results Component (for YMM lookup)
+// Tire Specs Results Component
 const TireSpecsResults = ({ specs, vehicle, onSearchInventory }) => {
   if (!specs) return null;
 
@@ -107,26 +61,26 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory }) => {
     <div style={{
       backgroundColor: 'white',
       borderRadius: '10px',
-      padding: '25px',
-      marginTop: '25px',
+      padding: '30px',
+      marginTop: '30px',
       boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
     }}>
       <h3 style={{
         color: '#9b59b6',
-        fontSize: '16px',
+        fontSize: '18px',
         fontWeight: '700',
         textAlign: 'center',
-        marginBottom: '15px',
+        marginBottom: '20px',
         textTransform: 'uppercase',
         letterSpacing: '2px',
       }}>
-        OE Tire Specs: {vehicle}
+        Tire Specifications for {vehicle}
       </h3>
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-        gap: '12px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gap: '15px',
       }}>
         <SpecBox label="Tire Size" value={specs.tire_size} highlight />
         <SpecBox label="Rim Size" value={specs.rim_size} />
@@ -137,11 +91,11 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory }) => {
       </div>
 
       {specs.is_staggered && specs.tire_size_rear && (
-        <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
-          <p style={{ color: '#9b59b6', fontWeight: '600', textAlign: 'center', marginBottom: '10px', fontSize: '12px' }}>
+        <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
+          <p style={{ color: '#9b59b6', fontWeight: '600', textAlign: 'center', marginBottom: '15px' }}>
             ⚡ Staggered Fitment (Different Front/Rear)
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
             <SpecBox label="Rear Tire Size" value={specs.tire_size_rear} highlight />
             <SpecBox label="Rear Rim Size" value={specs.rim_size_rear} />
           </div>
@@ -149,16 +103,16 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory }) => {
       )}
 
       {/* Search Inventory Button */}
-      <div style={{ textAlign: 'center', marginTop: '20px' }}>
+      <div style={{ textAlign: 'center', marginTop: '25px' }}>
         <button
           onClick={() => onSearchInventory(specs.tire_size)}
           style={{
             backgroundColor: '#27ae60',
             color: 'white',
             border: 'none',
-            padding: '12px 30px',
+            padding: '14px 40px',
             borderRadius: '25px',
-            fontSize: '12px',
+            fontSize: '13px',
             fontWeight: '700',
             letterSpacing: '2px',
             cursor: 'pointer',
@@ -175,14 +129,14 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory }) => {
 const SpecBox = ({ label, value, highlight }) => (
   <div style={{
     backgroundColor: highlight ? '#f3e8ff' : '#f8f8f8',
-    padding: '12px',
+    padding: '15px',
     borderRadius: '8px',
     textAlign: 'center',
   }}>
-    <div style={{ fontSize: '10px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
+    <div style={{ fontSize: '11px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>
       {label}
     </div>
-    <div style={{ fontSize: highlight ? '16px' : '13px', fontWeight: '700', color: highlight ? '#9b59b6' : '#333' }}>
+    <div style={{ fontSize: highlight ? '18px' : '14px', fontWeight: '700', color: highlight ? '#9b59b6' : '#333' }}>
       {value || '-'}
     </div>
   </div>
@@ -226,7 +180,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded }) => {
       </h3>
       <p style={{ textAlign: 'center', color: '#888', fontSize: '11px', marginBottom: '20px' }}>
         Primary: {primaryWarehouse === 'fresno' ? 'Fresno (4703)' : 'Santa Clarita (4708)'} • 
-        Min Qty: {qtyNeeded} • Sorted: NEXEN → ADVANTA → Price
+        Min Qty: {qtyNeeded} • Sorted: Store Stock → NEXEN → ADVANTA → Price
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -243,38 +197,51 @@ const TireCard = ({ tire, primaryWarehouse }) => {
   const isPriority = tire.brand_code === 'NEX' || tire.brand_code === 'ADV';
   const primaryQty = primaryWarehouse === 'fresno' ? tire.qty_fresno : tire.qty_santa_clarita;
   const secondaryQty = primaryWarehouse === 'fresno' ? tire.qty_santa_clarita : tire.qty_fresno;
+  const hasStoreStock = tire.store_qty > 0;
   
   // Consumer price: cost × 1.5, round up to whole dollar, minus $0.01
-  const consumerPrice = Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01;
+  const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
 
   return (
     <div style={{
-      border: isPriority ? '2px solid #9b59b6' : '1px solid #e0e0e0',
+      border: hasStoreStock ? '2px solid #27ae60' : (isPriority ? '2px solid #9b59b6' : '1px solid #e0e0e0'),
       borderRadius: '10px',
       padding: '15px',
-      backgroundColor: isPriority ? '#faf5ff' : 'white',
+      backgroundColor: hasStoreStock ? '#f0fff4' : (isPriority ? '#faf5ff' : 'white'),
       position: 'relative',
     }}>
-      {/* Priority Badge */}
-      {isPriority && (
-        <span style={{
-          position: 'absolute',
-          top: '-8px',
-          left: '15px',
-          backgroundColor: tire.brand_code === 'NEX' ? '#9b59b6' : '#e67e22',
-          color: 'white',
-          padding: '2px 10px',
-          borderRadius: '10px',
-          fontSize: '10px',
-          fontWeight: '700',
-          letterSpacing: '1px',
-        }}>
-          {tire.brand_code === 'NEX' ? '⭐ NEXEN' : '💰 ADVANTA'}
-        </span>
-      )}
+      {/* Badges */}
+      <div style={{ position: 'absolute', top: '-8px', left: '15px', display: 'flex', gap: '5px' }}>
+        {hasStoreStock && (
+          <span style={{
+            backgroundColor: '#27ae60',
+            color: 'white',
+            padding: '2px 10px',
+            borderRadius: '10px',
+            fontSize: '10px',
+            fontWeight: '700',
+            letterSpacing: '1px',
+          }}>
+            🏪 IN STORE
+          </span>
+        )}
+        {isPriority && (
+          <span style={{
+            backgroundColor: tire.brand_code === 'NEX' ? '#9b59b6' : '#e67e22',
+            color: 'white',
+            padding: '2px 10px',
+            borderRadius: '10px',
+            fontSize: '10px',
+            fontWeight: '700',
+            letterSpacing: '1px',
+          }}>
+            {tire.brand_code === 'NEX' ? '⭐ NEXEN' : '💰 ADVANTA'}
+          </span>
+        )}
+      </div>
 
       {/* Main Info Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginTop: hasStoreStock || isPriority ? '5px' : '0' }}>
         {/* Left: Name & Details */}
         <div style={{ flex: '1', minWidth: '200px' }}>
           <h4 style={{ margin: '0 0 5px 0', fontSize: '14px', fontWeight: '700', color: '#333' }}>
@@ -309,9 +276,15 @@ const TireCard = ({ tire, primaryWarehouse }) => {
 
         {/* Right: Pricing & Inventory */}
         <div style={{ textAlign: 'right', minWidth: '150px' }}>
-          <div style={{ fontSize: '22px', fontWeight: '700', color: '#9b59b6' }}>
-            ${consumerPrice.toFixed(2)}
-          </div>
+          {consumerPrice > 0 ? (
+            <div style={{ fontSize: '22px', fontWeight: '700', color: '#9b59b6' }}>
+              ${consumerPrice.toFixed(2)}
+            </div>
+          ) : (
+            <div style={{ fontSize: '14px', fontWeight: '600', color: '#888' }}>
+              Call for Price
+            </div>
+          )}
           {tire.fet > 0 && (
             <div style={{ fontSize: '10px', color: '#888' }}>
               + ${parseFloat(tire.fet).toFixed(2)} FET
@@ -320,6 +293,15 @@ const TireCard = ({ tire, primaryWarehouse }) => {
 
           {/* Inventory */}
           <div style={{ marginTop: '10px', fontSize: '11px' }}>
+            {hasStoreStock && (
+              <div style={{
+                color: '#27ae60',
+                fontWeight: '700',
+                marginBottom: '4px',
+              }}>
+                Store: {tire.store_qty} 🏪
+              </div>
+            )}
             <div style={{
               color: primaryQty > 0 ? '#27ae60' : '#e74c3c',
               fontWeight: '600',
@@ -330,22 +312,14 @@ const TireCard = ({ tire, primaryWarehouse }) => {
             <div style={{ color: '#888' }}>
               {primaryWarehouse === 'fresno' ? 'Santa Clarita' : 'Fresno'}: {parseInt(secondaryQty) || 0}
             </div>
-            {tire.store_qty > 0 && (
-              <div style={{
-                color: '#2980b9',
-                fontWeight: '600',
-                marginTop: '4px',
-              }}>
-                Store On-Hand: {tire.store_qty} 🏪
-              </div>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Part Number */}
-      <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee', fontSize: '10px', color: '#aaa' }}>
-        Part #: {tire.part_number} | Type: {tire.tire_type}
+      {/* Part Number & Source */}
+      <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee', fontSize: '10px', color: '#aaa', display: 'flex', justifyContent: 'space-between' }}>
+        <span>Part #: {tire.part_number}</span>
+        <span>{tire.tire_type} | {tire.source === 'store_only' ? 'Store Only' : tire.source === 'both' ? 'Store + Distributor' : 'Distributor'}</span>
       </div>
     </div>
   );
@@ -364,20 +338,10 @@ const Badge = ({ label, color }) => (
   </span>
 );
 
-// Main Component
 export default function TireFinder() {
-  // Store selection
+  // Store & Qty selection
   const [selectedStore, setSelectedStore] = useState('609');
-
-  // Quantity needed
   const [qtyNeeded, setQtyNeeded] = useState(4);
-
-  // Search mode
-  const [searchMode, setSearchMode] = useState('ymm'); // 'ymm', 'size', 'part'
-
-  // Inventory sources
-  const [showUSAutoForce, setShowUSAutoForce] = useState(true);
-  const [showStoreInventory, setShowStoreInventory] = useState(true);
 
   // Vehicle lookup state
   const [years, setYears] = useState([]);
@@ -389,7 +353,7 @@ export default function TireFinder() {
   const [selectedModel, setSelectedModel] = useState('');
   const [selectedSubmodel, setSelectedSubmodel] = useState('');
 
-  // Tire size lookup state - dynamic options from inventory
+  // Tire size lookup state - dynamic from inventory
   const [tireTypeOptions, setTireTypeOptions] = useState([]);
   const [widthOptions, setWidthOptions] = useState([]);
   const [aspectOptions, setAspectOptions] = useState([]);
@@ -398,7 +362,6 @@ export default function TireFinder() {
   const [selectedWidth, setSelectedWidth] = useState('');
   const [selectedAspect, setSelectedAspect] = useState('');
   const [selectedRim, setSelectedRim] = useState('');
-  const [optionsLoading, setOptionsLoading] = useState(false);
 
   // Part number search
   const [partNumber, setPartNumber] = useState('');
@@ -421,12 +384,9 @@ export default function TireFinder() {
       .catch(() => setError('Failed to connect to server'));
   }, []);
 
-  // Fetch tire size options when switching to size mode or when filters change
+  // Fetch tire size options from inventory
   useEffect(() => {
-    if (searchMode !== 'size') return;
-    
     const fetchOptions = async () => {
-      setOptionsLoading(true);
       try {
         const params = new URLSearchParams();
         if (selectedTireType) params.append('tire_type', selectedTireType);
@@ -437,19 +397,24 @@ export default function TireFinder() {
         const data = await response.json();
         
         if (data.success) {
-          setTireTypeOptions(data.options.tire_types || []);
+          if (!selectedTireType && !selectedWidth && !selectedAspect) {
+            setTireTypeOptions(data.options.tire_types || []);
+          }
           setWidthOptions(data.options.widths || []);
           setAspectOptions(data.options.aspects || []);
           setRimOptions(data.options.rims || []);
         }
       } catch (e) {
         console.error('Failed to fetch options:', e);
+        // Fallback to static options if API fails
+        setWidthOptions(['175','185','195','205','215','225','235','245','255','265','275','285','295','305','315']);
+        setAspectOptions(['30','35','40','45','50','55','60','65','70','75','80','85']);
+        setRimOptions(['14','15','16','17','18','19','20','21','22']);
       }
-      setOptionsLoading(false);
     };
     
     fetchOptions();
-  }, [searchMode, selectedTireType, selectedWidth, selectedAspect]);
+  }, [selectedTireType, selectedWidth, selectedAspect]);
 
   // Fetch makes when year changes
   useEffect(() => {
@@ -503,13 +468,6 @@ export default function TireFinder() {
     setInventoryResults(null);
   };
 
-  const handleSearchModeChange = (mode) => {
-    setSearchMode(mode);
-    setTireSpecs(null);
-    setInventoryResults(null);
-    setError(null);
-  };
-
   const handleTireTypeChange = (type) => {
     setSelectedTireType(type);
     setSelectedWidth('');
@@ -535,6 +493,7 @@ export default function TireFinder() {
   const searchInventory = async (tireSize) => {
     setInventoryLoading(true);
     setError(null);
+    setInventoryResults(null);
     
     try {
       const compressedSize = tireSize.replace(/[^0-9]/g, '');
@@ -555,6 +514,9 @@ export default function TireFinder() {
       
       if (data.success) {
         setInventoryResults(data.results);
+        if (data.results.length === 0) {
+          setError(`No tires found with ${qtyNeeded}+ in stock`);
+        }
       } else {
         setError(data.error || 'Failed to search inventory');
       }
@@ -571,6 +533,8 @@ export default function TireFinder() {
     
     setInventoryLoading(true);
     setError(null);
+    setInventoryResults(null);
+    setTireSpecs(null);
     
     try {
       const response = await fetch(`${API_BASE}/tire-inventory-search`, {
@@ -602,14 +566,14 @@ export default function TireFinder() {
   };
 
   const handleSearch = async () => {
-    setTireSpecs(null);
-    setInventoryResults(null);
-    
-    if (searchMode === 'ymm') {
-      if (!selectedYear || !selectedMake || !selectedModel || !selectedSubmodel) return;
-      
+    // Determine what to search based on what's filled in
+    if (selectedYear && selectedMake && selectedModel && selectedSubmodel) {
+      // YMM Search
       setLoading(true);
       setError(null);
+      setTireSpecs(null);
+      setInventoryResults(null);
+      
       try {
         const res = await fetch(`${API_BASE}/vehicle-tires?year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(selectedModel)}&submodel=${encodeURIComponent(selectedSubmodel)}&key=${API_KEY}`);
         const data = await res.json();
@@ -623,20 +587,21 @@ export default function TireFinder() {
       }
       setLoading(false);
       
-    } else if (searchMode === 'size') {
-      if (!selectedWidth || !selectedAspect || !selectedRim) return;
+    } else if (selectedWidth && selectedAspect && selectedRim) {
+      // Tire Size Search
       const tireSize = `${selectedWidth}${selectedAspect}${selectedRim}`;
       await searchInventory(tireSize);
       
-    } else if (searchMode === 'part') {
+    } else if (partNumber.trim()) {
+      // Part Number Search
       await searchByPartNumber();
     }
   };
 
   const canSearch = 
-    (searchMode === 'ymm' && selectedYear && selectedMake && selectedModel && selectedSubmodel) ||
-    (searchMode === 'size' && selectedWidth && selectedAspect && selectedRim) ||
-    (searchMode === 'part' && partNumber.trim());
+    (selectedYear && selectedMake && selectedModel && selectedSubmodel) ||
+    (selectedWidth && selectedAspect && selectedRim) ||
+    partNumber.trim();
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
@@ -646,7 +611,7 @@ export default function TireFinder() {
           <img 
             src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png"
             alt="Jiffy Lube Multicare"
-            style={{ height: '45px' }}
+            style={{ height: '50px' }}
           />
           {/* Store & Qty Selectors */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
@@ -709,7 +674,7 @@ export default function TireFinder() {
       {/* Purple Nav Bar */}
       <nav style={{ backgroundColor: '#9b59b6', padding: '12px 0' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
-          {['TIRE FINDER', 'TIRE LINEUP', 'WHY NEXEN', 'WARRANTY'].map((item) => (
+          {['TIRE FINDER', 'DEALER FINDER', 'TIRE LINEUP', 'WHY NEXEN', 'WARRANTY', 'RESOURCES', 'NEWS', 'REVIEWS'].map((item) => (
             <a
               key={item}
               href="#"
@@ -729,24 +694,26 @@ export default function TireFinder() {
         </div>
       </nav>
 
-      {/* Hero Banner */}
+      {/* Hero Banner with road/sky background */}
       <div style={{
         background: 'linear-gradient(180deg, #a8d4e6 0%, #d4e4e8 40%, #e8ebe8 60%, #9ca3af 100%)',
-        padding: '50px 20px',
-      }} />
+        padding: '60px 20px',
+        position: 'relative',
+      }}>
+      </div>
 
-      {/* Tire Finder Section */}
-      <div style={{ maxWidth: '1000px', margin: '-30px auto 40px', padding: '0 20px', position: 'relative', zIndex: 10 }}>
+      {/* Tire Finder Section - overlapping the hero */}
+      <div style={{ maxWidth: '1000px', margin: '-40px auto 40px', padding: '0 20px', position: 'relative', zIndex: 10 }}>
         <div style={{
           backgroundColor: 'white',
           borderRadius: '10px',
           boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
-          padding: '30px',
+          padding: '40px',
         }}>
           {/* Title */}
           <h1 style={{
             color: '#9b59b6',
-            fontSize: '24px',
+            fontSize: '28px',
             fontWeight: '700',
             textAlign: 'center',
             marginBottom: '5px',
@@ -756,146 +723,190 @@ export default function TireFinder() {
           </h1>
           <p style={{
             color: '#666',
-            fontSize: '12px',
+            fontSize: '13px',
             textAlign: 'center',
-            marginBottom: '25px',
-            letterSpacing: '3px',
+            marginBottom: '35px',
+            letterSpacing: '4px',
             fontWeight: '600',
           }}>
             TIRE FINDER
           </p>
 
-          {/* Search Mode Toggle */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '25px',
-            marginBottom: '20px',
-            padding: '15px',
-            backgroundColor: '#f8f8f8',
-            borderRadius: '25px',
-            flexWrap: 'wrap',
-          }}>
-            <RadioButton name="searchMode" value="ymm" checked={searchMode === 'ymm'} onChange={handleSearchModeChange} label="YEAR / MAKE / MODEL" />
-            <RadioButton name="searchMode" value="size" checked={searchMode === 'size'} onChange={handleSearchModeChange} label="TIRE SIZE" />
-            <RadioButton name="searchMode" value="part" checked={searchMode === 'part'} onChange={handleSearchModeChange} label="PART NUMBER" />
-          </div>
+          {/* Three Column Layout */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flexWrap: 'wrap' }}>
+            
+            {/* BY VEHICLE Column */}
+            <div style={{ flex: '1', minWidth: '180px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+                <span style={{
+                  color: '#9b59b6',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  letterSpacing: '1px',
+                  whiteSpace: 'nowrap',
+                }}>
+                  BY VEHICLE
+                </span>
+                <div style={{
+                  flex: 1,
+                  height: '1px',
+                  backgroundColor: '#9b59b6',
+                  marginLeft: '8px',
+                  position: 'relative',
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '-3px',
+                    width: '7px',
+                    height: '7px',
+                    backgroundColor: '#9b59b6',
+                    borderRadius: '50%',
+                  }} />
+                </div>
+              </div>
 
-          {/* Inventory Source Checkboxes */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '30px',
-            marginBottom: '25px',
-            flexWrap: 'wrap',
-          }}>
-            <Checkbox checked={showUSAutoForce} onChange={setShowUSAutoForce} label="USAutoForce (Distributor)" />
-            <Checkbox checked={showStoreInventory} onChange={setShowStoreInventory} label="Store On-Hand" />
-          </div>
-
-          {/* Search Panels */}
-          {searchMode === 'ymm' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <div style={{ flex: '1', minWidth: '150px', maxWidth: '200px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <SelectDropdown value={selectedYear} onChange={handleYearChange} options={years} placeholder="YEAR" />
-              </div>
-              <div style={{ flex: '1', minWidth: '150px', maxWidth: '200px' }}>
                 <SelectDropdown value={selectedMake} onChange={handleMakeChange} options={makes} placeholder="MAKE" disabled={!selectedYear} />
-              </div>
-              <div style={{ flex: '1', minWidth: '150px', maxWidth: '200px' }}>
                 <SelectDropdown value={selectedModel} onChange={handleModelChange} options={models} placeholder="MODEL" disabled={!selectedMake} />
-              </div>
-              <div style={{ flex: '1', minWidth: '150px', maxWidth: '200px' }}>
                 <SelectDropdown value={selectedSubmodel} onChange={setSelectedSubmodel} options={submodels.map(s => s.submodel)} placeholder="STYLE" disabled={!selectedModel} />
               </div>
             </div>
-          )}
 
-          {searchMode === 'size' && (
-            <div>
-              {/* Tire Type Selector */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                <div style={{ minWidth: '200px', maxWidth: '300px' }}>
-                  <SelectDropdown 
-                    value={selectedTireType} 
-                    onChange={handleTireTypeChange} 
-                    options={tireTypeOptions.map(t => ({ value: t, label: t.replace('PASSENGER/CUV/SUV', 'PASSENGER') }))} 
-                    placeholder="TIRE TYPE" 
-                  />
-                </div>
-              </div>
-
-              {/* Size Dropdowns */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <div style={{ minWidth: '120px' }}>
-                  <SelectDropdown 
-                    value={selectedWidth} 
-                    onChange={handleWidthChange} 
-                    options={widthOptions.map(w => String(w))} 
-                    placeholder="WIDTH" 
-                    disabled={optionsLoading}
-                  />
-                </div>
-                <span style={{ color: '#9b59b6', fontWeight: '700' }}>/</span>
-                <div style={{ minWidth: '120px' }}>
-                  <SelectDropdown 
-                    value={selectedAspect} 
-                    onChange={handleAspectChange} 
-                    options={aspectOptions.map(a => String(a))} 
-                    placeholder="ASPECT" 
-                    disabled={!selectedWidth || optionsLoading}
-                  />
-                </div>
-                <span style={{ color: '#9b59b6', fontWeight: '700' }}>R</span>
-                <div style={{ minWidth: '120px' }}>
-                  <SelectDropdown 
-                    value={selectedRim} 
-                    onChange={setSelectedRim} 
-                    options={rimOptions.map(r => String(r))} 
-                    placeholder="RIM" 
-                    disabled={!selectedAspect || optionsLoading}
-                  />
-                </div>
-              </div>
-
-              {/* Preview */}
-              {selectedWidth && selectedAspect && selectedRim && (
-                <p style={{ textAlign: 'center', marginTop: '15px', color: '#9b59b6', fontWeight: '700', fontSize: '18px' }}>
-                  {selectedWidth}/{selectedAspect}R{selectedRim}
-                </p>
-              )}
-              
-              {optionsLoading && (
-                <p style={{ textAlign: 'center', marginTop: '10px', color: '#888', fontSize: '11px' }}>
-                  Loading options...
-                </p>
-              )}
-            </div>
-          )}
-
-          {searchMode === 'part' && (
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <input
-                type="text"
-                value={partNumber}
-                onChange={(e) => setPartNumber(e.target.value.toUpperCase())}
-                placeholder="Enter Part Number (e.g., 15007NXK)"
-                style={{
-                  width: '100%',
-                  maxWidth: '350px',
-                  padding: '12px 20px',
-                  border: '2px solid #9b59b6',
-                  borderRadius: '25px',
-                  fontSize: '14px',
+            {/* Center - Car Image + OR */}
+            <div style={{ 
+              flex: '1.3', 
+              minWidth: '220px', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '10px 0',
+            }}>
+              {/* OR divider */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                width: '100%',
+                marginBottom: '15px',
+              }}>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#ddd' }} />
+                <span style={{ 
+                  padding: '0 15px', 
+                  color: '#999', 
+                  fontSize: '12px', 
                   fontWeight: '600',
-                  textAlign: 'center',
-                  letterSpacing: '1px',
-                  outline: 'none',
+                  letterSpacing: '2px',
+                }}>
+                  OR
+                </span>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#ddd' }} />
+              </div>
+
+              {/* Car Image - top-down view like Nexen */}
+              <img 
+                src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/Vehicle-image.png"
+                alt="Vehicle"
+                style={{ 
+                  width: '100%', 
+                  maxWidth: '280px',
+                  opacity: 0.9,
                 }}
-                onKeyPress={(e) => e.key === 'Enter' && canSearch && handleSearch()}
               />
+
+              {loading && (
+                <p style={{ color: '#9b59b6', marginTop: '10px', fontSize: '13px' }}>Loading...</p>
+              )}
             </div>
-          )}
+
+            {/* BY TIRE SIZE Column */}
+            <div style={{ flex: '1', minWidth: '180px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+                <div style={{
+                  flex: 1,
+                  height: '1px',
+                  backgroundColor: '#9b59b6',
+                  marginRight: '8px',
+                  position: 'relative',
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: '-3px',
+                    width: '7px',
+                    height: '7px',
+                    backgroundColor: '#9b59b6',
+                    borderRadius: '50%',
+                  }} />
+                </div>
+                <span style={{
+                  color: '#9b59b6',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  letterSpacing: '1px',
+                  whiteSpace: 'nowrap',
+                }}>
+                  BY TIRE SIZE
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <SelectDropdown 
+                  value={selectedTireType} 
+                  onChange={handleTireTypeChange} 
+                  options={tireTypeOptions.length > 0 ? tireTypeOptions.map(t => ({ value: t, label: t.replace('PASSENGER/CUV/SUV', 'PASSENGER') })) : []} 
+                  placeholder="TIRE TYPE" 
+                />
+                <SelectDropdown 
+                  value={selectedWidth} 
+                  onChange={handleWidthChange} 
+                  options={widthOptions.map(w => String(w))} 
+                  placeholder="WIDTH" 
+                />
+                <SelectDropdown 
+                  value={selectedAspect} 
+                  onChange={handleAspectChange} 
+                  options={aspectOptions.map(a => String(a))} 
+                  placeholder="ASPECT RATIO" 
+                  disabled={!selectedWidth}
+                />
+                <SelectDropdown 
+                  value={selectedRim} 
+                  onChange={setSelectedRim} 
+                  options={rimOptions.map(r => String(r))} 
+                  placeholder="RIM SIZE" 
+                  disabled={!selectedAspect}
+                />
+                
+                {/* Part Number field */}
+                <div>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
+                    PART NUMBER
+                  </label>
+                  <input
+                    type="text"
+                    value={partNumber}
+                    onChange={(e) => setPartNumber(e.target.value.toUpperCase())}
+                    placeholder="e.g., 15007NXK"
+                    style={{
+                      width: '100%',
+                      padding: '10px 15px',
+                      border: '2px solid #9b59b6',
+                      borderRadius: '25px',
+                      backgroundColor: 'white',
+                      color: '#333',
+                      fontSize: '12px',
+                      textAlign: 'center',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                    onKeyPress={(e) => e.key === 'Enter' && partNumber.trim() && searchByPartNumber()}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Search Button */}
           <div style={{ textAlign: 'center', marginTop: '25px' }}>
@@ -920,13 +931,6 @@ export default function TireFinder() {
             </button>
           </div>
 
-          {/* Loading */}
-          {loading && (
-            <p style={{ color: '#9b59b6', textAlign: 'center', marginTop: '15px', fontSize: '13px' }}>
-              Loading...
-            </p>
-          )}
-
           {/* Error Message */}
           {error && (
             <p style={{ color: '#e74c3c', textAlign: 'center', marginTop: '15px', fontSize: '13px' }}>
@@ -935,7 +939,7 @@ export default function TireFinder() {
           )}
 
           {/* YMM Results - Tire Specs */}
-          {searchMode === 'ymm' && tireSpecs && (
+          {tireSpecs && (
             <TireSpecsResults 
               specs={tireSpecs} 
               vehicle={`${selectedYear} ${selectedMake} ${selectedModel} ${selectedSubmodel}`}
