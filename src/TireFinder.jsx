@@ -58,10 +58,90 @@ const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => 
   </select>
 );
 
-// Tire Specs Results Component
-const TireSpecsResults = ({ specs, vehicle, onSearchInventory }) => {
-  if (!specs) return null;
+// Tire Specs Results Component - handles multiple OE tire sizes
+const TireSpecsResults = ({ specs, vehicle, onSearchInventory, onSelectSize }) => {
+  if (!specs || specs.length === 0) return null;
 
+  // If multiple tire sizes, show selection
+  if (specs.length > 1) {
+    return (
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '10px',
+        padding: '30px',
+        marginTop: '30px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+      }}>
+        <h3 style={{
+          color: '#9b59b6',
+          fontSize: '18px',
+          fontWeight: '700',
+          textAlign: 'center',
+          marginBottom: '10px',
+          textTransform: 'uppercase',
+          letterSpacing: '2px',
+        }}>
+          Multiple OE Tire Sizes for {vehicle}
+        </h3>
+        <p style={{ textAlign: 'center', color: '#666', fontSize: '13px', marginBottom: '20px' }}>
+          This vehicle has {specs.length} factory tire size options. Select one:
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          {specs.map((spec, idx) => (
+            <div 
+              key={idx}
+              onClick={() => onSelectSize(spec)}
+              style={{
+                border: '2px solid #9b59b6',
+                borderRadius: '10px',
+                padding: '20px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                backgroundColor: 'white',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f3e8ff'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'white'}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#9b59b6' }}>
+                    {spec.tire_size}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#888', marginTop: '5px' }}>
+                    {spec.rim_size} rim • Load {spec.load_index} • Speed {spec.speed_index}
+                    {spec.load_range && ` • ${spec.load_range}`}
+                  </div>
+                  {spec.custom_note && (
+                    <div style={{ fontSize: '11px', color: '#e67e22', marginTop: '3px' }}>
+                      Note: {spec.custom_note}
+                    </div>
+                  )}
+                </div>
+                <button
+                  style={{
+                    backgroundColor: '#27ae60',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  SELECT & SEARCH →
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Single tire size - show details
+  const spec = specs[0];
   return (
     <div style={{
       backgroundColor: 'white',
@@ -87,22 +167,22 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory }) => {
         gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
         gap: '15px',
       }}>
-        <SpecBox label="Tire Size" value={specs.tire_size} highlight />
-        <SpecBox label="Rim Size" value={specs.rim_size} />
-        <SpecBox label="Bolt Pattern" value={specs.bolt_pattern} />
-        <SpecBox label="Load Index" value={specs.load_index} />
-        <SpecBox label="Speed Rating" value={specs.speed_index} />
-        <SpecBox label="Hub Bore" value={specs.hubbore ? `${specs.hubbore}mm` : '-'} />
+        <SpecBox label="Tire Size" value={spec.tire_size} highlight />
+        <SpecBox label="Rim Size" value={spec.rim_size} />
+        <SpecBox label="Bolt Pattern" value={spec.bolt_pattern} />
+        <SpecBox label="Load Index" value={spec.load_index} />
+        <SpecBox label="Speed Rating" value={spec.speed_index} />
+        <SpecBox label="Hub Bore" value={spec.hubbore ? `${spec.hubbore}mm` : '-'} />
       </div>
 
-      {specs.is_staggered && specs.tire_size_rear && (
+      {spec.is_staggered && spec.tire_size_rear && (
         <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
           <p style={{ color: '#9b59b6', fontWeight: '600', textAlign: 'center', marginBottom: '15px' }}>
             ⚡ Staggered Fitment (Different Front/Rear)
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
-            <SpecBox label="Rear Tire Size" value={specs.tire_size_rear} highlight />
-            <SpecBox label="Rear Rim Size" value={specs.rim_size_rear} />
+            <SpecBox label="Rear Tire Size" value={spec.tire_size_rear} highlight />
+            <SpecBox label="Rear Rim Size" value={spec.rim_size_rear} />
           </div>
         </div>
       )}
@@ -110,7 +190,7 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory }) => {
       {/* Search Inventory Button */}
       <div style={{ textAlign: 'center', marginTop: '25px' }}>
         <button
-          onClick={() => onSearchInventory(specs.tire_size)}
+          onClick={() => onSearchInventory(spec.tire_size)}
           style={{
             backgroundColor: '#27ae60',
             color: 'white',
@@ -124,7 +204,7 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory }) => {
             boxShadow: '0 4px 15px rgba(39, 174, 96, 0.3)',
           }}
         >
-          🔍 SEARCH INVENTORY FOR {specs.tire_size}
+          🔍 SEARCH INVENTORY FOR {spec.tire_size}
         </button>
       </div>
     </div>
@@ -384,11 +464,19 @@ export default function TireFinder() {
   const [partNumber, setPartNumber] = useState('');
 
   // Results
-  const [tireSpecs, setTireSpecs] = useState(null);
+  const [tireSpecs, setTireSpecs] = useState(null); // Now an array of specs
   const [inventoryResults, setInventoryResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Handle selecting a specific tire size from multiple options
+  const handleSelectTireSize = (spec) => {
+    // Set to single-item array so it shows the detail view
+    setTireSpecs([spec]);
+    // Automatically search inventory for this size
+    searchInventory(spec.tire_size);
+  };
 
   // Fetch years on mount
   useEffect(() => {
@@ -593,8 +681,9 @@ export default function TireFinder() {
       try {
         const res = await fetch(`${API_BASE}/vehicle-tires?year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(selectedModel)}&submodel=${encodeURIComponent(selectedSubmodel)}&key=${API_KEY}`);
         const data = await res.json();
-        if (data.success && data.data.length > 0) {
-          setTireSpecs(data.data[0]);
+        if (data.success && data.data && data.data.length > 0) {
+          // Store ALL tire specs (could be multiple)
+          setTireSpecs(data.data);
         } else {
           setError('No tire specs found for this vehicle');
         }
@@ -987,6 +1076,7 @@ export default function TireFinder() {
               specs={tireSpecs} 
               vehicle={`${selectedYear} ${selectedMake} ${selectedModel} ${selectedSubmodel}`}
               onSearchInventory={searchInventory}
+              onSelectSize={handleSelectTireSize}
             />
           )}
 
