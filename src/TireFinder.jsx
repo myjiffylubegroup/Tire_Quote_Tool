@@ -3,16 +3,22 @@ import React, { useState, useEffect } from 'react';
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
 
-// Store list with warehouse assignments
+// Store list with warehouse assignments and city names
 const STORES = [
-  { id: 609, name: 'Store 609', warehouse: 'fresno' },
-  { id: 1002, name: 'Store 1002', warehouse: 'fresno' },
-  { id: 1257, name: 'Store 1257', warehouse: 'santa_clarita' },
-  { id: 1270, name: 'Store 1270', warehouse: 'fresno' },
-  { id: 1396, name: 'Store 1396', warehouse: 'santa_clarita' },
-  { id: 1932, name: 'Store 1932', warehouse: 'fresno' },
-  { id: 2911, name: 'Store 2911', warehouse: 'fresno' },
-  { id: 4182, name: 'Store 4182', warehouse: 'santa_clarita' },
+  { id: 609, name: 'Santa Maria', warehouse: 'fresno' },
+  { id: 1002, name: 'San Luis Obispo', warehouse: 'fresno' },
+  { id: 1257, name: 'Goleta', warehouse: 'santa_clarita' },
+  { id: 1270, name: 'Arroyo Grande', warehouse: 'fresno' },
+  { id: 1396, name: 'Santa Barbara (Downtown)', warehouse: 'santa_clarita' },
+  { id: 1932, name: 'Atascadero', warehouse: 'fresno' },
+  { id: 2911, name: 'Paso Robles', warehouse: 'fresno' },
+  { id: 4182, name: 'Santa Barbara (Upper State)', warehouse: 'santa_clarita' },
+];
+
+// Navigation items
+const NAV_ITEMS = [
+  { label: 'TIRE FINDER', href: '#/', active: true },
+  { label: 'STORE INVENTORY', href: '#/inventory', active: false },
 ];
 
 // Quantity options
@@ -742,7 +748,7 @@ export default function TireFinder() {
               }}
             >
               {STORES.map(store => (
-                <option key={store.id} value={store.id}>{store.name}</option>
+                <option key={store.id} value={store.id}>{store.id} - {store.name}</option>
               ))}
             </select>
           </div>
@@ -752,10 +758,10 @@ export default function TireFinder() {
       {/* Purple Nav Bar */}
       <nav style={{ backgroundColor: '#9b59b6', padding: '12px 0' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
-          {['TIRE FINDER', 'DEALER FINDER', 'TIRE LINEUP', 'WHY NEXEN', 'WARRANTY', 'RESOURCES', 'NEWS', 'REVIEWS'].map((item) => (
+          {NAV_ITEMS.map((item) => (
             <a
-              key={item}
-              href="#"
+              key={item.label}
+              href={item.href}
               style={{
                 color: 'white',
                 textDecoration: 'none',
@@ -763,10 +769,10 @@ export default function TireFinder() {
                 fontWeight: '600',
                 letterSpacing: '1px',
                 padding: '5px 10px',
-                borderBottom: item === 'TIRE FINDER' ? '2px solid white' : '2px solid transparent',
+                borderBottom: item.active ? '2px solid white' : '2px solid transparent',
               }}
             >
-              {item}
+              {item.label}
             </a>
           ))}
         </div>
