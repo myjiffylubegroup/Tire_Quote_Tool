@@ -18,6 +18,11 @@ const STORES = [
 // Quantity options
 const QTY_OPTIONS = [1, 2, 4, 5, 6, 8];
 
+// Fallback static options if API fails
+const FALLBACK_WIDTHS = ['155','165','175','185','195','205','215','225','235','245','255','265','275','285','295','305','315','325','335'];
+const FALLBACK_ASPECTS = ['25','30','35','40','45','50','55','60','65','70','75','80','85'];
+const FALLBACK_RIMS = ['13','14','15','16','17','18','19','20','21','22','24'];
+
 // Styled Select Dropdown matching Nexen exactly
 const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => (
   <select
@@ -355,9 +360,9 @@ export default function TireFinder() {
 
   // Tire size lookup state - dynamic from inventory
   const [tireTypeOptions, setTireTypeOptions] = useState([]);
-  const [widthOptions, setWidthOptions] = useState([]);
-  const [aspectOptions, setAspectOptions] = useState([]);
-  const [rimOptions, setRimOptions] = useState([]);
+  const [widthOptions, setWidthOptions] = useState(FALLBACK_WIDTHS);
+  const [aspectOptions, setAspectOptions] = useState(FALLBACK_ASPECTS);
+  const [rimOptions, setRimOptions] = useState(FALLBACK_RIMS);
   const [selectedTireType, setSelectedTireType] = useState('');
   const [selectedWidth, setSelectedWidth] = useState('');
   const [selectedAspect, setSelectedAspect] = useState('');
@@ -384,7 +389,7 @@ export default function TireFinder() {
       .catch(() => setError('Failed to connect to server'));
   }, []);
 
-  // Fetch tire size options from inventory
+  // Fetch tire size options from inventory (with fallback)
   useEffect(() => {
     const fetchOptions = async () => {
       try {
@@ -400,16 +405,13 @@ export default function TireFinder() {
           if (!selectedTireType && !selectedWidth && !selectedAspect) {
             setTireTypeOptions(data.options.tire_types || []);
           }
-          setWidthOptions(data.options.widths || []);
-          setAspectOptions(data.options.aspects || []);
-          setRimOptions(data.options.rims || []);
+          if (data.options.widths?.length > 0) setWidthOptions(data.options.widths.map(String));
+          if (data.options.aspects?.length > 0) setAspectOptions(data.options.aspects.map(String));
+          if (data.options.rims?.length > 0) setRimOptions(data.options.rims.map(String));
         }
       } catch (e) {
-        console.error('Failed to fetch options:', e);
-        // Fallback to static options if API fails
-        setWidthOptions(['175','185','195','205','215','225','235','245','255','265','275','285','295','305','315']);
-        setAspectOptions(['30','35','40','45','50','55','60','65','70','75','80','85']);
-        setRimOptions(['14','15','16','17','18','19','20','21','22']);
+        console.error('Failed to fetch options, using fallbacks:', e);
+        // Keep using fallback options
       }
     };
     
@@ -515,7 +517,7 @@ export default function TireFinder() {
       if (data.success) {
         setInventoryResults(data.results);
         if (data.results.length === 0) {
-          setError(`No tires found with ${qtyNeeded}+ in stock`);
+          setError(`No tires found with ${qtyNeeded}+ in stock for size ${tireSize}`);
         }
       } else {
         setError(data.error || 'Failed to search inventory');
@@ -566,11 +568,13 @@ export default function TireFinder() {
   };
 
   const handleSearch = async () => {
+    // Clear previous results
+    setError(null);
+    
     // Determine what to search based on what's filled in
     if (selectedYear && selectedMake && selectedModel && selectedSubmodel) {
       // YMM Search
       setLoading(true);
-      setError(null);
       setTireSpecs(null);
       setInventoryResults(null);
       
@@ -589,7 +593,8 @@ export default function TireFinder() {
       
     } else if (selectedWidth && selectedAspect && selectedRim) {
       // Tire Size Search
-      const tireSize = `${selectedWidth}${selectedAspect}${selectedRim}`;
+      const tireSize = `${selectedWidth}/${selectedAspect}R${selectedRim}`;
+      console.log('Searching for tire size:', tireSize);
       await searchInventory(tireSize);
       
     } else if (partNumber.trim()) {
@@ -613,60 +618,32 @@ export default function TireFinder() {
             alt="Jiffy Lube Multicare"
             style={{ height: '50px' }}
           />
-          {/* Store & Qty Selectors */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '1px' }}>STORE:</span>
-              <select
-                value={selectedStore}
-                onChange={(e) => setSelectedStore(e.target.value)}
-                style={{
-                  padding: '8px 30px 8px 12px',
-                  border: '2px solid #9b59b6',
-                  borderRadius: '20px',
-                  backgroundColor: 'white',
-                  color: '#333',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  outline: 'none',
-                  appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 10px center',
-                }}
-              >
-                {STORES.map(store => (
-                  <option key={store.id} value={store.id}>{store.name}</option>
-                ))}
-              </select>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '1px' }}>QTY:</span>
-              <select
-                value={qtyNeeded}
-                onChange={(e) => setQtyNeeded(parseInt(e.target.value))}
-                style={{
-                  padding: '8px 30px 8px 12px',
-                  border: '2px solid #9b59b6',
-                  borderRadius: '20px',
-                  backgroundColor: 'white',
-                  color: '#333',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  outline: 'none',
-                  appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 10px center',
-                }}
-              >
-                {QTY_OPTIONS.map(qty => (
-                  <option key={qty} value={qty}>{qty}</option>
-                ))}
-              </select>
-            </div>
+          {/* Store Selector Only in Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '1px' }}>STORE:</span>
+            <select
+              value={selectedStore}
+              onChange={(e) => setSelectedStore(e.target.value)}
+              style={{
+                padding: '8px 30px 8px 12px',
+                border: '2px solid #9b59b6',
+                borderRadius: '20px',
+                backgroundColor: 'white',
+                color: '#333',
+                fontSize: '12px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                outline: 'none',
+                appearance: 'none',
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 10px center',
+              }}
+            >
+              {STORES.map(store => (
+                <option key={store.id} value={store.id}>{store.name}</option>
+              ))}
+            </select>
           </div>
         </div>
       </header>
@@ -774,7 +751,7 @@ export default function TireFinder() {
               </div>
             </div>
 
-            {/* Center - Car Image + OR */}
+            {/* Center - Car Image + QTY + Part Number */}
             <div style={{ 
               flex: '1.3', 
               minWidth: '220px', 
@@ -814,6 +791,75 @@ export default function TireFinder() {
                   opacity: 0.9,
                 }}
               />
+
+              {/* QTY and Part Number - side by side under the car */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '15px', 
+                marginTop: '20px',
+                width: '100%',
+                maxWidth: '320px',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+              }}>
+                {/* QTY Selector */}
+                <div style={{ flex: '1', minWidth: '100px' }}>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
+                    QTY NEEDED
+                  </label>
+                  <select
+                    value={qtyNeeded}
+                    onChange={(e) => setQtyNeeded(parseInt(e.target.value))}
+                    style={{
+                      width: '100%',
+                      padding: '10px 15px',
+                      border: '2px solid #9b59b6',
+                      borderRadius: '25px',
+                      backgroundColor: 'white',
+                      color: '#333',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      outline: 'none',
+                      appearance: 'none',
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 15px center',
+                    }}
+                  >
+                    {QTY_OPTIONS.map(qty => (
+                      <option key={qty} value={qty}>{qty}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Part Number */}
+                <div style={{ flex: '1.5', minWidth: '140px' }}>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
+                    PART NUMBER
+                  </label>
+                  <input
+                    type="text"
+                    value={partNumber}
+                    onChange={(e) => setPartNumber(e.target.value.toUpperCase())}
+                    placeholder="e.g., 15007NXK"
+                    style={{
+                      width: '100%',
+                      padding: '10px 15px',
+                      border: '2px solid #9b59b6',
+                      borderRadius: '25px',
+                      backgroundColor: 'white',
+                      color: '#333',
+                      fontSize: '12px',
+                      textAlign: 'center',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                    onKeyPress={(e) => e.key === 'Enter' && partNumber.trim() && searchByPartNumber()}
+                  />
+                </div>
+              </div>
 
               {loading && (
                 <p style={{ color: '#9b59b6', marginTop: '10px', fontSize: '13px' }}>Loading...</p>
@@ -855,56 +901,41 @@ export default function TireFinder() {
                 <SelectDropdown 
                   value={selectedTireType} 
                   onChange={handleTireTypeChange} 
-                  options={tireTypeOptions.length > 0 ? tireTypeOptions.map(t => ({ value: t, label: t.replace('PASSENGER/CUV/SUV', 'PASSENGER') })) : []} 
+                  options={tireTypeOptions.length > 0 ? tireTypeOptions.map(t => ({ value: t, label: t.replace('PASSENGER/CUV/SUV', 'PASSENGER') })) : [
+                    { value: 'PASSENGER/CUV/SUV', label: 'PASSENGER' },
+                    { value: 'LIGHT TRUCK', label: 'LIGHT TRUCK' },
+                    { value: 'TRAILER', label: 'TRAILER' },
+                  ]} 
                   placeholder="TIRE TYPE" 
                 />
                 <SelectDropdown 
                   value={selectedWidth} 
                   onChange={handleWidthChange} 
-                  options={widthOptions.map(w => String(w))} 
+                  options={widthOptions} 
                   placeholder="WIDTH" 
                 />
                 <SelectDropdown 
                   value={selectedAspect} 
                   onChange={handleAspectChange} 
-                  options={aspectOptions.map(a => String(a))} 
+                  options={aspectOptions} 
                   placeholder="ASPECT RATIO" 
                   disabled={!selectedWidth}
                 />
                 <SelectDropdown 
                   value={selectedRim} 
                   onChange={setSelectedRim} 
-                  options={rimOptions.map(r => String(r))} 
+                  options={rimOptions} 
                   placeholder="RIM SIZE" 
                   disabled={!selectedAspect}
                 />
-                
-                {/* Part Number field */}
-                <div>
-                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
-                    PART NUMBER
-                  </label>
-                  <input
-                    type="text"
-                    value={partNumber}
-                    onChange={(e) => setPartNumber(e.target.value.toUpperCase())}
-                    placeholder="e.g., 15007NXK"
-                    style={{
-                      width: '100%',
-                      padding: '10px 15px',
-                      border: '2px solid #9b59b6',
-                      borderRadius: '25px',
-                      backgroundColor: 'white',
-                      color: '#333',
-                      fontSize: '12px',
-                      textAlign: 'center',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                    onKeyPress={(e) => e.key === 'Enter' && partNumber.trim() && searchByPartNumber()}
-                  />
-                </div>
               </div>
+
+              {/* Size Preview */}
+              {selectedWidth && selectedAspect && selectedRim && (
+                <p style={{ textAlign: 'center', marginTop: '10px', color: '#9b59b6', fontWeight: '700', fontSize: '14px' }}>
+                  {selectedWidth}/{selectedAspect}R{selectedRim}
+                </p>
+              )}
             </div>
           </div>
 
