@@ -136,19 +136,19 @@ export default function StoreInventory() {
   // Export to CSV
   const exportCSV = () => {
     const headers = showCost 
-      ? ['Tire Size', 'Brand', 'Description', 'QOH', 'Cost', 'Retail', 'Item Code']
-      : ['Tire Size', 'Brand', 'Description', 'QOH', 'Retail', 'Item Code'];
+      ? ['Tire Size', 'Part Number', 'Brand', 'Description', 'QOH', 'Cost', 'Retail']
+      : ['Tire Size', 'Part Number', 'Brand', 'Description', 'QOH', 'Retail'];
     
     const rows = sortedInventory.map(item => {
       const row = [
         item.tire_size || '',
+        item.item_code || '',
         item.brand || '',
         `"${(item.description || '').replace(/"/g, '""')}"`,
         item.quantity_on_hand,
       ];
       if (showCost) row.push(item.cost.toFixed(2));
       row.push(item.retail.toFixed(2));
-      row.push(item.item_code || '');
       return row.join(',');
     });
 
@@ -421,6 +421,22 @@ export default function StoreInventory() {
                         Tire Size{getSortIndicator('tire_size')}
                       </th>
                       <th 
+                        onClick={() => handleSort('item_code')}
+                        style={{ 
+                          padding: '12px 10px',
+                          textAlign: 'left',
+                          fontWeight: '600',
+                          color: '#333',
+                          fontSize: '12px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          whiteSpace: 'nowrap',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Part #{getSortIndicator('item_code')}
+                      </th>
+                      <th 
                         onClick={() => handleSort('brand')}
                         style={{ 
                           padding: '12px 10px',
@@ -515,6 +531,9 @@ export default function StoreInventory() {
                       >
                         <td style={{ padding: '12px 10px', fontWeight: '600', color: '#9b59b6' }}>
                           {item.tire_size || '-'}
+                        </td>
+                        <td style={{ padding: '12px 10px', fontSize: '12px', color: '#666' }}>
+                          {item.item_code || '-'}
                         </td>
                         <td style={{ padding: '12px 10px' }}>
                           {item.brand || '-'}
