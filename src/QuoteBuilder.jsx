@@ -114,43 +114,41 @@ const StyledInput = ({ value, onChange, placeholder, type = 'text', style, ...pr
   />
 );
 
-// Tread Depth Input Component
-const TreadInput = ({ label, value, onChange }) => (
-  <div style={{ textAlign: 'center' }}>
-    <label style={{ 
-      fontSize: '10px', 
-      color: '#888', 
-      fontWeight: '600', 
-      display: 'block', 
-      marginBottom: '5px',
-      letterSpacing: '1px'
-    }}>
-      {label}
-    </label>
-    <input
-      type="number"
-      min="0"
-      max="12"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={{
-        width: '55px',
-        height: '55px',
-        border: '2px solid #9b59b6',
-        borderRadius: '12px',
-        fontSize: '20px',
-        fontWeight: '700',
-        textAlign: 'center',
-        outline: 'none',
-        color: '#333',
-        backgroundColor: 'white'
-      }}
-    />
-  </div>
+// Small Tread Depth Input for the grid
+const TreadDepthInput = ({ value, onChange, color }) => (
+  <input
+    type="number"
+    min="0"
+    max="12"
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    style={{
+      width: '45px',
+      height: '40px',
+      border: `2px solid ${color || '#9b59b6'}`,
+      borderRadius: '8px',
+      fontSize: '16px',
+      fontWeight: '700',
+      textAlign: 'center',
+      outline: 'none',
+      color: color || '#333',
+      backgroundColor: color ? color + '10' : 'white'
+    }}
+  />
 );
 
+// Get color for individual tread value
+const getTreadColor = (val) => {
+  if (val === '' || val === null || val === undefined) return '#9b59b6';
+  const depth = parseInt(val);
+  if (isNaN(depth)) return '#9b59b6';
+  if (depth >= 6) return '#27ae60';
+  if (depth === 5) return '#f1c40f';
+  return '#e74c3c';
+};
+
 export default function QuoteBuilder() {
-  // Get tire data from URL hash params or sessionStorage
+  // Get tire data from sessionStorage
   const [tireData, setTireData] = useState(null);
   const [vehicleData, setVehicleData] = useState(null);
 
@@ -188,11 +186,14 @@ export default function QuoteBuilder() {
     data_source: 'manual'
   });
 
-  // Tread depth inputs - 4 corners: Front Left, Front Right, Rear Left, Rear Right
-  const [treadFL, setTreadFL] = useState('');
-  const [treadFR, setTreadFR] = useState('');
-  const [treadRL, setTreadRL] = useState('');
-  const [treadRR, setTreadRR] = useState('');
+  // Tread depth inputs - 3 readings per tire × 4 tires = 12 inputs
+  // Each tire has: inside, middle, outside
+  const [treadDepths, setTreadDepths] = useState({
+    fl_inside: '', fl_middle: '', fl_outside: '',  // Front Left
+    fr_inside: '', fr_middle: '', fr_outside: '',  // Front Right
+    rl_inside: '', rl_middle: '', rl_outside: '',  // Rear Left
+    rr_inside: '', rr_middle: '', rr_outside: '',  // Rear Right
+  });
 
   // Quote options
   const [quantity, setQuantity] = useState(4);
@@ -204,6 +205,19 @@ export default function QuoteBuilder() {
   const [generatedQuote, setGeneratedQuote] = useState(null);
   const [error, setError] = useState(null);
 
+  // Update a single tread depth value
+  const updateTread = (key, value) => {
+    setTreadDepths(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Calculate lowest tread depth across all 12 inputs
+  const getLowestTread = () => {
+    const allValues = Object.values(treadDepths)
+      .filter(d => d !== '' && !isNaN(parseInt(d)))
+      .map(d => parseInt(d));
+    return allValues.length > 0 ? Math.min(...allValues) : null;
+  };
+
   // Load tire data from sessionStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -211,15 +225,9 @@ export default function QuoteBuilder() {
       const savedVehicle = sessionStorage.getItem('jl_quote_vehicle');
       const savedQty = sessionStorage.getItem('jl_quote_qty');
       
-      if (savedTire) {
-        setTireData(JSON.parse(savedTire));
-      }
-      if (savedVehicle) {
-        setVehicleData(JSON.parse(savedVehicle));
-      }
-      if (savedQty) {
-        setQuantity(parseInt(savedQty));
-      }
+      if (savedTire) setTireData(JSON.parse(savedTire));
+      if (savedVehicle) setVehicleData(JSON.parse(savedVehicle));
+      if (savedQty) setQuantity(parseInt(savedQty));
     }
   }, []);
 
@@ -237,7 +245,7 @@ export default function QuoteBuilder() {
     }
   }, [selectedEmployee]);
 
-  // Fetch employees when store changes - FIXED to use employee_id
+  // Fetch employees when store changes
   useEffect(() => {
     const fetchEmployees = async () => {
       setEmployeesLoading(true);
@@ -246,12 +254,9 @@ export default function QuoteBuilder() {
         const data = await response.json();
         if (data.success) {
           setEmployees(data.employees || []);
-          // Check if saved employee is still valid for this store
           if (selectedEmployee) {
             const stillValid = data.employees?.some(e => e.employee_id === selectedEmployee.employee_id);
-            if (!stillValid) {
-              setSelectedEmployee(null);
-            }
+            if (!stillValid) setSelectedEmployee(null);
           }
         }
       } catch (e) {
@@ -287,20 +292,13 @@ export default function QuoteBuilder() {
           vehicle_ymm: data.customer.vehicle_ymm || '',
           data_source: 'lookup'
         });
-        // If we got vehicle from customer lookup and don't have one already, use it
         if (data.customer.vehicle_ymm && !vehicleData?.display) {
           setVehicleData({ display: data.customer.vehicle_ymm });
         }
       } else {
         setCustomerFound(false);
         setCustomerData({
-          first_name: '',
-          last_name: '',
-          full_name: '',
-          phone: '',
-          email: '',
-          vehicle_ymm: '',
-          data_source: 'manual'
+          first_name: '', last_name: '', full_name: '', phone: '', email: '', vehicle_ymm: '', data_source: 'manual'
         });
       }
     } catch (e) {
@@ -311,15 +309,7 @@ export default function QuoteBuilder() {
     }
   };
 
-  // Calculate lowest tread depth - UPDATED for 4 inputs
-  const getLowestTread = () => {
-    const depths = [treadFL, treadFR, treadRL, treadRR]
-      .filter(d => d !== '' && !isNaN(parseInt(d)))
-      .map(d => parseInt(d));
-    return depths.length > 0 ? Math.min(...depths) : null;
-  };
-
-  // Generate quote - FIXED to use employee_id
+  // Generate quote
   const handleGenerateQuote = async () => {
     if (!tireData || !selectedEmployee) {
       setError('Please select a tire and employee');
@@ -357,10 +347,27 @@ export default function QuoteBuilder() {
           display: vehicleData.display || null
         } : null,
         tread_depth: lowestTread !== null ? {
-          front_left: treadFL ? parseInt(treadFL) : null,
-          front_right: treadFR ? parseInt(treadFR) : null,
-          rear_left: treadRL ? parseInt(treadRL) : null,
-          rear_right: treadRR ? parseInt(treadRR) : null
+          front_left: {
+            inside: treadDepths.fl_inside ? parseInt(treadDepths.fl_inside) : null,
+            middle: treadDepths.fl_middle ? parseInt(treadDepths.fl_middle) : null,
+            outside: treadDepths.fl_outside ? parseInt(treadDepths.fl_outside) : null,
+          },
+          front_right: {
+            inside: treadDepths.fr_inside ? parseInt(treadDepths.fr_inside) : null,
+            middle: treadDepths.fr_middle ? parseInt(treadDepths.fr_middle) : null,
+            outside: treadDepths.fr_outside ? parseInt(treadDepths.fr_outside) : null,
+          },
+          rear_left: {
+            inside: treadDepths.rl_inside ? parseInt(treadDepths.rl_inside) : null,
+            middle: treadDepths.rl_middle ? parseInt(treadDepths.rl_middle) : null,
+            outside: treadDepths.rl_outside ? parseInt(treadDepths.rl_outside) : null,
+          },
+          rear_right: {
+            inside: treadDepths.rr_inside ? parseInt(treadDepths.rr_inside) : null,
+            middle: treadDepths.rr_middle ? parseInt(treadDepths.rr_middle) : null,
+            outside: treadDepths.rr_outside ? parseInt(treadDepths.rr_outside) : null,
+          },
+          lowest: lowestTread
         } : null,
         tire: {
           part_number: tireData.part_number,
@@ -393,7 +400,6 @@ export default function QuoteBuilder() {
 
       if (data.success) {
         setGeneratedQuote(data.quote);
-        // Clear sessionStorage after successful quote
         sessionStorage.removeItem('jl_quote_tire');
         sessionStorage.removeItem('jl_quote_vehicle');
         sessionStorage.removeItem('jl_quote_qty');
@@ -444,274 +450,9 @@ export default function QuoteBuilder() {
     }
   };
 
-  // No tire data - show message
-  if (!tireData) {
-    return (
-      <div style={{ 
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        minHeight: '100vh',
-        background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)',
-      }}>
-        {/* Header */}
-        <header style={{ backgroundColor: 'white', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-          <img 
-            src="https://www.jiffylube.com/-/media/images/jiffylube/logos/jl-multicare-logo-color.png"
-            alt="Jiffy Lube Multicare"
-            style={{ height: '50px' }}
-            onError={(e) => { e.target.onerror = null; e.target.src = 'https://www.jiffylube.com/-/media/images/jiffylube/logos/jl-logo-white.png'; }}
-          />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ color: '#333', fontSize: '13px', fontWeight: '600' }}>STORE:</span>
-            <select
-              value={selectedStore}
-              onChange={(e) => setSelectedStore(e.target.value)}
-              style={{
-                padding: '8px 30px 8px 15px',
-                border: '2px solid #9b59b6',
-                borderRadius: '20px',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                outline: 'none',
-                appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 10px center',
-              }}
-            >
-              {STORES.map(store => (
-                <option key={store.id} value={store.id}>{store.id} - {store.name}</option>
-              ))}
-            </select>
-          </div>
-        </header>
-
-        {/* Purple Nav Bar */}
-        <nav style={{ backgroundColor: '#9b59b6', padding: '12px 20px', display: 'flex', justifyContent: 'center', gap: '40px' }}>
-          <a href="#/" style={{ color: 'white', textDecoration: 'none', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', padding: '5px 15px', borderRadius: '20px' }}>TIRE FINDER</a>
-          <a href="#/inventory" style={{ color: 'white', textDecoration: 'none', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', padding: '5px 15px', borderRadius: '20px' }}>STORE INVENTORY</a>
-        </nav>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 200px)', padding: '20px' }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '15px',
-            padding: '50px',
-            textAlign: 'center',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-            maxWidth: '400px'
-          }}>
-            <h2 style={{ color: '#9b59b6', marginBottom: '15px' }}>No Tire Selected</h2>
-            <p style={{ color: '#666', marginBottom: '25px' }}>
-              Please select a tire from the Tire Finder to create a quote.
-            </p>
-            <a 
-              href="#/"
-              style={{
-                backgroundColor: '#9b59b6',
-                color: 'white',
-                padding: '12px 30px',
-                borderRadius: '25px',
-                textDecoration: 'none',
-                fontWeight: '600',
-                display: 'inline-block'
-              }}
-            >
-              Go to Tire Finder
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Quote generated - show success view
-  if (generatedQuote) {
-    const lowestTread = getLowestTread();
-    const treadStatus = getTreadStatus(lowestTread);
-    
-    return (
-      <div style={{ 
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        minHeight: '100vh',
-        background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)',
-      }}>
-        {/* Header */}
-        <header style={{ backgroundColor: 'white', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-          <img 
-            src="https://www.jiffylube.com/-/media/images/jiffylube/logos/jl-multicare-logo-color.png"
-            alt="Jiffy Lube Multicare"
-            style={{ height: '50px' }}
-            onError={(e) => { e.target.onerror = null; e.target.src = 'https://www.jiffylube.com/-/media/images/jiffylube/logos/jl-logo-white.png'; }}
-          />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ color: '#333', fontSize: '13px', fontWeight: '600' }}>STORE:</span>
-            <select
-              value={selectedStore}
-              onChange={(e) => setSelectedStore(e.target.value)}
-              style={{
-                padding: '8px 30px 8px 15px',
-                border: '2px solid #9b59b6',
-                borderRadius: '20px',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                outline: 'none',
-                appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 10px center',
-              }}
-            >
-              {STORES.map(store => (
-                <option key={store.id} value={store.id}>{store.id} - {store.name}</option>
-              ))}
-            </select>
-          </div>
-        </header>
-
-        {/* Purple Nav Bar */}
-        <nav style={{ backgroundColor: '#9b59b6', padding: '12px 20px', display: 'flex', justifyContent: 'center', gap: '40px' }}>
-          <a href="#/" style={{ color: 'white', textDecoration: 'none', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', padding: '5px 15px', borderRadius: '20px' }}>TIRE FINDER</a>
-          <a href="#/inventory" style={{ color: 'white', textDecoration: 'none', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', padding: '5px 15px', borderRadius: '20px' }}>STORE INVENTORY</a>
-        </nav>
-
-        {/* Success Content */}
-        <div style={{ maxWidth: '600px', margin: '30px auto', padding: '0 20px' }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '15px',
-            padding: '40px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '60px', marginBottom: '15px' }}>✅</div>
-            <h2 style={{ color: '#27ae60', marginBottom: '10px' }}>Quote Created!</h2>
-            <p style={{ color: '#666', marginBottom: '5px' }}>
-              Quote Number: <strong style={{ color: '#9b59b6' }}>{generatedQuote.quote_number}</strong>
-            </p>
-            <p style={{ color: '#888', marginBottom: '25px', fontSize: '13px' }}>
-              Expires: {new Date(generatedQuote.expires_at).toLocaleDateString()}
-            </p>
-
-            {/* Quote Summary */}
-            <div style={{
-              backgroundColor: '#f8f9fa',
-              borderRadius: '10px',
-              padding: '20px',
-              marginBottom: '25px',
-              textAlign: 'left'
-            }}>
-              <p style={{ margin: '0 0 10px 0' }}>
-                <strong>Customer:</strong> {generatedQuote.customer?.name || 'Not provided'}
-              </p>
-              {generatedQuote.vehicle && (
-                <p style={{ margin: '0 0 10px 0' }}>
-                  <strong>Vehicle:</strong> {generatedQuote.vehicle}
-                </p>
-              )}
-              <p style={{ margin: '0 0 10px 0' }}>
-                <strong>Tire:</strong> {generatedQuote.tire?.brand} {generatedQuote.tire?.name}
-              </p>
-              <p style={{ margin: '0 0 10px 0' }}>
-                <strong>Size:</strong> {generatedQuote.tire?.size}
-              </p>
-              <p style={{ margin: '0', fontSize: '20px', fontWeight: '700', color: '#9b59b6' }}>
-                <strong>Total:</strong> {formatCurrency(generatedQuote.pricing?.total_before_rebate)}
-              </p>
-              {generatedQuote.pricing?.rebate_amount > 0 && (
-                <p style={{ margin: '5px 0 0 0', fontSize: '14px', color: '#27ae60' }}>
-                  After Rebate: {formatCurrency(generatedQuote.pricing?.total_after_rebate)}
-                </p>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button
-                onClick={handlePrint}
-                style={{
-                  backgroundColor: '#9b59b6',
-                  color: 'white',
-                  border: 'none',
-                  padding: '14px 30px',
-                  borderRadius: '25px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                🖨️ Print Quote
-              </button>
-              <button
-                onClick={handleEmailQuote}
-                style={{
-                  backgroundColor: '#27ae60',
-                  color: 'white',
-                  border: 'none',
-                  padding: '14px 30px',
-                  borderRadius: '25px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                📧 Email to Customer
-              </button>
-            </div>
-
-            {/* Create Another */}
-            <div style={{ marginTop: '25px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
-              <a 
-                href="#/"
-                style={{
-                  color: '#9b59b6',
-                  textDecoration: 'none',
-                  fontWeight: '600',
-                  fontSize: '14px'
-                }}
-              >
-                ← Create Another Quote
-              </a>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <footer style={{ backgroundColor: '#2c3e50', color: '#95a5a6', padding: '30px 20px', marginTop: '30px' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-            <p style={{ fontSize: '13px', marginBottom: '8px' }}>
-              © 2026 My Jiffy Lube Group. Tire data provided by MOTOR & USAutoForce.
-            </p>
-            <p style={{ fontSize: '11px', color: '#7f8c8d' }}>
-              tires.myjiffylube.ai
-            </p>
-          </div>
-        </footer>
-      </div>
-    );
-  }
-
-  // Calculate tread info
-  const lowestTread = getLowestTread();
-  const treadStatus = getTreadStatus(lowestTread);
-  const stoppingDistance = getStoppingDistance(lowestTread);
-  const consumerPrice = tireData.consumer_price || tireData.price || 0;
-
-  // Main quote builder form
-  return (
-    <div style={{ 
-      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-      minHeight: '100vh',
-      background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)',
-    }}>
-      {/* Header - matching TireFinder */}
+  // Header Component
+  const Header = () => (
+    <>
       <header style={{ backgroundColor: 'white', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
         <img 
           src="https://www.jiffylube.com/-/media/images/jiffylube/logos/jl-multicare-logo-color.png"
@@ -744,87 +485,132 @@ export default function QuoteBuilder() {
           </select>
         </div>
       </header>
-
-      {/* Purple Nav Bar - matching TireFinder */}
       <nav style={{ backgroundColor: '#9b59b6', padding: '12px 20px', display: 'flex', justifyContent: 'center', gap: '40px' }}>
         <a href="#/" style={{ color: 'white', textDecoration: 'none', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', padding: '5px 15px', borderRadius: '20px' }}>TIRE FINDER</a>
         <a href="#/inventory" style={{ color: 'white', textDecoration: 'none', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', padding: '5px 15px', borderRadius: '20px' }}>STORE INVENTORY</a>
       </nav>
+    </>
+  );
 
-      {/* Main Content */}
+  // Footer Component
+  const Footer = () => (
+    <footer style={{ backgroundColor: '#2c3e50', color: '#95a5a6', padding: '30px 20px', marginTop: '30px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
+        <p style={{ fontSize: '13px', marginBottom: '8px' }}>© 2026 My Jiffy Lube Group. Tire data provided by MOTOR & USAutoForce.</p>
+        <p style={{ fontSize: '11px', color: '#7f8c8d' }}>tires.myjiffylube.ai</p>
+      </div>
+    </footer>
+  );
+
+  // No tire data - show message
+  if (!tireData) {
+    return (
+      <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", minHeight: '100vh', background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)' }}>
+        <Header />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 200px)', padding: '20px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '50px', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', maxWidth: '400px' }}>
+            <h2 style={{ color: '#9b59b6', marginBottom: '15px' }}>No Tire Selected</h2>
+            <p style={{ color: '#666', marginBottom: '25px' }}>Please select a tire from the Tire Finder to create a quote.</p>
+            <a href="#/" style={{ backgroundColor: '#9b59b6', color: 'white', padding: '12px 30px', borderRadius: '25px', textDecoration: 'none', fontWeight: '600', display: 'inline-block' }}>Go to Tire Finder</a>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Quote generated - show success view
+  if (generatedQuote) {
+    return (
+      <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", minHeight: '100vh', background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)' }}>
+        <Header />
+        <div style={{ maxWidth: '600px', margin: '30px auto', padding: '0 20px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '40px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', textAlign: 'center' }}>
+            <div style={{ fontSize: '60px', marginBottom: '15px' }}>✅</div>
+            <h2 style={{ color: '#27ae60', marginBottom: '10px' }}>Quote Created!</h2>
+            <p style={{ color: '#666', marginBottom: '5px' }}>Quote Number: <strong style={{ color: '#9b59b6' }}>{generatedQuote.quote_number}</strong></p>
+            <p style={{ color: '#888', marginBottom: '25px', fontSize: '13px' }}>Expires: {new Date(generatedQuote.expires_at).toLocaleDateString()}</p>
+
+            <div style={{ backgroundColor: '#f8f9fa', borderRadius: '10px', padding: '20px', marginBottom: '25px', textAlign: 'left' }}>
+              <p style={{ margin: '0 0 10px 0' }}><strong>Customer:</strong> {generatedQuote.customer?.name || 'Not provided'}</p>
+              {generatedQuote.vehicle && <p style={{ margin: '0 0 10px 0' }}><strong>Vehicle:</strong> {generatedQuote.vehicle}</p>}
+              <p style={{ margin: '0 0 10px 0' }}><strong>Tire:</strong> {generatedQuote.tire?.brand} {generatedQuote.tire?.name}</p>
+              <p style={{ margin: '0 0 10px 0' }}><strong>Size:</strong> {generatedQuote.tire?.size}</p>
+              <p style={{ margin: '0', fontSize: '20px', fontWeight: '700', color: '#9b59b6' }}><strong>Total:</strong> {formatCurrency(generatedQuote.pricing?.total_before_rebate)}</p>
+              {generatedQuote.pricing?.rebate_amount > 0 && (
+                <p style={{ margin: '5px 0 0 0', fontSize: '14px', color: '#27ae60' }}>After Rebate: {formatCurrency(generatedQuote.pricing?.total_after_rebate)}</p>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button onClick={handlePrint} style={{ backgroundColor: '#9b59b6', color: 'white', border: 'none', padding: '14px 30px', borderRadius: '25px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>🖨️ Print Quote</button>
+              <button onClick={handleEmailQuote} style={{ backgroundColor: '#27ae60', color: 'white', border: 'none', padding: '14px 30px', borderRadius: '25px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>📧 Email to Customer</button>
+            </div>
+
+            <div style={{ marginTop: '25px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
+              <a href="#/" style={{ color: '#9b59b6', textDecoration: 'none', fontWeight: '600', fontSize: '14px' }}>← Create Another Quote</a>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Calculate tread info for display
+  const lowestTread = getLowestTread();
+  const treadStatus = getTreadStatus(lowestTread);
+  const stoppingDistance = getStoppingDistance(lowestTread);
+  const consumerPrice = tireData.consumer_price || tireData.price || 0;
+
+  // Tread Depth Row Component for the grid
+  const TreadRow = ({ label, prefix }) => (
+    <tr>
+      <td style={{ padding: '8px 12px', fontWeight: '600', fontSize: '12px', color: '#333', backgroundColor: '#f8f9fa' }}>{label}</td>
+      <td style={{ padding: '8px', textAlign: 'center' }}>
+        <TreadDepthInput value={treadDepths[`${prefix}_inside`]} onChange={(v) => updateTread(`${prefix}_inside`, v)} color={getTreadColor(treadDepths[`${prefix}_inside`])} />
+      </td>
+      <td style={{ padding: '8px', textAlign: 'center' }}>
+        <TreadDepthInput value={treadDepths[`${prefix}_middle`]} onChange={(v) => updateTread(`${prefix}_middle`, v)} color={getTreadColor(treadDepths[`${prefix}_middle`])} />
+      </td>
+      <td style={{ padding: '8px', textAlign: 'center' }}>
+        <TreadDepthInput value={treadDepths[`${prefix}_outside`]} onChange={(v) => updateTread(`${prefix}_outside`, v)} color={getTreadColor(treadDepths[`${prefix}_outside`])} />
+      </td>
+    </tr>
+  );
+
+  // Main quote builder form
+  return (
+    <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", minHeight: '100vh', background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)' }}>
+      <Header />
+
       <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '30px 20px' }}>
-        
-        {/* Main Card */}
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '15px',
-          padding: '40px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-        }}>
+        <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '40px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           
           {/* Title */}
-          <h2 style={{
-            color: '#9b59b6',
-            fontSize: '28px',
-            fontWeight: '700',
-            textAlign: 'center',
-            marginBottom: '5px',
-            textTransform: 'uppercase',
-            letterSpacing: '3px',
-          }}>
+          <h2 style={{ color: '#9b59b6', fontSize: '28px', fontWeight: '700', textAlign: 'center', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '3px' }}>
             CREATE QUOTE
           </h2>
-          <p style={{ color: '#888', textAlign: 'center', fontSize: '13px', marginBottom: '30px', letterSpacing: '2px' }}>
-            TIRE QUOTE BUILDER
-          </p>
+          <p style={{ color: '#888', textAlign: 'center', fontSize: '13px', marginBottom: '30px', letterSpacing: '2px' }}>TIRE QUOTE BUILDER</p>
 
-          {/* Selected Tire Card - Purple Banner */}
-          <div style={{
-            backgroundColor: '#9b59b6',
-            borderRadius: '10px',
-            padding: '20px 25px',
-            color: 'white',
-            marginBottom: '30px',
-          }}>
+          {/* Selected Tire Card */}
+          <div style={{ backgroundColor: '#9b59b6', borderRadius: '10px', padding: '20px 25px', color: 'white', marginBottom: '30px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
               <div>
-                <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: '700' }}>
-                  {tireData.brand_code || tireData.brand} {tireData.tire_size || tireData.size} {tireData.name || tireData.sales_class}
-                </h3>
-                <p style={{ margin: '0', opacity: 0.9, fontSize: '13px' }}>
-                  Part#: {tireData.part_number}
-                </p>
-                {tireData.warranty && (
-                  <p style={{ margin: '5px 0 0 0', opacity: 0.8, fontSize: '12px' }}>
-                    ✓ {parseInt(tireData.warranty).toLocaleString()} Mile Warranty
-                  </p>
-                )}
+                <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: '700' }}>{tireData.brand_code || tireData.brand} {tireData.tire_size || tireData.size} {tireData.name || tireData.sales_class}</h3>
+                <p style={{ margin: '0', opacity: 0.9, fontSize: '13px' }}>Part#: {tireData.part_number}</p>
+                {tireData.warranty && <p style={{ margin: '5px 0 0 0', opacity: 0.8, fontSize: '12px' }}>✓ {parseInt(tireData.warranty).toLocaleString()} Mile Warranty</p>}
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '28px', fontWeight: '700' }}>
-                  {formatCurrency(consumerPrice)}
-                </div>
-                {tireData.fet > 0 && (
-                  <div style={{ fontSize: '11px', opacity: 0.8 }}>
-                    + {formatCurrency(parseFloat(tireData.fet))} FET
-                  </div>
-                )}
+                <div style={{ fontSize: '28px', fontWeight: '700' }}>{formatCurrency(consumerPrice)}</div>
+                {tireData.fet > 0 && <div style={{ fontSize: '11px', opacity: 0.8 }}>+ {formatCurrency(parseFloat(tireData.fet))} FET</div>}
               </div>
             </div>
           </div>
 
-          {/* Vehicle Info (if available) */}
+          {/* Vehicle Info */}
           {vehicleData?.display && (
-            <div style={{
-              backgroundColor: '#f8f4ff',
-              border: '2px solid #9b59b6',
-              borderRadius: '10px',
-              padding: '15px 20px',
-              marginBottom: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px'
-            }}>
+            <div style={{ backgroundColor: '#f8f4ff', border: '2px solid #9b59b6', borderRadius: '10px', padding: '15px 20px', marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ fontSize: '28px' }}>🚗</span>
               <span style={{ fontWeight: '600', color: '#333', fontSize: '16px' }}>{vehicleData.display}</span>
             </div>
@@ -833,40 +619,17 @@ export default function QuoteBuilder() {
           {/* Two Column Layout */}
           <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
             
-            {/* Left Column */}
+            {/* Left Column - Employee & Customer */}
             <div style={{ flex: '1', minWidth: '300px' }}>
               
               {/* Employee Section */}
               <div style={{ marginBottom: '30px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
-                  <div style={{
-                    flex: 1,
-                    height: '1px',
-                    backgroundColor: '#9b59b6',
-                    marginRight: '8px',
-                    position: 'relative',
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      left: 0,
-                      top: '-3px',
-                      width: '7px',
-                      height: '7px',
-                      backgroundColor: '#9b59b6',
-                      borderRadius: '50%',
-                    }} />
+                  <div style={{ flex: 1, height: '1px', backgroundColor: '#9b59b6', marginRight: '8px', position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: 0, top: '-3px', width: '7px', height: '7px', backgroundColor: '#9b59b6', borderRadius: '50%' }} />
                   </div>
-                  <span style={{
-                    color: '#9b59b6',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    letterSpacing: '1px',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    QUOTE CREATED BY
-                  </span>
+                  <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', whiteSpace: 'nowrap' }}>QUOTE CREATED BY</span>
                 </div>
-                
                 <SelectDropdown
                   value={selectedEmployee?.employee_id || ''}
                   onChange={(val) => {
@@ -881,279 +644,107 @@ export default function QuoteBuilder() {
               {/* Customer Lookup Section */}
               <div style={{ marginBottom: '30px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
-                  <div style={{
-                    flex: 1,
-                    height: '1px',
-                    backgroundColor: '#9b59b6',
-                    marginRight: '8px',
-                    position: 'relative',
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      left: 0,
-                      top: '-3px',
-                      width: '7px',
-                      height: '7px',
-                      backgroundColor: '#9b59b6',
-                      borderRadius: '50%',
-                    }} />
+                  <div style={{ flex: 1, height: '1px', backgroundColor: '#9b59b6', marginRight: '8px', position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: 0, top: '-3px', width: '7px', height: '7px', backgroundColor: '#9b59b6', borderRadius: '50%' }} />
                   </div>
-                  <span style={{
-                    color: '#9b59b6',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    letterSpacing: '1px',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    CUSTOMER LOOKUP
-                  </span>
+                  <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', whiteSpace: 'nowrap' }}>CUSTOMER LOOKUP</span>
                 </div>
                 
                 <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                  <StyledInput
-                    value={licensePlate}
-                    onChange={(val) => setLicensePlate(val.toUpperCase())}
-                    placeholder="LICENSE PLATE"
-                    style={{ flex: 1 }}
-                    onKeyPress={(e) => e.key === 'Enter' && handleCustomerLookup()}
-                  />
-                  <SelectDropdown
-                    value={licenseState}
-                    onChange={setLicenseState}
-                    options={US_STATES}
-                    placeholder="ST"
-                    style={{ width: '90px', minWidth: '90px' }}
-                  />
-                  <button
-                    onClick={handleCustomerLookup}
-                    disabled={!licensePlate.trim() || customerLookupLoading}
-                    style={{
-                      backgroundColor: licensePlate.trim() ? '#9b59b6' : '#ccc',
-                      color: 'white',
-                      border: 'none',
-                      padding: '10px 20px',
-                      borderRadius: '25px',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      cursor: licensePlate.trim() ? 'pointer' : 'not-allowed',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                  <StyledInput value={licensePlate} onChange={(val) => setLicensePlate(val.toUpperCase())} placeholder="LICENSE PLATE" style={{ flex: 1 }} onKeyPress={(e) => e.key === 'Enter' && handleCustomerLookup()} />
+                  <SelectDropdown value={licenseState} onChange={setLicenseState} options={US_STATES} placeholder="ST" style={{ width: '90px', minWidth: '90px' }} />
+                  <button onClick={handleCustomerLookup} disabled={!licensePlate.trim() || customerLookupLoading} style={{ backgroundColor: licensePlate.trim() ? '#9b59b6' : '#ccc', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '25px', fontSize: '12px', fontWeight: '700', cursor: licensePlate.trim() ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}>
                     {customerLookupLoading ? '...' : '🔍 LOOKUP'}
                   </button>
                 </div>
 
                 {customerFound && (
-                  <div style={{
-                    backgroundColor: '#f0fff4',
-                    border: '1px solid #27ae60',
-                    borderRadius: '10px',
-                    padding: '12px 15px',
-                    marginBottom: '15px',
-                    fontSize: '12px',
-                    color: '#27ae60',
-                    fontWeight: '600'
-                  }}>
+                  <div style={{ backgroundColor: '#f0fff4', border: '1px solid #27ae60', borderRadius: '10px', padding: '12px 15px', marginBottom: '15px', fontSize: '12px', color: '#27ae60', fontWeight: '600' }}>
                     ✓ Customer found! Info loaded below. You can edit if needed.
                   </div>
                 )}
 
-                {/* Customer Info Fields */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <StyledInput
-                    value={customerData.first_name}
-                    onChange={(v) => setCustomerData({...customerData, first_name: v})}
-                    placeholder="FIRST NAME"
-                  />
-                  <StyledInput
-                    value={customerData.last_name}
-                    onChange={(v) => setCustomerData({...customerData, last_name: v})}
-                    placeholder="LAST NAME"
-                  />
-                  <StyledInput
-                    value={customerData.phone}
-                    onChange={(v) => setCustomerData({...customerData, phone: v})}
-                    placeholder="PHONE"
-                  />
-                  <StyledInput
-                    value={customerData.email}
-                    onChange={(v) => setCustomerData({...customerData, email: v})}
-                    placeholder="EMAIL"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div style={{ flex: '1', minWidth: '300px' }}>
-              
-              {/* Tread Depth Section - 4 corners */}
-              <div style={{ marginBottom: '30px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
-                  <span style={{
-                    color: '#9b59b6',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    letterSpacing: '1px',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    CURRENT TREAD DEPTH (32nds)
-                  </span>
-                  <div style={{
-                    flex: 1,
-                    height: '1px',
-                    backgroundColor: '#9b59b6',
-                    marginLeft: '8px',
-                    position: 'relative',
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: '-3px',
-                      width: '7px',
-                      height: '7px',
-                      backgroundColor: '#9b59b6',
-                      borderRadius: '50%',
-                    }} />
-                  </div>
-                </div>
-
-                {/* Car diagram with 4 tread inputs */}
-                <div style={{
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '15px',
-                  padding: '25px',
-                  position: 'relative',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    {/* Left side - Front/Rear Left */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-                      <TreadInput label="FRONT L" value={treadFL} onChange={setTreadFL} />
-                      <TreadInput label="REAR L" value={treadRL} onChange={setTreadRL} />
-                    </div>
-                    
-                    {/* Center - Car icon */}
-                    <div style={{ 
-                      fontSize: '80px', 
-                      opacity: 0.15,
-                      transform: 'rotate(0deg)',
-                      lineHeight: 1
-                    }}>
-                      🚗
-                    </div>
-                    
-                    {/* Right side - Front/Rear Right */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-                      <TreadInput label="FRONT R" value={treadFR} onChange={setTreadFR} />
-                      <TreadInput label="REAR R" value={treadRR} onChange={setTreadRR} />
-                    </div>
-                  </div>
-
-                  {/* Tread Status Display */}
-                  {lowestTread !== null && (
-                    <div style={{
-                      marginTop: '20px',
-                      padding: '15px',
-                      backgroundColor: treadStatus?.color + '15',
-                      border: `2px solid ${treadStatus?.color}`,
-                      borderRadius: '10px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: '10px'
-                    }}>
-                      <div>
-                        <span style={{ fontSize: '24px', fontWeight: '700', color: treadStatus?.color }}>
-                          {lowestTread}/32"
-                        </span>
-                        <span style={{ 
-                          marginLeft: '12px', 
-                          fontSize: '12px', 
-                          fontWeight: '700', 
-                          color: treadStatus?.color,
-                          backgroundColor: treadStatus?.color + '20',
-                          padding: '4px 12px',
-                          borderRadius: '15px'
-                        }}>
-                          {treadStatus?.label}
-                        </span>
-                      </div>
-                      <div style={{ textAlign: 'right', fontSize: '11px', color: '#666' }}>
-                        <div>Your stopping: <strong>~{stoppingDistance}ft</strong></div>
-                        <div>New tires: <strong>~220ft</strong></div>
-                      </div>
-                    </div>
-                  )}
+                  <StyledInput value={customerData.first_name} onChange={(v) => setCustomerData({...customerData, first_name: v})} placeholder="FIRST NAME" />
+                  <StyledInput value={customerData.last_name} onChange={(v) => setCustomerData({...customerData, last_name: v})} placeholder="LAST NAME" />
+                  <StyledInput value={customerData.phone} onChange={(v) => setCustomerData({...customerData, phone: v})} placeholder="PHONE" />
+                  <StyledInput value={customerData.email} onChange={(v) => setCustomerData({...customerData, email: v})} placeholder="EMAIL" />
                 </div>
               </div>
 
               {/* Quote Options Section */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
-                  <span style={{
-                    color: '#9b59b6',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    letterSpacing: '1px',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    QUOTE OPTIONS
-                  </span>
-                  <div style={{
-                    flex: 1,
-                    height: '1px',
-                    backgroundColor: '#9b59b6',
-                    marginLeft: '8px',
-                    position: 'relative',
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: '-3px',
-                      width: '7px',
-                      height: '7px',
-                      backgroundColor: '#9b59b6',
-                      borderRadius: '50%',
-                    }} />
+                  <div style={{ flex: 1, height: '1px', backgroundColor: '#9b59b6', marginRight: '8px', position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: 0, top: '-3px', width: '7px', height: '7px', backgroundColor: '#9b59b6', borderRadius: '50%' }} />
                   </div>
+                  <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', whiteSpace: 'nowrap' }}>QUOTE OPTIONS</span>
                 </div>
                 
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                   <div style={{ width: '80px' }}>
-                    <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', textAlign: 'center', letterSpacing: '1px' }}>
-                      QTY
-                    </label>
-                    <SelectDropdown
-                      value={quantity}
-                      onChange={(v) => setQuantity(parseInt(v))}
-                      options={QTY_OPTIONS}
-                      placeholder="QTY"
-                    />
+                    <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', textAlign: 'center', letterSpacing: '1px' }}>QTY</label>
+                    <SelectDropdown value={quantity} onChange={(v) => setQuantity(parseInt(v))} options={QTY_OPTIONS} placeholder="QTY" />
                   </div>
                   <div style={{ flex: '1', minWidth: '100px' }}>
-                    <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', textAlign: 'center', letterSpacing: '1px' }}>
-                      REBATE $
-                    </label>
-                    <StyledInput
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={rebateAmount}
-                      onChange={setRebateAmount}
-                      placeholder="0.00"
-                    />
+                    <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', textAlign: 'center', letterSpacing: '1px' }}>REBATE $</label>
+                    <StyledInput type="number" min="0" step="0.01" value={rebateAmount} onChange={setRebateAmount} placeholder="0.00" />
                   </div>
                   <div style={{ flex: '2', minWidth: '150px' }}>
-                    <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', textAlign: 'center', letterSpacing: '1px' }}>
-                      REBATE DESCRIPTION
-                    </label>
-                    <StyledInput
-                      value={rebateDescription}
-                      onChange={setRebateDescription}
-                      placeholder="e.g., Nexen Spring Rebate"
-                    />
+                    <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', textAlign: 'center', letterSpacing: '1px' }}>REBATE DESCRIPTION</label>
+                    <StyledInput value={rebateDescription} onChange={setRebateDescription} placeholder="e.g., Nexen Spring Rebate" />
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - Tread Depth Grid */}
+            <div style={{ flex: '1', minWidth: '320px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+                <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', whiteSpace: 'nowrap' }}>CURRENT TREAD DEPTH (32nds)</span>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#9b59b6', marginLeft: '8px', position: 'relative' }}>
+                  <div style={{ position: 'absolute', right: 0, top: '-3px', width: '7px', height: '7px', backgroundColor: '#9b59b6', borderRadius: '50%' }} />
+                </div>
+              </div>
+
+              {/* Tread Depth Grid - 4 tires × 3 readings */}
+              <div style={{ backgroundColor: '#f8f9fa', borderRadius: '15px', padding: '20px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px' }}></th>
+                      <th style={{ padding: '8px', textAlign: 'center', fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px' }}>IN</th>
+                      <th style={{ padding: '8px', textAlign: 'center', fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px' }}>MID</th>
+                      <th style={{ padding: '8px', textAlign: 'center', fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px' }}>OUT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <TreadRow label="FRONT LEFT" prefix="fl" />
+                    <TreadRow label="FRONT RIGHT" prefix="fr" />
+                    <TreadRow label="REAR LEFT" prefix="rl" />
+                    <TreadRow label="REAR RIGHT" prefix="rr" />
+                  </tbody>
+                </table>
+
+                {/* Tread Status Display */}
+                {lowestTread !== null && (
+                  <div style={{ marginTop: '20px', padding: '15px', backgroundColor: treadStatus?.color + '15', border: `2px solid ${treadStatus?.color}`, borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <span style={{ fontSize: '24px', fontWeight: '700', color: treadStatus?.color }}>{lowestTread}/32"</span>
+                      <span style={{ marginLeft: '12px', fontSize: '12px', fontWeight: '700', color: treadStatus?.color, backgroundColor: treadStatus?.color + '20', padding: '4px 12px', borderRadius: '15px' }}>{treadStatus?.label}</span>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '11px', color: '#666' }}>
+                      <div>Your stopping: <strong>~{stoppingDistance}ft</strong></div>
+                      <div>New tires: <strong>~220ft</strong></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Legend */}
+                <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'center', gap: '20px', fontSize: '10px' }}>
+                  <span><span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: '#27ae60', borderRadius: '3px', marginRight: '5px', verticalAlign: 'middle' }}></span> 6+ Good</span>
+                  <span><span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: '#f1c40f', borderRadius: '3px', marginRight: '5px', verticalAlign: 'middle' }}></span> 5 Attention</span>
+                  <span><span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: '#e74c3c', borderRadius: '3px', marginRight: '5px', verticalAlign: 'middle' }}></span> &lt;5 Replace</span>
                 </div>
               </div>
             </div>
@@ -1161,16 +752,7 @@ export default function QuoteBuilder() {
 
           {/* Error Message */}
           {error && (
-            <div style={{
-              backgroundColor: '#fee',
-              border: '1px solid #e74c3c',
-              borderRadius: '10px',
-              padding: '15px 20px',
-              marginTop: '25px',
-              color: '#c0392b',
-              fontSize: '13px',
-              textAlign: 'center'
-            }}>
+            <div style={{ backgroundColor: '#fee', border: '1px solid #e74c3c', borderRadius: '10px', padding: '15px 20px', marginTop: '25px', color: '#c0392b', fontSize: '13px', textAlign: 'center' }}>
               {error}
             </div>
           )}
@@ -1197,25 +779,13 @@ export default function QuoteBuilder() {
               {generating ? 'GENERATING...' : 'GENERATE QUOTE'}
             </button>
             {!selectedEmployee && (
-              <p style={{ color: '#e74c3c', fontSize: '12px', marginTop: '10px' }}>
-                Please select an employee to continue
-              </p>
+              <p style={{ color: '#e74c3c', fontSize: '12px', marginTop: '10px' }}>Please select an employee to continue</p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Footer */}
-      <footer style={{ backgroundColor: '#2c3e50', color: '#95a5a6', padding: '30px 20px', marginTop: '30px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-          <p style={{ fontSize: '13px', marginBottom: '8px' }}>
-            © 2026 My Jiffy Lube Group. Tire data provided by MOTOR & USAutoForce.
-          </p>
-          <p style={{ fontSize: '11px', color: '#7f8c8d' }}>
-            tires.myjiffylube.ai
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
