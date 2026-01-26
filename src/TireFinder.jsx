@@ -344,9 +344,21 @@ const Badge = ({ label, color }) => (
 );
 
 export default function TireFinder() {
-  // Store & Qty selection
-  const [selectedStore, setSelectedStore] = useState('609');
+  // Store & Qty selection - load from localStorage if available
+  const [selectedStore, setSelectedStore] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('jl_tire_store') || '609';
+    }
+    return '609';
+  });
   const [qtyNeeded, setQtyNeeded] = useState(4);
+
+  // Save store to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('jl_tire_store', selectedStore);
+    }
+  }, [selectedStore]);
 
   // Vehicle lookup state
   const [years, setYears] = useState([]);
