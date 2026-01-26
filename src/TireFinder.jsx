@@ -234,7 +234,7 @@ const SpecBox = ({ label, value, highlight }) => (
 );
 
 // Inventory Results Component
-const InventoryResults = ({ results, storeId, loading, qtyNeeded }) => {
+const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px', color: '#9b59b6' }}>
@@ -276,7 +276,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded }) => {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {results.map((tire, idx) => (
-          <TireCard key={tire.part_number + idx} tire={tire} primaryWarehouse={primaryWarehouse} />
+          <TireCard key={tire.part_number + idx} tire={tire} primaryWarehouse={primaryWarehouse} onQuote={onQuote} />
         ))}
       </div>
     </div>
@@ -284,7 +284,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded }) => {
 };
 
 // Individual Tire Card
-const TireCard = ({ tire, primaryWarehouse }) => {
+const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
   const isPriority = tire.brand_code === 'NEX' || tire.brand_code === 'ADV';
   const primaryQty = primaryWarehouse === 'fresno' ? tire.qty_fresno : tire.qty_santa_clarita;
   const secondaryQty = primaryWarehouse === 'fresno' ? tire.qty_santa_clarita : tire.qty_fresno;
@@ -404,6 +404,30 @@ const TireCard = ({ tire, primaryWarehouse }) => {
               {primaryWarehouse === 'fresno' ? 'Santa Clarita' : 'Fresno'}: {parseInt(secondaryQty) || 0}
             </div>
           </div>
+
+          {/* QUOTE Button */}
+          {consumerPrice > 0 && onQuote && (
+            <button
+              onClick={() => onQuote({ ...tire, consumer_price: consumerPrice })}
+              style={{
+                marginTop: '12px',
+                backgroundColor: '#cc0000',
+                color: 'white',
+                border: 'none',
+                padding: '8px 20px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: '700',
+                letterSpacing: '1px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#a00000'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#cc0000'}
+            >
+              📋 QUOTE
+            </button>
+          )}
         </div>
       </div>
 
@@ -482,6 +506,30 @@ export default function TireFinder() {
     setTireSpecs([spec]);
     // Automatically search inventory for this size
     searchInventory(spec.tire_size);
+  };
+
+  // Handle quote button click - save tire data and navigate to quote builder
+  const handleQuote = (tire) => {
+    // Save tire data to sessionStorage for QuoteBuilder
+    sessionStorage.setItem('jl_quote_tire', JSON.stringify(tire));
+    sessionStorage.setItem('jl_quote_qty', qtyNeeded.toString());
+    
+    // Save vehicle data if available from YMM search
+    if (selectedYear && selectedMake && selectedModel) {
+      const vehicleData = {
+        year: parseInt(selectedYear),
+        make: selectedMake,
+        model: selectedModel,
+        submodel: selectedSubmodel || null,
+        display: `${selectedYear} ${selectedMake} ${selectedModel}${selectedSubmodel ? ' ' + selectedSubmodel : ''}`
+      };
+      sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
+    } else {
+      sessionStorage.removeItem('jl_quote_vehicle');
+    }
+    
+    // Navigate to quote builder
+    window.location.hash = '#/quote/build';
   };
 
   // Fetch years on mount
@@ -1092,6 +1140,7 @@ export default function TireFinder() {
             storeId={selectedStore}
             loading={inventoryLoading}
             qtyNeeded={qtyNeeded}
+            onQuote={handleQuote}
           />
         </div>
       </div>
