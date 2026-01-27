@@ -2,8 +2,16 @@
 // QUOTE VIEW - Customer-Facing Quote Display v2
 // =============================================================================
 // Route: #/quote/:code
-// Displays quote with JL branding, per-tire tread status, store info
 // Updated: 2026-01-27
+// Features:
+//   - Proper car image (from Supabase storage)
+//   - No emoji car - text only vehicle display
+//   - "Vehicle Not Verified" when no YMM
+//   - Stopping distance visual comparison
+//   - Disposal fee + CA state fee display
+//   - FET if applicable
+//   - Warranty disclaimer
+//   - Email/Text/Pay buttons
 // =============================================================================
 
 import React, { useState, useEffect } from 'react';
@@ -11,6 +19,7 @@ import React, { useState, useEffect } from 'react';
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
 const JL_LOGO = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/assets/JL_Multicare_Horz_1C.png';
+const CAR_IMAGE = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/Vehicle-image.png';
 
 // Tread status thresholds: 0-4 red, 5-6 yellow, 7+ green
 const getTreadInfo = (depth) => {
@@ -20,13 +29,11 @@ const getTreadInfo = (depth) => {
   return { status: 'good', color: '#16a34a', bgColor: '#f0fdf4', label: 'GOOD' };
 };
 
-// Format currency
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined) return '$0.00';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
 
-// Format phone: 8059221948 -> (805) 922-1948
 const formatPhone = (phone) => {
   if (!phone) return '';
   const digits = phone.replace(/\D/g, '');
@@ -36,7 +43,6 @@ const formatPhone = (phone) => {
   return phone;
 };
 
-// Format date
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
   return new Date(dateStr).toLocaleDateString('en-US', { 
@@ -57,11 +63,110 @@ const TireTreadBadge = ({ label, position, data }) => {
       borderRadius: '8px',
       padding: '8px 12px',
       textAlign: 'center',
-      minWidth: '80px'
+      minWidth: '90px'
     }}>
       <div style={{ fontSize: '10px', color: '#666', fontWeight: '600', marginBottom: '4px' }}>{label}</div>
       <div style={{ fontSize: '24px', fontWeight: '700', color: info.color }}>{data.lowest}<span style={{ fontSize: '12px' }}>/32</span></div>
-      <div style={{ fontSize: '9px', color: info.color, fontWeight: '600' }}>{info.label}</div>
+      <div style={{ fontSize: '8px', color: info.color, fontWeight: '600' }}>{info.label}</div>
+    </div>
+  );
+};
+
+// Stopping Distance Comparison Chart
+const StoppingDistanceChart = ({ currentDistance, newDistance }) => {
+  if (!currentDistance) return null;
+  
+  const maxDistance = 400; // Max for scale
+  const currentPercent = (currentDistance / maxDistance) * 100;
+  const newPercent = (newDistance / maxDistance) * 100;
+  const difference = currentDistance - newDistance;
+
+  return (
+    <div style={{ 
+      backgroundColor: '#f8fafc', 
+      borderRadius: '12px', 
+      padding: '20px',
+      marginTop: '15px'
+    }}>
+      <h4 style={{ 
+        margin: '0 0 15px 0', 
+        color: '#64748b', 
+        fontSize: '11px', 
+        fontWeight: '700', 
+        letterSpacing: '1px',
+        textAlign: 'center'
+      }}>
+        STOPPING DISTANCE COMPARISON (60 MPH, WET ROAD)
+      </h4>
+      
+      {/* Current Tires */}
+      <div style={{ marginBottom: '15px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Your Current Tires</span>
+          <span style={{ fontSize: '14px', color: '#dc2626', fontWeight: '700' }}>{currentDistance} ft</span>
+        </div>
+        <div style={{ 
+          backgroundColor: '#fee2e2', 
+          borderRadius: '6px', 
+          height: '24px',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            width: `${currentPercent}%`,
+            height: '100%',
+            backgroundColor: '#dc2626',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingRight: '8px',
+            transition: 'width 0.5s ease'
+          }}>
+            <span style={{ color: 'white', fontSize: '10px', fontWeight: '700' }}>⚠️ LONGER</span>
+          </div>
+        </div>
+      </div>
+
+      {/* New Tires */}
+      <div style={{ marginBottom: '15px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>With New Tires</span>
+          <span style={{ fontSize: '14px', color: '#16a34a', fontWeight: '700' }}>{newDistance} ft</span>
+        </div>
+        <div style={{ 
+          backgroundColor: '#dcfce7', 
+          borderRadius: '6px', 
+          height: '24px',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            width: `${newPercent}%`,
+            height: '100%',
+            backgroundColor: '#16a34a',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingRight: '8px',
+            transition: 'width 0.5s ease'
+          }}>
+            <span style={{ color: 'white', fontSize: '10px', fontWeight: '700' }}>✓ SHORTER</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Difference callout */}
+      <div style={{
+        backgroundColor: '#fef3c7',
+        border: '1px solid #f59e0b',
+        borderRadius: '8px',
+        padding: '12px',
+        textAlign: 'center'
+      }}>
+        <span style={{ fontSize: '13px', color: '#92400e' }}>
+          New tires could reduce your stopping distance by <strong>{difference} feet</strong> — that's about <strong>{Math.round(difference / 8)} car lengths</strong>!
+        </span>
+      </div>
     </div>
   );
 };
@@ -74,54 +179,36 @@ const CarTreadDiagram = ({ treadData }) => {
 
   return (
     <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center',
-      gap: '10px',
-      padding: '20px',
       backgroundColor: '#f8fafc',
-      borderRadius: '12px'
+      borderRadius: '12px',
+      padding: '20px'
     }}>
-      {/* Car orientation label */}
-      <div style={{ fontSize: '10px', color: '#94a3b8', letterSpacing: '1px' }}>← FRONT OF VEHICLE</div>
+      {/* Direction indicator */}
+      <div style={{ textAlign: 'center', marginBottom: '10px', fontSize: '10px', color: '#94a3b8', letterSpacing: '1px' }}>
+        ← FRONT OF VEHICLE
+      </div>
       
-      {/* Main diagram container */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+      {/* Main diagram */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px' }}>
         
-        {/* Passenger side (top when car faces left) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+        {/* Left side - Front tires (Passenger top, Driver bottom) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
           <TireTreadBadge label="PASS FRONT" position="rf" data={rf} />
-          <TireTreadBadge label="PASS REAR" position="rr" data={rr} />
-        </div>
-
-        {/* Car body representation */}
-        <div style={{
-          width: '120px',
-          height: '200px',
-          backgroundColor: '#e2e8f0',
-          borderRadius: '20px 60px 60px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative'
-        }}>
-          {/* Hood indicator */}
-          <div style={{
-            position: 'absolute',
-            left: '-10px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: '20px',
-            height: '60px',
-            backgroundColor: '#cbd5e1',
-            borderRadius: '10px 0 0 10px'
-          }} />
-          <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '600' }}>VEHICLE</span>
-        </div>
-
-        {/* Driver side (bottom when car faces left) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
           <TireTreadBadge label="DRIVER FRONT" position="lf" data={lf} />
+        </div>
+
+        {/* Car image */}
+        <div style={{ padding: '0 10px' }}>
+          <img 
+            src={CAR_IMAGE}
+            alt="Vehicle"
+            style={{ width: '120px', opacity: 0.7 }}
+          />
+        </div>
+
+        {/* Right side - Rear tires */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+          <TireTreadBadge label="PASS REAR" position="rr" data={rr} />
           <TireTreadBadge label="DRIVER REAR" position="lr" data={lr} />
         </div>
       </div>
@@ -130,9 +217,11 @@ const CarTreadDiagram = ({ treadData }) => {
       {treadData.summary && (
         <div style={{ 
           display: 'flex', 
+          justifyContent: 'center',
           gap: '20px', 
-          marginTop: '10px',
-          fontSize: '12px'
+          marginTop: '15px',
+          fontSize: '12px',
+          flexWrap: 'wrap'
         }}>
           {treadData.summary.replace_count > 0 && (
             <span style={{ color: '#dc2626', fontWeight: '600' }}>
@@ -151,6 +240,14 @@ const CarTreadDiagram = ({ treadData }) => {
           )}
         </div>
       )}
+
+      {/* Stopping Distance Chart */}
+      {treadData.stopping_distance_current && (
+        <StoppingDistanceChart 
+          currentDistance={treadData.stopping_distance_current} 
+          newDistance={treadData.stopping_distance_new || 195} 
+        />
+      )}
     </div>
   );
 };
@@ -160,8 +257,10 @@ const QuoteView = () => {
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
+  const [actionMessage, setActionMessage] = useState(null);
 
-  // Get short code from URL hash
   const getShortCode = () => {
     const hash = window.location.hash;
     const match = hash.match(/\/quote\/([A-Z0-9]+)/i);
@@ -195,6 +294,78 @@ const QuoteView = () => {
 
     fetchQuote();
   }, []);
+
+  const handleEmailQuote = async () => {
+    if (!quote?.customer?.email) {
+      const email = prompt('Enter email address:');
+      if (!email) return;
+      sendEmail(email);
+    } else {
+      sendEmail(quote.customer.email);
+    }
+  };
+
+  const sendEmail = async (email) => {
+    setSendingEmail(true);
+    setActionMessage(null);
+    try {
+      const response = await fetch(`${API_BASE}/email-quote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: API_KEY,
+          quote_id: quote.quote_id,
+          email_override: email
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setActionMessage({ type: 'success', text: `Quote emailed to ${email}` });
+      } else {
+        setActionMessage({ type: 'error', text: data.error || 'Failed to send email' });
+      }
+    } catch (err) {
+      setActionMessage({ type: 'error', text: 'Failed to send email' });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleTextQuote = async () => {
+    const phone = quote?.customer?.phone || prompt('Enter phone number:');
+    if (!phone) return;
+    
+    setSendingSms(true);
+    setActionMessage(null);
+    try {
+      const response = await fetch(`${API_BASE}/sms-quote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: API_KEY,
+          quote_id: quote.quote_id,
+          phone_override: phone !== quote?.customer?.phone ? phone : null
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setActionMessage({ type: 'success', text: `Quote texted to ${formatPhone(phone)}` });
+      } else {
+        setActionMessage({ type: 'error', text: data.error || 'Failed to send text' });
+      }
+    } catch (err) {
+      setActionMessage({ type: 'error', text: 'Failed to send text' });
+    } finally {
+      setSendingSms(false);
+    }
+  };
+
+  const handlePayOnline = () => {
+    // PayPal.me link with amount
+    const amount = quote?.pricing?.total_amount || 0;
+    const paypalUrl = `https://www.paypal.com/paypalme/porcher/${amount.toFixed(2)}`;
+    window.open(paypalUrl, '_blank');
+  };
 
   if (loading) {
     return (
@@ -241,7 +412,12 @@ const QuoteView = () => {
   const store = quote.store;
   const customer = quote.customer;
   const treadData = quote.tread_depth;
-  const overallTreadInfo = quote.tread ? getTreadInfo(quote.tread.lowest) : null;
+  const tire = quote.tire;
+
+  // Check if vehicle info was provided
+  const hasVehicleInfo = quote.vehicle?.display && 
+    quote.vehicle.display !== '' && 
+    !quote.vehicle.display.toLowerCase().includes('unknown');
 
   return (
     <div style={{ 
@@ -259,7 +435,7 @@ const QuoteView = () => {
         overflow: 'hidden'
       }}>
         
-        {/* Header with JL Logo and Store Info */}
+        {/* Header */}
         <div style={{ 
           backgroundColor: '#8b1538', 
           color: 'white', 
@@ -319,13 +495,9 @@ const QuoteView = () => {
           }}>
             {/* Customer Info */}
             <div>
-              <h4 style={{ 
-                margin: '0 0 12px 0', 
-                color: '#64748b', 
-                fontSize: '11px', 
-                fontWeight: '700', 
-                letterSpacing: '1px' 
-              }}>PREPARED FOR</h4>
+              <h4 style={{ margin: '0 0 12px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
+                PREPARED FOR
+              </h4>
               <div style={{ fontSize: '18px', fontWeight: '600', color: '#1e293b', marginBottom: '5px' }}>
                 {customer?.full_name || 'Valued Customer'}
               </div>
@@ -342,50 +514,49 @@ const QuoteView = () => {
             </div>
 
             {/* Vehicle Info */}
-            {quote.vehicle?.display && (
-              <div>
-                <h4 style={{ 
-                  margin: '0 0 12px 0', 
-                  color: '#64748b', 
-                  fontSize: '11px', 
-                  fontWeight: '700', 
-                  letterSpacing: '1px' 
-                }}>VEHICLE</h4>
+            <div>
+              <h4 style={{ margin: '0 0 12px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
+                VEHICLE
+              </h4>
+              {hasVehicleInfo ? (
                 <div style={{ fontSize: '18px', fontWeight: '600', color: '#1e293b' }}>
-                  🚗 {quote.vehicle.display}
+                  {quote.vehicle.display}
                 </div>
-                {customer?.license_plate && (
-                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '5px' }}>
-                    Plate: {customer.license_plate} ({customer.license_state || 'CA'})
-                  </div>
-                )}
-              </div>
-            )}
+              ) : (
+                <div style={{ fontSize: '14px', color: '#94a3b8', fontStyle: 'italic' }}>
+                  Vehicle Make/Model Not Verified
+                </div>
+              )}
+              {customer?.license_plate && (
+                <div style={{ fontSize: '14px', color: '#64748b', marginTop: '5px' }}>
+                  Plate: {customer.license_plate} ({customer.license_state || 'CA'})
+                </div>
+              )}
+              {quote.vehicle?.oe_tire_size && (
+                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '5px' }}>
+                  OE Size: {quote.vehicle.oe_tire_size}
+                  {quote.vehicle.oe_load_rating && ` | Load: ${quote.vehicle.oe_load_rating}`}
+                  {quote.vehicle.oe_speed_rating && ` | Speed: ${quote.vehicle.oe_speed_rating}`}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Tread Depth Section */}
           {treadData && (
             <div style={{ marginBottom: '30px' }}>
-              <h4 style={{ 
-                margin: '0 0 15px 0', 
-                color: '#64748b', 
-                fontSize: '11px', 
-                fontWeight: '700', 
-                letterSpacing: '1px' 
-              }}>CURRENT TIRE CONDITION</h4>
+              <h4 style={{ margin: '0 0 15px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
+                CURRENT TIRE CONDITION
+              </h4>
               <CarTreadDiagram treadData={treadData} />
             </div>
           )}
 
           {/* Recommended Tire */}
           <div style={{ marginBottom: '30px' }}>
-            <h4 style={{ 
-              margin: '0 0 15px 0', 
-              color: '#64748b', 
-              fontSize: '11px', 
-              fontWeight: '700', 
-              letterSpacing: '1px' 
-            }}>RECOMMENDED TIRES</h4>
+            <h4 style={{ margin: '0 0 15px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
+              RECOMMENDED TIRES
+            </h4>
             <div style={{ 
               backgroundColor: '#8b1538', 
               borderRadius: '10px', 
@@ -394,50 +565,25 @@ const QuoteView = () => {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
                 <div>
-                  <h3 style={{ margin: '0 0 5px 0', fontSize: '20px', fontWeight: '700' }}>
-                    {quote.tire?.brand} {quote.tire?.name}
+                  <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: '700' }}>
+                    {tire?.brand} {tire?.name}
                   </h3>
                   <p style={{ margin: '0', opacity: 0.9, fontSize: '14px' }}>
-                    {quote.tire?.size} • Part# {quote.tire?.part_number}
+                    {tire?.size} • Part# {tire?.part_number}
                   </p>
-                  <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                    {quote.tire?.warranty_miles && (
-                      <span style={{ 
-                        backgroundColor: 'rgba(255,255,255,0.2)', 
-                        padding: '4px 10px', 
-                        borderRadius: '15px', 
-                        fontSize: '12px' 
-                      }}>
-                        ✓ {parseInt(quote.tire.warranty_miles).toLocaleString()} Mile Warranty
+                  <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {tire?.speed_rating && (
+                      <span style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: '4px 10px', borderRadius: '15px', fontSize: '11px' }}>
+                        Speed: {tire.speed_rating}
                       </span>
                     )}
-                    {quote.tire?.speed_rating && (
-                      <span style={{ 
-                        backgroundColor: 'rgba(255,255,255,0.2)', 
-                        padding: '4px 10px', 
-                        borderRadius: '15px', 
-                        fontSize: '12px' 
-                      }}>
-                        Speed: {quote.tire.speed_rating}
+                    {tire?.load_rating && (
+                      <span style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: '4px 10px', borderRadius: '15px', fontSize: '11px' }}>
+                        Load: {tire.load_rating}
                       </span>
                     )}
-                    {quote.tire?.load_rating && (
-                      <span style={{ 
-                        backgroundColor: 'rgba(255,255,255,0.2)', 
-                        padding: '4px 10px', 
-                        borderRadius: '15px', 
-                        fontSize: '12px' 
-                      }}>
-                        Load: {quote.tire.load_rating}
-                      </span>
-                    )}
-                    {quote.tire?.snowflake && (
-                      <span style={{ 
-                        backgroundColor: 'rgba(255,255,255,0.2)', 
-                        padding: '4px 10px', 
-                        borderRadius: '15px', 
-                        fontSize: '12px' 
-                      }}>
+                    {tire?.snowflake && (
+                      <span style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: '4px 10px', borderRadius: '15px', fontSize: '11px' }}>
                         ❄️ 3PMSF
                       </span>
                     )}
@@ -450,17 +596,29 @@ const QuoteView = () => {
                 </div>
               </div>
             </div>
+            
+            {/* Warranty Info */}
+            <div style={{ 
+              marginTop: '10px', 
+              padding: '12px 15px', 
+              backgroundColor: '#f8fafc', 
+              borderRadius: '8px',
+              fontSize: '13px',
+              color: '#64748b'
+            }}>
+              {tire?.warranty_miles ? (
+                <span>✓ <strong>{parseInt(tire.warranty_miles).toLocaleString()} Mile</strong> Tread Life Warranty</span>
+              ) : (
+                <span style={{ fontStyle: 'italic' }}>No specified tread life warranty</span>
+              )}
+            </div>
           </div>
 
           {/* Pricing Breakdown */}
           <div style={{ marginBottom: '30px' }}>
-            <h4 style={{ 
-              margin: '0 0 15px 0', 
-              color: '#64748b', 
-              fontSize: '11px', 
-              fontWeight: '700', 
-              letterSpacing: '1px' 
-            }}>PRICING</h4>
+            <h4 style={{ margin: '0 0 15px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
+              PRICING
+            </h4>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <tbody>
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
@@ -487,10 +645,30 @@ const QuoteView = () => {
                     {formatCurrency(p?.subtotal_road_hazard)}
                   </td>
                 </tr>
+                {(p?.subtotal_disposal > 0 || p?.disposal_per_tire > 0) && (
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '12px 0', fontSize: '14px', color: '#334155' }}>
+                      Tire Disposal Fee ({formatCurrency(p?.disposal_per_tire || 2.50)} × {p?.quantity})
+                    </td>
+                    <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', color: '#1e293b' }}>
+                      {formatCurrency(p?.subtotal_disposal || (2.50 * p?.quantity))}
+                    </td>
+                  </tr>
+                )}
+                {(p?.subtotal_ca_state_fee > 0 || p?.ca_state_fee_per_tire > 0) && (
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '12px 0', fontSize: '14px', color: '#334155' }}>
+                      CA State Tire Fee ({formatCurrency(p?.ca_state_fee_per_tire || 1.75)} × {p?.quantity})
+                    </td>
+                    <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', color: '#1e293b' }}>
+                      {formatCurrency(p?.subtotal_ca_state_fee || (1.75 * p?.quantity))}
+                    </td>
+                  </tr>
+                )}
                 {p?.subtotal_fet > 0 && (
                   <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                     <td style={{ padding: '12px 0', fontSize: '14px', color: '#334155' }}>
-                      Federal Excise Tax
+                      Federal Excise Tax (FET)
                     </td>
                     <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', color: '#1e293b' }}>
                       {formatCurrency(p?.subtotal_fet)}
@@ -509,7 +687,7 @@ const QuoteView = () => {
                 )}
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                   <td style={{ padding: '12px 0', fontSize: '14px', color: '#334155' }}>
-                    Sales Tax ({(p?.tax_rate * 100).toFixed(2)}%)
+                    Sales Tax ({((p?.tax_rate || 0) * 100).toFixed(2)}%)
                   </td>
                   <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', color: '#1e293b' }}>
                     {formatCurrency(p?.tax_amount)}
@@ -560,10 +738,26 @@ const QuoteView = () => {
             </div>
           </div>
 
-          {/* Call to Action Buttons */}
+          {/* Action Message */}
+          {actionMessage && (
+            <div style={{
+              padding: '12px 20px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              backgroundColor: actionMessage.type === 'success' ? '#f0fdf4' : '#fef2f2',
+              border: `1px solid ${actionMessage.type === 'success' ? '#86efac' : '#fecaca'}`,
+              color: actionMessage.type === 'success' ? '#166534' : '#991b1b',
+              textAlign: 'center',
+              fontSize: '14px'
+            }}>
+              {actionMessage.text}
+            </div>
+          )}
+
+          {/* Action Buttons */}
           <div style={{ 
             display: 'flex', 
-            gap: '15px', 
+            gap: '12px', 
             justifyContent: 'center',
             flexWrap: 'wrap',
             marginBottom: '25px'
@@ -576,18 +770,17 @@ const QuoteView = () => {
                 style={{
                   backgroundColor: '#8b1538',
                   color: 'white',
-                  padding: '15px 30px',
+                  padding: '14px 24px',
                   borderRadius: '8px',
                   textDecoration: 'none',
                   fontWeight: '700',
-                  fontSize: '16px',
+                  fontSize: '14px',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  transition: 'background-color 0.2s'
+                  gap: '8px'
                 }}
               >
-                📅 SCHEDULE APPOINTMENT
+                📅 SCHEDULE
               </a>
             )}
             {store?.phone && (
@@ -596,21 +789,98 @@ const QuoteView = () => {
                 style={{
                   backgroundColor: '#f1f5f9',
                   color: '#334155',
-                  padding: '15px 30px',
+                  padding: '14px 24px',
                   borderRadius: '8px',
                   textDecoration: 'none',
                   fontWeight: '700',
-                  fontSize: '16px',
+                  fontSize: '14px',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
                   border: '2px solid #e2e8f0'
                 }}
               >
-                📞 CALL {store.phone_formatted || formatPhone(store.phone)}
+                📞 CALL
               </a>
             )}
+            <button
+              onClick={handleEmailQuote}
+              disabled={sendingEmail}
+              style={{
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                padding: '14px 24px',
+                borderRadius: '8px',
+                border: 'none',
+                fontWeight: '700',
+                fontSize: '14px',
+                cursor: sendingEmail ? 'not-allowed' : 'pointer',
+                opacity: sendingEmail ? 0.7 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              {sendingEmail ? '...' : '✉️ EMAIL'}
+            </button>
+            <button
+              onClick={handleTextQuote}
+              disabled={sendingSms}
+              style={{
+                backgroundColor: '#10b981',
+                color: 'white',
+                padding: '14px 24px',
+                borderRadius: '8px',
+                border: 'none',
+                fontWeight: '700',
+                fontSize: '14px',
+                cursor: sendingSms ? 'not-allowed' : 'pointer',
+                opacity: sendingSms ? 0.7 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              {sendingSms ? '...' : '💬 TEXT'}
+            </button>
+            <button
+              onClick={handlePayOnline}
+              style={{
+                backgroundColor: '#f59e0b',
+                color: 'white',
+                padding: '14px 24px',
+                borderRadius: '8px',
+                border: 'none',
+                fontWeight: '700',
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              💳 PAY ONLINE
+            </button>
           </div>
+
+          {/* Warranty Disclaimer */}
+          {tire?.warranty_miles && (
+            <div style={{
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fcd34d',
+              borderRadius: '8px',
+              padding: '15px',
+              marginBottom: '20px',
+              fontSize: '11px',
+              color: '#92400e',
+              lineHeight: '1.5'
+            }}>
+              <strong>Tread Wear Warranty Note:</strong> Tire treadwear warranties are not "free replacement" warranties. 
+              They are generally prorated discounts based on how early the tires wore out compared to their promised lifespan. 
+              Manufacturer's require proof of tire rotations based on the vehicle OEM's schedule and correct vehicle alignment. 
+              Road hazards, abuse and neglect are not covered.
+            </div>
+          )}
 
           {/* Footer */}
           <div style={{ 
@@ -636,6 +906,7 @@ const QuoteView = () => {
           body { background: white !important; }
           div { box-shadow: none !important; }
           a[href]:after { content: none !important; }
+          button { display: none !important; }
         }
       `}</style>
     </div>
