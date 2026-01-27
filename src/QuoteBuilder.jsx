@@ -19,8 +19,8 @@ const QTY_OPTIONS = [1, 2, 4, 5, 6, 8];
 
 const getTreadStatus = (depth) => {
   if (depth === null || depth === undefined) return null;
-  if (depth >= 6) return { status: 'good', label: 'GOOD', color: '#27ae60' };
-  if (depth === 5) return { status: 'attention', label: 'NEEDS ATTENTION', color: '#f1c40f' };
+  if (depth >= 7) return { status: 'good', label: 'GOOD', color: '#27ae60' };
+  if (depth >= 5) return { status: 'attention', label: 'MARGINAL', color: '#f1c40f' };
   return { status: 'replace', label: 'REPLACE NOW', color: '#e74c3c' };
 };
 
@@ -39,8 +39,8 @@ const getTreadColor = (val) => {
   if (val === '' || val === null || val === undefined) return '#9b59b6';
   const depth = parseInt(val);
   if (isNaN(depth)) return '#9b59b6';
-  if (depth >= 6) return '#27ae60';
-  if (depth === 5) return '#f1c40f';
+  if (depth >= 7) return '#27ae60';
+  if (depth >= 5) return '#f1c40f';
   return '#e74c3c';
 };
 
@@ -545,8 +545,8 @@ export default function QuoteBuilder() {
 
                 {/* Legend */}
                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '15px', fontSize: '9px', color: '#888' }}>
-                  <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#27ae60', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>6+ Good</span>
-                  <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#f1c40f', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>5 Attention</span>
+                  <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#27ae60', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>7+ Good</span>
+                  <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#f1c40f', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>5-6 Marginal</span>
                   <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#e74c3c', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>&lt;5 Replace</span>
                 </div>
               </div>
