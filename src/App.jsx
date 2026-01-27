@@ -3,6 +3,8 @@ import TireFinder from './TireFinder';
 import StoreInventory from './StoreInventory';
 import QuoteBuilder from './QuoteBuilder';
 import QuoteView from './QuoteView';
+import EnterpriseTireFinder from './EnterpriseTireFinder';
+import FleetTireFinder from './FleetTireFinder';
 
 // Simple hash-based router (no additional dependencies needed)
 export default function App() {
@@ -22,6 +24,8 @@ export default function App() {
   // #/inventory -> StoreInventory
   // #/quote/build -> QuoteBuilder
   // #/quote/:code -> QuoteView
+  // #/enterprise -> EnterpriseTireFinder
+  // #/fleet -> FleetTireFinder
   const path = currentPath.replace('#', '') || '/';
   
   if (path === '/inventory') {
@@ -30,6 +34,14 @@ export default function App() {
   
   if (path === '/quote/build') {
     return <QuoteBuilder />;
+  }
+  
+  if (path === '/enterprise') {
+    return <EnterpriseTireFinder />;
+  }
+  
+  if (path === '/fleet') {
+    return <FleetTireFinder />;
   }
   
   // Match /quote/:code pattern

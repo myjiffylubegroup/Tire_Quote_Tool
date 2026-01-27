@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
 
-// Enterprise brand colors
-const ENTERPRISE_GREEN = '#009750';
-const ENTERPRISE_DARK = '#006837';
-const ENTERPRISE_BLACK = '#231F20';
+// Fleet brand colors (Auto Integrate inspired - professional blue)
+const FLEET_BLUE = '#2748f9';
+const FLEET_DARK_BLUE = '#031781';
+const FLEET_LIGHT_BLUE = '#5470ef';
+const FLEET_GRAY = '#3c424e';
 
 // Store list with warehouse assignments and city names
 const STORES = [
@@ -22,7 +23,7 @@ const STORES = [
 
 // Navigation items
 const NAV_ITEMS = [
-  { label: 'TIRE FINDER', href: '#/enterprise', active: true },
+  { label: 'TIRE FINDER', href: '#/fleet', active: true },
   { label: 'STORE INVENTORY', href: '#/inventory', active: false },
 ];
 
@@ -34,29 +35,22 @@ const FALLBACK_WIDTHS = ['155','165','175','185','195','205','215','225','235','
 const FALLBACK_ASPECTS = ['25','30','35','40','45','50','55','60','65','70','75','80','85'];
 const FALLBACK_RIMS = ['13','14','15','16','17','18','19','20','21','22','24'];
 
-// Enterprise Pricing Matrix
-// Nexen: <100 = cost+5, 100-149 = cost+15, 150-199 = cost+20, 200+ = cost*1.10
-// Other brands: Add $15 to each tier
-const calculateEnterprisePrice = (cost, brandCode) => {
+// Fleet Pricing Matrix
+// Nexen: cost × 1.25 (25% markup)
+// All other brands: cost × 1.30 (30% markup)
+const calculateFleetPrice = (cost, brandCode) => {
   if (!cost || cost <= 0) return 0;
   const c = parseFloat(cost);
   const isNexen = brandCode === 'NEX';
   
   if (isNexen) {
-    if (c < 100) return c + 5;
-    if (c < 150) return c + 15;
-    if (c < 200) return c + 20;
-    return c * 1.10;
+    return c * 1.25;
   } else {
-    // Other brands: add $15 to each Nexen tier
-    if (c < 100) return c + 20;  // 5 + 15
-    if (c < 150) return c + 30;  // 15 + 15
-    if (c < 200) return c + 35;  // 20 + 15
-    return (c * 1.10) + 15;
+    return c * 1.30;
   }
 };
 
-// Styled Select Dropdown - Enterprise Green
+// Styled Select Dropdown - Fleet Blue
 const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => (
   <select
     value={value}
@@ -65,7 +59,7 @@ const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => 
     style={{
       width: '100%',
       padding: '10px 15px',
-      border: `2px solid ${ENTERPRISE_GREEN}`,
+      border: `2px solid ${FLEET_BLUE}`,
       borderRadius: '25px',
       backgroundColor: disabled ? '#f5f5f5' : 'white',
       color: disabled ? '#999' : '#333',
@@ -77,7 +71,7 @@ const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => 
       cursor: disabled ? 'not-allowed' : 'pointer',
       outline: 'none',
       appearance: 'none',
-      backgroundImage: disabled ? 'none' : `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23009750' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+      backgroundImage: disabled ? 'none' : `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%232748f9' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
       backgroundRepeat: 'no-repeat',
       backgroundPosition: 'right 15px center',
     }}
@@ -106,7 +100,7 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory, onSelectSize }) =
         boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
       }}>
         <h3 style={{
-          color: ENTERPRISE_GREEN,
+          color: FLEET_BLUE,
           fontSize: '18px',
           fontWeight: '700',
           textAlign: 'center',
@@ -126,19 +120,19 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory, onSelectSize }) =
               key={idx}
               onClick={() => onSelectSize(spec)}
               style={{
-                border: `2px solid ${ENTERPRISE_GREEN}`,
+                border: `2px solid ${FLEET_BLUE}`,
                 borderRadius: '10px',
                 padding: '20px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 backgroundColor: 'white',
               }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#e6f7ef'}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#eef2ff'}
               onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'white'}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
-                  <div style={{ fontSize: '20px', fontWeight: '700', color: ENTERPRISE_GREEN }}>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: FLEET_BLUE }}>
                     {spec.tire_size}
                   </div>
                   <div style={{ fontSize: '12px', color: '#888', marginTop: '5px' }}>
@@ -153,7 +147,7 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory, onSelectSize }) =
                 </div>
                 <button
                   style={{
-                    backgroundColor: ENTERPRISE_GREEN,
+                    backgroundColor: FLEET_BLUE,
                     color: 'white',
                     border: 'none',
                     padding: '10px 20px',
@@ -184,7 +178,7 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory, onSelectSize }) =
       boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
     }}>
       <h3 style={{
-        color: ENTERPRISE_GREEN,
+        color: FLEET_BLUE,
         fontSize: '18px',
         fontWeight: '700',
         textAlign: 'center',
@@ -210,7 +204,7 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory, onSelectSize }) =
 
       {spec.is_staggered && spec.tire_size_rear && (
         <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
-          <p style={{ color: ENTERPRISE_GREEN, fontWeight: '600', textAlign: 'center', marginBottom: '15px' }}>
+          <p style={{ color: FLEET_BLUE, fontWeight: '600', textAlign: 'center', marginBottom: '15px' }}>
             ⚡ Staggered Fitment (Different Front/Rear)
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
@@ -225,7 +219,7 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory, onSelectSize }) =
         <button
           onClick={() => onSearchInventory(spec.tire_size)}
           style={{
-            backgroundColor: ENTERPRISE_GREEN,
+            backgroundColor: FLEET_BLUE,
             color: 'white',
             border: 'none',
             padding: '14px 40px',
@@ -234,7 +228,7 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory, onSelectSize }) =
             fontWeight: '700',
             letterSpacing: '2px',
             cursor: 'pointer',
-            boxShadow: `0 4px 15px rgba(0, 151, 80, 0.3)`,
+            boxShadow: `0 4px 15px rgba(39, 72, 249, 0.3)`,
           }}
         >
           🔍 SEARCH INVENTORY FOR {spec.tire_size}
@@ -246,7 +240,7 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory, onSelectSize }) =
 
 const SpecBox = ({ label, value, highlight }) => (
   <div style={{
-    backgroundColor: highlight ? '#e6f7ef' : '#f8f8f8',
+    backgroundColor: highlight ? '#eef2ff' : '#f8f8f8',
     padding: '15px',
     borderRadius: '8px',
     textAlign: 'center',
@@ -254,7 +248,7 @@ const SpecBox = ({ label, value, highlight }) => (
     <div style={{ fontSize: '11px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>
       {label}
     </div>
-    <div style={{ fontSize: highlight ? '18px' : '14px', fontWeight: '700', color: highlight ? ENTERPRISE_GREEN : '#333' }}>
+    <div style={{ fontSize: highlight ? '18px' : '14px', fontWeight: '700', color: highlight ? FLEET_BLUE : '#333' }}>
       {value || '-'}
     </div>
   </div>
@@ -264,7 +258,7 @@ const SpecBox = ({ label, value, highlight }) => (
 const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => {
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px', color: ENTERPRISE_GREEN }}>
+      <div style={{ textAlign: 'center', padding: '40px', color: FLEET_BLUE }}>
         <p style={{ fontSize: '14px' }}>🔍 Searching inventory...</p>
       </div>
     );
@@ -286,7 +280,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => 
       boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
     }}>
       <h3 style={{
-        color: ENTERPRISE_GREEN,
+        color: FLEET_BLUE,
         fontSize: '16px',
         fontWeight: '700',
         textAlign: 'center',
@@ -310,29 +304,30 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => 
   );
 };
 
-// Individual Tire Card - Enterprise Pricing
+// Individual Tire Card - Fleet Pricing
 const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
   const isPriority = tire.brand_code === 'NEX' || tire.brand_code === 'ADV';
+  const isNexen = tire.brand_code === 'NEX';
   const primaryQty = primaryWarehouse === 'fresno' ? tire.qty_fresno : tire.qty_santa_clarita;
   const secondaryQty = primaryWarehouse === 'fresno' ? tire.qty_santa_clarita : tire.qty_fresno;
   const hasStoreStock = tire.store_qty > 0;
   
-  // ENTERPRISE PRICING instead of consumer pricing
-  const enterprisePrice = tire.cost > 0 ? calculateEnterprisePrice(tire.cost, tire.brand_code) : 0;
+  // FLEET PRICING instead of consumer pricing
+  const fleetPrice = tire.cost > 0 ? calculateFleetPrice(tire.cost, tire.brand_code) : 0;
 
   return (
     <div style={{
-      border: hasStoreStock ? `2px solid ${ENTERPRISE_GREEN}` : (isPriority ? `2px solid ${ENTERPRISE_GREEN}` : '1px solid #e0e0e0'),
+      border: hasStoreStock ? `2px solid ${FLEET_BLUE}` : (isPriority ? `2px solid ${FLEET_BLUE}` : '1px solid #e0e0e0'),
       borderRadius: '10px',
       padding: '15px',
-      backgroundColor: hasStoreStock ? '#f0fff4' : (isPriority ? '#f0fff4' : 'white'),
+      backgroundColor: hasStoreStock ? '#f0f4ff' : (isPriority ? '#f8faff' : 'white'),
       position: 'relative',
     }}>
       {/* Badges */}
       <div style={{ position: 'absolute', top: '-8px', left: '15px', display: 'flex', gap: '5px' }}>
         {hasStoreStock && (
           <span style={{
-            backgroundColor: ENTERPRISE_GREEN,
+            backgroundColor: FLEET_BLUE,
             color: 'white',
             padding: '2px 10px',
             borderRadius: '10px',
@@ -343,9 +338,9 @@ const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
             🏪 IN STORE
           </span>
         )}
-        {isPriority && (
+        {isNexen && (
           <span style={{
-            backgroundColor: tire.brand_code === 'NEX' ? ENTERPRISE_GREEN : '#e67e22',
+            backgroundColor: '#27ae60',
             color: 'white',
             padding: '2px 10px',
             borderRadius: '10px',
@@ -353,7 +348,20 @@ const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
             fontWeight: '700',
             letterSpacing: '1px',
           }}>
-            {tire.brand_code === 'NEX' ? '⭐ NEXEN' : '💰 ADVANTA'}
+            ⭐ NEXEN
+          </span>
+        )}
+        {tire.brand_code === 'ADV' && (
+          <span style={{
+            backgroundColor: '#e67e22',
+            color: 'white',
+            padding: '2px 10px',
+            borderRadius: '10px',
+            fontSize: '10px',
+            fontWeight: '700',
+            letterSpacing: '1px',
+          }}>
+            💰 ADVANTA
           </span>
         )}
       </div>
@@ -388,19 +396,19 @@ const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
           <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
             {tire.snowflake && <Badge label="❄️ 3PMSF" color="#3498db" />}
             {tire.run_flat && <Badge label="🛞 Run Flat" color="#e74c3c" />}
-            {tire.ev_compatible && <Badge label="⚡ EV" color={ENTERPRISE_GREEN} />}
+            {tire.ev_compatible && <Badge label="⚡ EV" color={FLEET_BLUE} />}
           </div>
         </div>
 
         {/* Right: Pricing & Inventory */}
         <div style={{ textAlign: 'right', minWidth: '150px' }}>
-          {enterprisePrice > 0 ? (
+          {fleetPrice > 0 ? (
             <>
               <div style={{ fontSize: '10px', color: '#666', fontWeight: '600', marginBottom: '2px' }}>
-                ENTERPRISE PRICE
+                FLEET PRICE
               </div>
-              <div style={{ fontSize: '22px', fontWeight: '700', color: ENTERPRISE_GREEN }}>
-                ${enterprisePrice.toFixed(2)}
+              <div style={{ fontSize: '22px', fontWeight: '700', color: FLEET_BLUE }}>
+                ${fleetPrice.toFixed(2)}
               </div>
             </>
           ) : (
@@ -418,7 +426,7 @@ const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
           <div style={{ marginTop: '10px', fontSize: '11px' }}>
             {hasStoreStock && (
               <div style={{
-                color: ENTERPRISE_GREEN,
+                color: FLEET_BLUE,
                 fontWeight: '700',
                 marginBottom: '4px',
               }}>
@@ -426,7 +434,7 @@ const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
               </div>
             )}
             <div style={{
-              color: primaryQty > 0 ? ENTERPRISE_GREEN : '#e74c3c',
+              color: primaryQty > 0 ? '#27ae60' : '#e74c3c',
               fontWeight: '600',
             }}>
               {primaryWarehouse === 'fresno' ? 'Fresno' : 'Santa Clarita'}: {parseInt(primaryQty) || 0}
@@ -438,12 +446,12 @@ const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
           </div>
 
           {/* QUOTE Button */}
-          {enterprisePrice > 0 && onQuote && (
+          {fleetPrice > 0 && onQuote && (
             <button
-              onClick={() => onQuote({ ...tire, consumer_price: enterprisePrice, enterprise_price: enterprisePrice })}
+              onClick={() => onQuote({ ...tire, consumer_price: fleetPrice, fleet_price: fleetPrice })}
               style={{
                 marginTop: '12px',
-                backgroundColor: ENTERPRISE_GREEN,
+                backgroundColor: FLEET_BLUE,
                 color: 'white',
                 border: 'none',
                 padding: '8px 20px',
@@ -454,8 +462,8 @@ const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
               }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = ENTERPRISE_DARK}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = ENTERPRISE_GREEN}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = FLEET_DARK_BLUE}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = FLEET_BLUE}
             >
               📋 QUOTE
             </button>
@@ -485,7 +493,7 @@ const Badge = ({ label, color }) => (
   </span>
 );
 
-export default function EnterpriseTireFinder() {
+export default function FleetTireFinder() {
   // Store & Qty selection - load from localStorage if available
   const [selectedStore, setSelectedStore] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -542,7 +550,7 @@ export default function EnterpriseTireFinder() {
   const handleQuote = (tire) => {
     sessionStorage.setItem('jl_quote_tire', JSON.stringify(tire));
     sessionStorage.setItem('jl_quote_qty', qtyNeeded.toString());
-    sessionStorage.setItem('jl_quote_customer_type', 'enterprise');
+    sessionStorage.setItem('jl_quote_customer_type', 'fleet');
     
     if (selectedYear && selectedMake && selectedModel) {
       const vehicleData = {
@@ -784,23 +792,16 @@ export default function EnterpriseTireFinder() {
     partNumber.trim();
 
   return (
-    <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      {/* Header - Enterprise Style */}
-      <header style={{ backgroundColor: ENTERPRISE_BLACK, borderBottom: `3px solid ${ENTERPRISE_GREEN}`, padding: '15px 0' }}>
+    <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", minHeight: '100vh', backgroundColor: '#f5f7fa' }}>
+      {/* Header - Fleet Style */}
+      <header style={{ backgroundColor: FLEET_DARK_BLUE, borderBottom: `3px solid ${FLEET_BLUE}`, padding: '15px 0' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            {/* Enterprise Logo */}
+            {/* Fleet Care Logo */}
             <img 
-              src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/logo-enterprise.png"
-              alt="Enterprise"
-              style={{ height: '40px' }}
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
-            <div style={{ height: '30px', width: '1px', backgroundColor: '#444' }}></div>
-            <img 
-              src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzwhite.png"
-              alt="Jiffy Lube Multicare"
-              style={{ height: '35px' }}
+              src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_FleetCare_Horizontal.png"
+              alt="Jiffy Lube Fleet Care"
+              style={{ height: '45px' }}
               onError={(e) => { e.target.style.display = 'none'; }}
             />
           </div>
@@ -812,7 +813,7 @@ export default function EnterpriseTireFinder() {
               onChange={(e) => setSelectedStore(e.target.value)}
               style={{
                 padding: '8px 30px 8px 12px',
-                border: `2px solid ${ENTERPRISE_GREEN}`,
+                border: `2px solid ${FLEET_BLUE}`,
                 borderRadius: '20px',
                 backgroundColor: 'white',
                 color: '#333',
@@ -821,7 +822,7 @@ export default function EnterpriseTireFinder() {
                 cursor: 'pointer',
                 outline: 'none',
                 appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23009750' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%232748f9' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
                 backgroundRepeat: 'no-repeat',
                 backgroundPosition: 'right 10px center',
               }}
@@ -834,8 +835,8 @@ export default function EnterpriseTireFinder() {
         </div>
       </header>
 
-      {/* Green Nav Bar */}
-      <nav style={{ backgroundColor: ENTERPRISE_GREEN, padding: '12px 0' }}>
+      {/* Blue Nav Bar */}
+      <nav style={{ backgroundColor: FLEET_BLUE, padding: '12px 0' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
           {NAV_ITEMS.map((item) => (
             <a
@@ -857,25 +858,9 @@ export default function EnterpriseTireFinder() {
         </div>
       </nav>
 
-      {/* Proprietary Pricing Disclaimer */}
-      <div style={{ 
-        backgroundColor: '#fff3cd', 
-        borderBottom: '2px solid #ffc107',
-        padding: '12px 20px'
-      }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-            <span style={{ fontSize: '18px' }}>⚠️</span>
-            <div style={{ fontSize: '12px', color: '#856404', lineHeight: '1.5' }}>
-              <strong>PROPRIETARY PRICING NOTICE:</strong> This pricing is proprietary to <strong>Enterprise Rent-A-Car</strong> based on pre-negotiated prices with the tire manufacturer and distributor exclusive of Jiffy Lube programs. Pricing is <strong>NOT</strong> available to consumers or non-Enterprise Rent-A-Car fleet customers.
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Hero Banner with road/sky background */}
       <div style={{
-        background: `linear-gradient(180deg, ${ENTERPRISE_GREEN}40 0%, #d4e8d4 40%, #e8ebe8 60%, #9ca3af 100%)`,
+        background: `linear-gradient(180deg, ${FLEET_BLUE}30 0%, #d4dce8 40%, #e8ebe8 60%, #9ca3af 100%)`,
         padding: '60px 20px',
         position: 'relative',
       }}>
@@ -891,14 +876,14 @@ export default function EnterpriseTireFinder() {
         }}>
           {/* Title */}
           <h1 style={{
-            color: ENTERPRISE_GREEN,
+            color: FLEET_BLUE,
             fontSize: '28px',
             fontWeight: '700',
             textAlign: 'center',
             marginBottom: '5px',
             letterSpacing: '2px',
           }}>
-            ENTERPRISE FLEET TIRE FINDER
+            FLEET TIRE FINDER
           </h1>
           <p style={{
             color: '#666',
@@ -908,7 +893,7 @@ export default function EnterpriseTireFinder() {
             letterSpacing: '4px',
             fontWeight: '600',
           }}>
-            PRE-NEGOTIATED PRICING
+            COMMERCIAL FLEET PRICING
           </p>
 
           {/* Three Column Layout */}
@@ -918,7 +903,7 @@ export default function EnterpriseTireFinder() {
             <div style={{ flex: '1', minWidth: '180px' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
                 <span style={{
-                  color: ENTERPRISE_GREEN,
+                  color: FLEET_BLUE,
                   fontSize: '11px',
                   fontWeight: '700',
                   letterSpacing: '1px',
@@ -929,7 +914,7 @@ export default function EnterpriseTireFinder() {
                 <div style={{
                   flex: 1,
                   height: '1px',
-                  backgroundColor: ENTERPRISE_GREEN,
+                  backgroundColor: FLEET_BLUE,
                   marginLeft: '8px',
                   position: 'relative',
                 }}>
@@ -939,7 +924,7 @@ export default function EnterpriseTireFinder() {
                     top: '-3px',
                     width: '7px',
                     height: '7px',
-                    backgroundColor: ENTERPRISE_GREEN,
+                    backgroundColor: FLEET_BLUE,
                     borderRadius: '50%',
                   }} />
                 </div>
@@ -1015,7 +1000,7 @@ export default function EnterpriseTireFinder() {
                     style={{
                       width: '100%',
                       padding: '10px 15px',
-                      border: `2px solid ${ENTERPRISE_GREEN}`,
+                      border: `2px solid ${FLEET_BLUE}`,
                       borderRadius: '25px',
                       backgroundColor: 'white',
                       color: '#333',
@@ -1025,7 +1010,7 @@ export default function EnterpriseTireFinder() {
                       cursor: 'pointer',
                       outline: 'none',
                       appearance: 'none',
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23009750' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%232748f9' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
                       backgroundRepeat: 'no-repeat',
                       backgroundPosition: 'right 15px center',
                     }}
@@ -1049,7 +1034,7 @@ export default function EnterpriseTireFinder() {
                     style={{
                       width: '100%',
                       padding: '10px 15px',
-                      border: `2px solid ${ENTERPRISE_GREEN}`,
+                      border: `2px solid ${FLEET_BLUE}`,
                       borderRadius: '25px',
                       backgroundColor: 'white',
                       color: '#333',
@@ -1064,7 +1049,7 @@ export default function EnterpriseTireFinder() {
               </div>
 
               {loading && (
-                <p style={{ color: ENTERPRISE_GREEN, marginTop: '10px', fontSize: '13px' }}>Loading...</p>
+                <p style={{ color: FLEET_BLUE, marginTop: '10px', fontSize: '13px' }}>Loading...</p>
               )}
             </div>
 
@@ -1074,7 +1059,7 @@ export default function EnterpriseTireFinder() {
                 <div style={{
                   flex: 1,
                   height: '1px',
-                  backgroundColor: ENTERPRISE_GREEN,
+                  backgroundColor: FLEET_BLUE,
                   marginRight: '8px',
                   position: 'relative',
                 }}>
@@ -1084,12 +1069,12 @@ export default function EnterpriseTireFinder() {
                     top: '-3px',
                     width: '7px',
                     height: '7px',
-                    backgroundColor: ENTERPRISE_GREEN,
+                    backgroundColor: FLEET_BLUE,
                     borderRadius: '50%',
                   }} />
                 </div>
                 <span style={{
-                  color: ENTERPRISE_GREEN,
+                  color: FLEET_BLUE,
                   fontSize: '11px',
                   fontWeight: '700',
                   letterSpacing: '1px',
@@ -1134,7 +1119,7 @@ export default function EnterpriseTireFinder() {
 
               {/* Size Preview */}
               {selectedWidth && selectedAspect && selectedRim && (
-                <p style={{ textAlign: 'center', marginTop: '10px', color: ENTERPRISE_GREEN, fontWeight: '700', fontSize: '14px' }}>
+                <p style={{ textAlign: 'center', marginTop: '10px', color: FLEET_BLUE, fontWeight: '700', fontSize: '14px' }}>
                   {selectedWidth}/{selectedAspect}R{selectedRim}
                 </p>
               )}
@@ -1147,7 +1132,7 @@ export default function EnterpriseTireFinder() {
               onClick={handleSearch}
               disabled={!canSearch}
               style={{
-                backgroundColor: canSearch ? ENTERPRISE_GREEN : '#ccc',
+                backgroundColor: canSearch ? FLEET_BLUE : '#ccc',
                 color: 'white',
                 border: 'none',
                 padding: '14px 50px',
@@ -1157,7 +1142,7 @@ export default function EnterpriseTireFinder() {
                 letterSpacing: '3px',
                 cursor: canSearch ? 'pointer' : 'not-allowed',
                 transition: 'all 0.3s ease',
-                boxShadow: canSearch ? `0 4px 15px rgba(0, 151, 80, 0.3)` : 'none',
+                boxShadow: canSearch ? `0 4px 15px rgba(39, 72, 249, 0.3)` : 'none',
               }}
             >
               SEARCH
@@ -1192,11 +1177,11 @@ export default function EnterpriseTireFinder() {
         </div>
       </div>
 
-      {/* Footer - Enterprise Style */}
-      <footer style={{ backgroundColor: ENTERPRISE_BLACK, color: '#95a5a6', padding: '30px 20px' }}>
+      {/* Footer - Fleet Style */}
+      <footer style={{ backgroundColor: FLEET_GRAY, color: '#95a5a6', padding: '30px 20px' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
           <p style={{ fontSize: '13px', marginBottom: '8px', color: '#ccc' }}>
-            Enterprise Rent-A-Car Fleet Tire Program • Pricing exclusive to Enterprise accounts
+            Jiffy Lube Fleet Tire Program • Commercial Fleet Accounts Only
           </p>
           <p style={{ fontSize: '11px', color: '#7f8c8d' }}>
             Powered by Jiffy Lube Multicare • tires.myjiffylube.ai
