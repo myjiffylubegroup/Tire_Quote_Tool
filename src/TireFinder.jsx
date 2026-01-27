@@ -19,6 +19,8 @@ const STORES = [
 const NAV_ITEMS = [
   { label: 'TIRE FINDER', href: '#/', active: true },
   { label: 'STORE INVENTORY', href: '#/inventory', active: false },
+  { label: 'ENTERPRISE RENT-A-CAR', href: '#/enterprise', active: false },
+  { label: 'FLEET NEGOTIATED', href: '#/fleet', active: false },
 ];
 
 // Quantity options

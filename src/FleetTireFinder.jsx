@@ -23,8 +23,10 @@ const STORES = [
 
 // Navigation items
 const NAV_ITEMS = [
-  { label: 'TIRE FINDER', href: '#/fleet', active: true },
+  { label: 'TIRE FINDER', href: '#/', active: false },
   { label: 'STORE INVENTORY', href: '#/inventory', active: false },
+  { label: 'ENTERPRISE RENT-A-CAR', href: '#/enterprise', active: false },
+  { label: 'FLEET NEGOTIATED', href: '#/fleet', active: true },
 ];
 
 // Quantity options
