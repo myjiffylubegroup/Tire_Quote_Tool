@@ -19,7 +19,7 @@ const getTreadColor = (status) => {
 const getTreadLabel = (status) => {
   switch (status) {
     case 'good': return 'GOOD';
-    case 'attention': return 'NEEDS ATTENTION';
+    case 'attention': return 'MARGINAL';
     case 'replace': return 'REPLACE NOW';
     default: return '';
   }
@@ -27,8 +27,8 @@ const getTreadLabel = (status) => {
 
 const getValueColor = (val) => {
   if (val === null || val === undefined) return '#999';
-  if (val >= 6) return '#27ae60';
-  if (val === 5) return '#f1c40f';
+  if (val >= 7) return '#27ae60';
+  if (val >= 5) return '#f1c40f';
   return '#e74c3c';
 };
 
@@ -157,8 +157,8 @@ const FullTreadDiagram = ({ tread }) => {
 
       {/* Legend */}
       <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '15px', fontSize: '9px', color: '#888' }}>
-        <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#27ae60', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>6+ Good</span>
-        <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#f1c40f', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>5 Attention</span>
+        <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#27ae60', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>7+ Good</span>
+        <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#f1c40f', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>5-6 Marginal</span>
         <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#e74c3c', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>&lt;5 Replace</span>
       </div>
     </div>
