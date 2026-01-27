@@ -363,7 +363,7 @@ const QuoteView = () => {
   const handlePayOnline = () => {
     // PayPal.me link with amount
     const amount = quote?.pricing?.total_amount || 0;
-    const paypalUrl = `https://www.paypal.com/paypalme/porcher/${amount.toFixed(2)}`;
+    const paypalUrl = `https://paypal.me/jiffysean/${amount.toFixed(2)}`;
     window.open(paypalUrl, '_blank');
   };
 
