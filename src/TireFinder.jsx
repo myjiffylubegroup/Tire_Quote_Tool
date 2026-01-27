@@ -518,12 +518,19 @@ export default function TireFinder() {
     
     // Save vehicle data if available from YMM search
     if (selectedYear && selectedMake && selectedModel) {
+      // Get OE tire specs from tireSpecs state (the selected/displayed spec)
+      const selectedSpec = tireSpecs && tireSpecs.length > 0 ? tireSpecs[0] : null;
+      
       const vehicleData = {
         year: parseInt(selectedYear),
         make: selectedMake,
         model: selectedModel,
         submodel: selectedSubmodel || null,
-        display: `${selectedYear} ${selectedMake} ${selectedModel}${selectedSubmodel ? ' ' + selectedSubmodel : ''}`
+        display: `${selectedYear} ${selectedMake} ${selectedModel}${selectedSubmodel ? ' ' + selectedSubmodel : ''}`,
+        // Include OE tire specs from the selected fitment
+        oe_tire_size: selectedSpec?.tire_size || null,
+        oe_load_rating: selectedSpec?.load_index || null,
+        oe_speed_rating: selectedSpec?.speed_index || null,
       };
       sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
     } else {
