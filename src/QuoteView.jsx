@@ -202,7 +202,7 @@ const CarTreadDiagram = ({ treadData }) => {
           <img 
             src={CAR_IMAGE}
             alt="Vehicle"
-            style={{ width: '120px', opacity: 0.7 }}
+            style={{ width: '280px', opacity: 0.7 }}
           />
         </div>
 
