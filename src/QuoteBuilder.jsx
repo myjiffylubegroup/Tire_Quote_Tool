@@ -17,31 +17,53 @@ const STORES = [
 const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
 const QTY_OPTIONS = [1, 2, 4, 5, 6, 8];
 
+// Updated thresholds: 0-4 red, 5-6 yellow, 7+ green
 const getTreadStatus = (depth) => {
   if (depth === null || depth === undefined) return null;
   if (depth >= 7) return { status: 'good', label: 'GOOD', color: '#27ae60' };
-  if (depth >= 5) return { status: 'attention', label: 'MARGINAL', color: '#f1c40f' };
+  if (depth >= 5) return { status: 'consider', label: 'CONSIDER REPLACEMENT', color: '#f1c40f' };
   return { status: 'replace', label: 'REPLACE NOW', color: '#e74c3c' };
 };
 
 const getStoppingDistance = (depth) => {
   if (depth === null || depth === undefined) return null;
   if (depth >= 10) return 220;
-  if (depth >= 6) return 260;
-  if (depth === 5) return 300;
+  if (depth >= 7) return 260;
+  if (depth >= 5) return 300;
   if (depth >= 3) return 350;
   return 400;
 };
 
 const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
+// Updated tread color thresholds
 const getTreadColor = (val) => {
   if (val === '' || val === null || val === undefined) return '#9b59b6';
   const depth = parseInt(val);
   if (isNaN(depth)) return '#9b59b6';
-  if (depth >= 7) return '#27ae60';
-  if (depth >= 5) return '#f1c40f';
-  return '#e74c3c';
+  if (depth >= 7) return '#27ae60';  // Green: 7+
+  if (depth >= 5) return '#f1c40f';  // Yellow: 5-6
+  return '#e74c3c';                   // Red: 0-4
+};
+
+// Phone number formatting helper
+const formatPhoneNumber = (value) => {
+  // Remove all non-digits
+  const digits = value.replace(/\D/g, '');
+  
+  // Limit to 10 digits
+  const limited = digits.slice(0, 10);
+  
+  // Format as (XXX) XXX-XXXX
+  if (limited.length === 0) return '';
+  if (limited.length <= 3) return `(${limited}`;
+  if (limited.length <= 6) return `(${limited.slice(0, 3)}) ${limited.slice(3)}`;
+  return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
+};
+
+// Strip formatting from phone for storage
+const stripPhoneFormatting = (value) => {
+  return value.replace(/\D/g, '');
 };
 
 // Styled Select Dropdown
@@ -105,6 +127,37 @@ const StyledInput = ({ value, onChange, placeholder, type = 'text', style, ...pr
   />
 );
 
+// Phone Input with mask
+const PhoneInput = ({ value, onChange, placeholder, style }) => {
+  const handleChange = (e) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    onChange(formatted);
+  };
+
+  return (
+    <input
+      type="tel"
+      value={value}
+      onChange={handleChange}
+      placeholder={placeholder || "(805) 555-1234"}
+      style={{
+        width: '100%',
+        padding: '10px 15px',
+        border: '2px solid #9b59b6',
+        borderRadius: '25px',
+        backgroundColor: 'white',
+        color: '#333',
+        fontSize: '13px',
+        fontWeight: '600',
+        textAlign: 'center',
+        outline: 'none',
+        boxSizing: 'border-box',
+        ...style
+      }}
+    />
+  );
+};
+
 // Mini tread input for the grid
 const MiniTreadInput = ({ value, onChange }) => {
   const color = getTreadColor(value);
@@ -153,6 +206,26 @@ const TireTreadBlock = ({ label, values, onChange }) => (
   </div>
 );
 
+// Header Component
+const Header = () => (
+  <div style={{ backgroundColor: 'white', padding: '15px 25px', boxShadow: '0 2px 10px rgba(0,0,0,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <a href="#/">
+      <img src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/assets/JL_Multicare_Horz_1C.png" alt="Jiffy Lube" style={{ height: '40px' }} />
+    </a>
+    <nav style={{ display: 'flex', gap: '25px' }}>
+      <a href="#/" style={{ color: '#9b59b6', textDecoration: 'none', fontSize: '12px', fontWeight: '700', letterSpacing: '1px' }}>TIRE FINDER</a>
+      <a href="#/inventory" style={{ color: '#888', textDecoration: 'none', fontSize: '12px', fontWeight: '600', letterSpacing: '1px' }}>STORE INVENTORY</a>
+    </nav>
+  </div>
+);
+
+// Footer Component
+const Footer = () => (
+  <div style={{ textAlign: 'center', padding: '25px 20px', color: '#aaa', fontSize: '11px' }}>
+    © {new Date().getFullYear()} Jiffy Lube. Tire Quote System v2.0
+  </div>
+);
+
 export default function QuoteBuilder() {
   const [tireData, setTireData] = useState(null);
   const [vehicleData, setVehicleData] = useState(null);
@@ -172,10 +245,12 @@ export default function QuoteBuilder() {
   });
 
   // Tread depths: 4 tires × 3 readings each
+  // lf = Left Front (Driver Front), rf = Right Front (Passenger Front)
+  // lr = Left Rear (Driver Rear), rr = Right Rear (Passenger Rear)
   const [treadDepths, setTreadDepths] = useState({
-    fl: { inside: '', middle: '', outside: '' },
-    fr: { inside: '', middle: '', outside: '' },
-    rl: { inside: '', middle: '', outside: '' },
+    lf: { inside: '', middle: '', outside: '' },
+    rf: { inside: '', middle: '', outside: '' },
+    lr: { inside: '', middle: '', outside: '' },
     rr: { inside: '', middle: '', outside: '' },
   });
 
@@ -183,7 +258,6 @@ export default function QuoteBuilder() {
   const [rebateAmount, setRebateAmount] = useState('');
   const [rebateDescription, setRebateDescription] = useState('');
   const [generating, setGenerating] = useState(false);
-  const [generatedQuote, setGeneratedQuote] = useState(null);
   const [error, setError] = useState(null);
 
   const updateTread = (tire, position, value) => {
@@ -240,10 +314,16 @@ export default function QuoteBuilder() {
       const data = await response.json();
       if (data.success && data.found) {
         setCustomerFound(true);
+        // Format the phone number if it comes back unformatted
+        const formattedPhone = data.customer.phone ? formatPhoneNumber(data.customer.phone) : '';
         setCustomerData({
-          first_name: data.customer.first_name || '', last_name: data.customer.last_name || '',
-          full_name: data.customer.full_name || '', phone: data.customer.phone || '',
-          email: data.customer.email || '', vehicle_ymm: data.customer.vehicle_ymm || '', data_source: 'lookup'
+          first_name: data.customer.first_name || '', 
+          last_name: data.customer.last_name || '',
+          full_name: data.customer.full_name || '', 
+          phone: formattedPhone,
+          email: data.customer.email || '', 
+          vehicle_ymm: data.customer.vehicle_ymm || '', 
+          data_source: 'lookup'
         });
         if (data.customer.vehicle_ymm && !vehicleData?.display) {
           setVehicleData({ display: data.customer.vehicle_ymm });
@@ -261,141 +341,102 @@ export default function QuoteBuilder() {
     setGenerating(true);
     setError(null);
     const lowestTread = getLowestTread();
+    
+    // Strip phone formatting for storage
+    const phoneForStorage = stripPhoneFormatting(customerData.phone);
+    
     try {
       const requestBody = {
         key: API_KEY,
         store_id: parseInt(selectedStore),
         employee: { user_id: selectedEmployee.user_id || selectedEmployee.employee_id, user_name: selectedEmployee.user_name || selectedEmployee.display_name },
         customer: {
-          first_name: customerData.first_name, last_name: customerData.last_name,
+          first_name: customerData.first_name, 
+          last_name: customerData.last_name,
           full_name: customerData.full_name || `${customerData.first_name} ${customerData.last_name}`.trim(),
-          phone: customerData.phone, email: customerData.email,
-          license_plate: licensePlate || null, license_state: licensePlate ? licenseState : null, data_source: customerData.data_source
+          phone: phoneForStorage,  // Store unformatted
+          email: customerData.email,
+          license_plate: licensePlate || null, 
+          license_state: licensePlate ? licenseState : null, 
+          data_source: customerData.data_source
         },
         vehicle: vehicleData ? { year: vehicleData.year, make: vehicleData.make, model: vehicleData.model, submodel: vehicleData.submodel, display: vehicleData.display } : null,
         tread_depth: lowestTread !== null ? {
-          front_left: { inside: treadDepths.fl.inside ? parseInt(treadDepths.fl.inside) : null, middle: treadDepths.fl.middle ? parseInt(treadDepths.fl.middle) : null, outside: treadDepths.fl.outside ? parseInt(treadDepths.fl.outside) : null },
-          front_right: { inside: treadDepths.fr.inside ? parseInt(treadDepths.fr.inside) : null, middle: treadDepths.fr.middle ? parseInt(treadDepths.fr.middle) : null, outside: treadDepths.fr.outside ? parseInt(treadDepths.fr.outside) : null },
-          rear_left: { inside: treadDepths.rl.inside ? parseInt(treadDepths.rl.inside) : null, middle: treadDepths.rl.middle ? parseInt(treadDepths.rl.middle) : null, outside: treadDepths.rl.outside ? parseInt(treadDepths.rl.outside) : null },
-          rear_right: { inside: treadDepths.rr.inside ? parseInt(treadDepths.rr.inside) : null, middle: treadDepths.rr.middle ? parseInt(treadDepths.rr.middle) : null, outside: treadDepths.rr.outside ? parseInt(treadDepths.rr.outside) : null },
+          lf: { inside: treadDepths.lf.inside ? parseInt(treadDepths.lf.inside) : null, middle: treadDepths.lf.middle ? parseInt(treadDepths.lf.middle) : null, outside: treadDepths.lf.outside ? parseInt(treadDepths.lf.outside) : null },
+          rf: { inside: treadDepths.rf.inside ? parseInt(treadDepths.rf.inside) : null, middle: treadDepths.rf.middle ? parseInt(treadDepths.rf.middle) : null, outside: treadDepths.rf.outside ? parseInt(treadDepths.rf.outside) : null },
+          lr: { inside: treadDepths.lr.inside ? parseInt(treadDepths.lr.inside) : null, middle: treadDepths.lr.middle ? parseInt(treadDepths.lr.middle) : null, outside: treadDepths.lr.outside ? parseInt(treadDepths.lr.outside) : null },
+          rr: { inside: treadDepths.rr.inside ? parseInt(treadDepths.rr.inside) : null, middle: treadDepths.rr.middle ? parseInt(treadDepths.rr.middle) : null, outside: treadDepths.rr.outside ? parseInt(treadDepths.rr.outside) : null },
           lowest: lowestTread
         } : null,
         tire: {
-          part_number: tireData.part_number, brand: tireData.brand || tireData.brand_code, name: tireData.name || tireData.sales_class,
-          size: tireData.tire_size || tireData.size, type: tireData.tire_type, warranty_miles: tireData.warranty ? parseInt(tireData.warranty) : null,
-          load_rating: tireData.load_rating, speed_rating: tireData.speed_rating, load_range: tireData.load_range,
-          snowflake: tireData.snowflake || false, run_flat: tireData.run_flat || false,
-          price: tireData.consumer_price || tireData.price, cost: tireData.cost || null, fet: tireData.fet ? parseFloat(tireData.fet) : 0
+          part_number: tireData.part_number, 
+          brand: tireData.brand || tireData.brand_code, 
+          name: tireData.name || tireData.sales_class,
+          size: tireData.tire_size || tireData.size, 
+          type: tireData.tire_type, 
+          warranty_miles: tireData.warranty ? parseInt(tireData.warranty) : null,
+          load_rating: tireData.load_rating, 
+          speed_rating: tireData.speed_rating, 
+          load_range: tireData.load_range,
+          snowflake: tireData.snowflake || false, 
+          run_flat: tireData.run_flat || false,
+          price: tireData.consumer_price || tireData.price, 
+          cost: tireData.cost || null, 
+          fet: tireData.fet ? parseFloat(tireData.fet) : 0
         },
-        quantity, rebate_amount: rebateAmount ? parseFloat(rebateAmount) : 0, rebate_description: rebateDescription || null
+        quantity, 
+        rebate_amount: rebateAmount ? parseFloat(rebateAmount) : 0, 
+        rebate_description: rebateDescription || null
       };
-      const response = await fetch(`${API_BASE}/generate-quote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
+      
+      const response = await fetch(`${API_BASE}/generate-quote`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(requestBody) 
+      });
       const data = await response.json();
+      
       if (data.success) {
-        setGeneratedQuote(data.quote);
+        // Clear session storage
         sessionStorage.removeItem('jl_quote_tire');
         sessionStorage.removeItem('jl_quote_vehicle');
         sessionStorage.removeItem('jl_quote_qty');
-      } else { setError(data.error || 'Failed to generate quote'); }
-    } catch (e) { setError('Failed to generate quote'); }
-    finally { setGenerating(false); }
+        
+        // DIRECT REDIRECT to QuoteView - no intermediate page!
+        window.location.hash = `#/quote/${data.quote.short_code}`;
+      } else { 
+        setError(data.error || 'Failed to generate quote'); 
+      }
+    } catch (e) { 
+      setError('Failed to generate quote'); 
+    } finally { 
+      setGenerating(false); 
+    }
   };
-
-  const handleEmailQuote = async () => {
-    if (!generatedQuote) return;
-    const email = customerData.email || prompt('Enter email address:');
-    if (!email) return;
-    try {
-      const response = await fetch(`${API_BASE}/email-quote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: API_KEY, quote_id: generatedQuote.quote_id, email_override: email !== customerData.email ? email : null }) });
-      const data = await response.json();
-      alert(data.success ? `Quote emailed to ${data.emailed_to}` : 'Failed: ' + (data.error || 'Unknown error'));
-    } catch { alert('Failed to send email'); }
-  };
-
-  const handlePrint = () => { if (generatedQuote?.short_code) window.open(`#/quote/${generatedQuote.short_code}`, '_blank'); };
-
-  // Header
-  const Header = () => (
-    <>
-      <header style={{ backgroundColor: 'white', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-        <img src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png" alt="Jiffy Lube Multicare" style={{ height: '50px' }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ color: '#333', fontSize: '13px', fontWeight: '600' }}>STORE:</span>
-          <select value={selectedStore} onChange={(e) => setSelectedStore(e.target.value)} style={{ padding: '8px 30px 8px 15px', border: '2px solid #9b59b6', borderRadius: '20px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}>
-            {STORES.map(store => <option key={store.id} value={store.id}>{store.id} - {store.name}</option>)}
-          </select>
-        </div>
-      </header>
-      <nav style={{ backgroundColor: '#9b59b6', padding: '12px 20px', display: 'flex', justifyContent: 'center', gap: '40px' }}>
-        <a href="#/" style={{ color: 'white', textDecoration: 'none', fontSize: '12px', fontWeight: '700', letterSpacing: '2px' }}>TIRE FINDER</a>
-        <a href="#/inventory" style={{ color: 'white', textDecoration: 'none', fontSize: '12px', fontWeight: '700', letterSpacing: '2px' }}>STORE INVENTORY</a>
-      </nav>
-    </>
-  );
-
-  const Footer = () => (
-    <footer style={{ backgroundColor: '#2c3e50', color: '#95a5a6', padding: '30px 20px', marginTop: '30px' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-        <p style={{ fontSize: '13px', marginBottom: '8px' }}>© 2026 My Jiffy Lube Group. Tire data provided by MOTOR & USAutoForce.</p>
-        <p style={{ fontSize: '11px', color: '#7f8c8d' }}>tires.myjiffylube.ai</p>
-      </div>
-    </footer>
-  );
-
-  // No tire selected
-  if (!tireData) {
-    return (
-      <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)' }}>
-        <Header />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 200px)', padding: '20px' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '50px', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', maxWidth: '400px' }}>
-            <h2 style={{ color: '#9b59b6', marginBottom: '15px' }}>No Tire Selected</h2>
-            <p style={{ color: '#666', marginBottom: '25px' }}>Please select a tire from the Tire Finder to create a quote.</p>
-            <a href="#/" style={{ backgroundColor: '#9b59b6', color: 'white', padding: '12px 30px', borderRadius: '25px', textDecoration: 'none', fontWeight: '600' }}>Go to Tire Finder</a>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  // Quote generated success
-  if (generatedQuote) {
-    return (
-      <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)' }}>
-        <Header />
-        <div style={{ maxWidth: '600px', margin: '30px auto', padding: '0 20px' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '40px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', textAlign: 'center' }}>
-            <div style={{ fontSize: '60px', marginBottom: '15px' }}>✅</div>
-            <h2 style={{ color: '#27ae60', marginBottom: '10px' }}>Quote Created!</h2>
-            <p style={{ color: '#666', marginBottom: '5px' }}>Quote Number: <strong style={{ color: '#9b59b6' }}>{generatedQuote.quote_number}</strong></p>
-            <p style={{ color: '#888', marginBottom: '25px', fontSize: '13px' }}>Expires: {new Date(generatedQuote.expires_at).toLocaleDateString()}</p>
-            <div style={{ backgroundColor: '#f8f9fa', borderRadius: '10px', padding: '20px', marginBottom: '25px', textAlign: 'left' }}>
-              <p style={{ margin: '0 0 10px 0' }}><strong>Customer:</strong> {generatedQuote.customer?.name || 'Not provided'}</p>
-              {generatedQuote.vehicle && <p style={{ margin: '0 0 10px 0' }}><strong>Vehicle:</strong> {generatedQuote.vehicle}</p>}
-              <p style={{ margin: '0 0 10px 0' }}><strong>Tire:</strong> {generatedQuote.tire?.brand} {generatedQuote.tire?.name}</p>
-              <p style={{ margin: '0', fontSize: '20px', fontWeight: '700', color: '#9b59b6' }}><strong>Total:</strong> {formatCurrency(generatedQuote.pricing?.total_before_rebate)}</p>
-            </div>
-            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button onClick={handlePrint} style={{ backgroundColor: '#9b59b6', color: 'white', border: 'none', padding: '14px 30px', borderRadius: '25px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>🖨️ Print Quote</button>
-              <button onClick={handleEmailQuote} style={{ backgroundColor: '#27ae60', color: 'white', border: 'none', padding: '14px 30px', borderRadius: '25px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>📧 Email Quote</button>
-            </div>
-            <div style={{ marginTop: '25px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
-              <a href="#/" style={{ color: '#9b59b6', textDecoration: 'none', fontWeight: '600' }}>← Create Another Quote</a>
-            </div>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
 
   const lowestTread = getLowestTread();
   const treadStatus = getTreadStatus(lowestTread);
   const stoppingDistance = getStoppingDistance(lowestTread);
-  const consumerPrice = tireData.consumer_price || tireData.price || 0;
+  const consumerPrice = tireData?.consumer_price || tireData?.price || 0;
 
-  // Main form
+  // No tire selected state
+  if (!tireData) {
+    return (
+      <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)' }}>
+        <Header />
+        <div style={{ maxWidth: '600px', margin: '0 auto', padding: '60px 20px', textAlign: 'center' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '50px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+            <div style={{ fontSize: '60px', marginBottom: '20px' }}>🛞</div>
+            <h2 style={{ color: '#9b59b6', fontSize: '24px', fontWeight: '700', marginBottom: '15px' }}>No Tire Selected</h2>
+            <p style={{ color: '#888', marginBottom: '25px' }}>Please search for tires first, then click the QUOTE button on a tire to start a quote.</p>
+            <a href="#/" style={{ backgroundColor: '#9b59b6', color: 'white', textDecoration: 'none', padding: '14px 35px', borderRadius: '25px', fontSize: '13px', fontWeight: '700', letterSpacing: '2px', display: 'inline-block' }}>GO TO TIRE FINDER</a>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)' }}>
       <Header />
@@ -406,7 +447,7 @@ export default function QuoteBuilder() {
           <h2 style={{ color: '#9b59b6', fontSize: '28px', fontWeight: '700', textAlign: 'center', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '3px' }}>CREATE QUOTE</h2>
           <p style={{ color: '#888', textAlign: 'center', fontSize: '13px', marginBottom: '30px', letterSpacing: '2px' }}>TIRE QUOTE BUILDER</p>
 
-          {/* Selected Tire */}
+          {/* Selected Tire Banner */}
           <div style={{ backgroundColor: '#9b59b6', borderRadius: '10px', padding: '20px 25px', color: 'white', marginBottom: '30px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
               <div>
@@ -416,16 +457,16 @@ export default function QuoteBuilder() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '28px', fontWeight: '700' }}>{formatCurrency(consumerPrice)}</div>
-                {tireData.fet > 0 && <div style={{ fontSize: '11px', opacity: 0.8 }}>+ {formatCurrency(parseFloat(tireData.fet))} FET</div>}
+                <div style={{ fontSize: '11px', opacity: 0.8 }}>per tire</div>
               </div>
             </div>
           </div>
 
-          {/* Vehicle */}
+          {/* Vehicle Info (if available) */}
           {vehicleData?.display && (
-            <div style={{ backgroundColor: '#f8f4ff', border: '2px solid #9b59b6', borderRadius: '10px', padding: '15px 20px', marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '28px' }}>🚗</span>
-              <span style={{ fontWeight: '600', color: '#333', fontSize: '16px' }}>{vehicleData.display}</span>
+            <div style={{ backgroundColor: '#f8f9fa', borderRadius: '10px', padding: '15px 20px', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '24px' }}>🚗</span>
+              <span style={{ fontSize: '16px', fontWeight: '600', color: '#333' }}>{vehicleData.display}</span>
             </div>
           )}
 
@@ -443,7 +484,12 @@ export default function QuoteBuilder() {
                   </div>
                   <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>QUOTE CREATED BY</span>
                 </div>
-                <SelectDropdown value={selectedEmployee?.employee_id || ''} onChange={(val) => setSelectedEmployee(employees.find(e => e.employee_id === parseInt(val)) || null)} options={employees.map(e => ({ value: e.employee_id, label: e.display_name }))} placeholder={employeesLoading ? "LOADING..." : "SELECT EMPLOYEE"} />
+                <SelectDropdown 
+                  value={selectedEmployee?.employee_id || ''} 
+                  onChange={(val) => setSelectedEmployee(employees.find(e => e.employee_id === parseInt(val)) || null)} 
+                  options={employees.map(e => ({ value: e.employee_id, label: e.display_name }))} 
+                  placeholder={employeesLoading ? "LOADING..." : "SELECT EMPLOYEE"} 
+                />
               </div>
 
               {/* Customer Lookup */}
@@ -455,18 +501,63 @@ export default function QuoteBuilder() {
                   <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>CUSTOMER LOOKUP</span>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                  <StyledInput value={licensePlate} onChange={(v) => setLicensePlate(v.toUpperCase())} placeholder="LICENSE PLATE" style={{ flex: 1 }} onKeyPress={(e) => e.key === 'Enter' && handleCustomerLookup()} />
-                  <SelectDropdown value={licenseState} onChange={setLicenseState} options={US_STATES} placeholder="ST" style={{ width: '80px', minWidth: '80px' }} />
-                  <button onClick={handleCustomerLookup} disabled={!licensePlate.trim() || customerLookupLoading} style={{ backgroundColor: licensePlate.trim() ? '#9b59b6' : '#ccc', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '25px', fontSize: '12px', fontWeight: '700', cursor: licensePlate.trim() ? 'pointer' : 'not-allowed' }}>
+                  <StyledInput 
+                    value={licensePlate} 
+                    onChange={(v) => setLicensePlate(v.toUpperCase())} 
+                    placeholder="LICENSE PLATE" 
+                    style={{ flex: 1 }} 
+                    onKeyPress={(e) => e.key === 'Enter' && handleCustomerLookup()} 
+                  />
+                  <SelectDropdown 
+                    value={licenseState} 
+                    onChange={setLicenseState} 
+                    options={US_STATES} 
+                    placeholder="ST" 
+                    style={{ width: '80px', minWidth: '80px' }} 
+                  />
+                  <button 
+                    onClick={handleCustomerLookup} 
+                    disabled={!licensePlate.trim() || customerLookupLoading} 
+                    style={{ 
+                      backgroundColor: licensePlate.trim() ? '#9b59b6' : '#ccc', 
+                      color: 'white', 
+                      border: 'none', 
+                      padding: '10px 15px', 
+                      borderRadius: '25px', 
+                      fontSize: '12px', 
+                      fontWeight: '700', 
+                      cursor: licensePlate.trim() ? 'pointer' : 'not-allowed' 
+                    }}
+                  >
                     {customerLookupLoading ? '...' : '🔍'}
                   </button>
                 </div>
-                {customerFound && <div style={{ backgroundColor: '#f0fff4', border: '1px solid #27ae60', borderRadius: '8px', padding: '10px', marginBottom: '12px', fontSize: '11px', color: '#27ae60', fontWeight: '600' }}>✓ Customer found!</div>}
+                {customerFound && (
+                  <div style={{ backgroundColor: '#f0fff4', border: '1px solid #27ae60', borderRadius: '8px', padding: '10px', marginBottom: '12px', fontSize: '11px', color: '#27ae60', fontWeight: '600' }}>
+                    ✓ Customer found!
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <StyledInput value={customerData.first_name} onChange={(v) => setCustomerData({...customerData, first_name: v})} placeholder="FIRST NAME" />
-                  <StyledInput value={customerData.last_name} onChange={(v) => setCustomerData({...customerData, last_name: v})} placeholder="LAST NAME" />
-                  <StyledInput value={customerData.phone} onChange={(v) => setCustomerData({...customerData, phone: v})} placeholder="PHONE" />
-                  <StyledInput value={customerData.email} onChange={(v) => setCustomerData({...customerData, email: v})} placeholder="EMAIL" />
+                  <StyledInput 
+                    value={customerData.first_name} 
+                    onChange={(v) => setCustomerData({...customerData, first_name: v})} 
+                    placeholder="FIRST NAME" 
+                  />
+                  <StyledInput 
+                    value={customerData.last_name} 
+                    onChange={(v) => setCustomerData({...customerData, last_name: v})} 
+                    placeholder="LAST NAME" 
+                  />
+                  <PhoneInput 
+                    value={customerData.phone} 
+                    onChange={(v) => setCustomerData({...customerData, phone: v})} 
+                    placeholder="(805) 555-1234" 
+                  />
+                  <StyledInput 
+                    value={customerData.email} 
+                    onChange={(v) => setCustomerData({...customerData, email: v})} 
+                    placeholder="EMAIL" 
+                  />
                 </div>
               </div>
 
@@ -496,6 +587,9 @@ export default function QuoteBuilder() {
             </div>
 
             {/* Right Column - Tread Depth with Car Image */}
+            {/* CAR FACING LEFT, VIEWED FROM ABOVE */}
+            {/* Passenger side (RF, RR) on TOP, Driver side (LF, LR) on BOTTOM */}
+            {/* Front tires on LEFT, Rear tires on RIGHT */}
             <div style={{ flex: '1.2', minWidth: '400px' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
                 <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>CURRENT TREAD DEPTH (32nds)</span>
@@ -504,13 +598,20 @@ export default function QuoteBuilder() {
                 </div>
               </div>
 
-              {/* Car with tread inputs around it */}
+              {/* Car with tread inputs - CORRECTED LAYOUT */}
               <div style={{ backgroundColor: '#f8f9fa', borderRadius: '15px', padding: '20px', position: 'relative' }}>
+                
+                {/* Direction indicator */}
+                <div style={{ textAlign: 'center', marginBottom: '10px', fontSize: '10px', color: '#999', letterSpacing: '1px' }}>
+                  ← FRONT OF VEHICLE
+                </div>
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  {/* Left side - FL and RL */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '60px' }}>
-                    <TireTreadBlock label="FRONT LEFT" values={treadDepths.fl} onChange={(pos, val) => updateTread('fl', pos, val)} />
-                    <TireTreadBlock label="REAR LEFT" values={treadDepths.rl} onChange={(pos, val) => updateTread('rl', pos, val)} />
+                  
+                  {/* LEFT SIDE: Front tires (RF top, LF bottom) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '50px' }}>
+                    <TireTreadBlock label="PASS FRONT" values={treadDepths.rf} onChange={(pos, val) => updateTread('rf', pos, val)} />
+                    <TireTreadBlock label="DRIVER FRONT" values={treadDepths.lf} onChange={(pos, val) => updateTread('lf', pos, val)} />
                   </div>
 
                   {/* Center - Car Image */}
@@ -522,19 +623,40 @@ export default function QuoteBuilder() {
                     />
                   </div>
 
-                  {/* Right side - FR and RR */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '60px' }}>
-                    <TireTreadBlock label="FRONT RIGHT" values={treadDepths.fr} onChange={(pos, val) => updateTread('fr', pos, val)} />
-                    <TireTreadBlock label="REAR RIGHT" values={treadDepths.rr} onChange={(pos, val) => updateTread('rr', pos, val)} />
+                  {/* RIGHT SIDE: Rear tires (RR top, LR bottom) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '50px' }}>
+                    <TireTreadBlock label="PASS REAR" values={treadDepths.rr} onChange={(pos, val) => updateTread('rr', pos, val)} />
+                    <TireTreadBlock label="DRIVER REAR" values={treadDepths.lr} onChange={(pos, val) => updateTread('lr', pos, val)} />
                   </div>
                 </div>
 
                 {/* Status */}
                 {lowestTread !== null && (
-                  <div style={{ marginTop: '20px', padding: '12px 15px', backgroundColor: treadStatus?.color + '15', border: `2px solid ${treadStatus?.color}`, borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ 
+                    marginTop: '20px', 
+                    padding: '12px 15px', 
+                    backgroundColor: treadStatus?.color + '15', 
+                    border: `2px solid ${treadStatus?.color}`, 
+                    borderRadius: '10px', 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    flexWrap: 'wrap', 
+                    gap: '10px' 
+                  }}>
                     <div>
                       <span style={{ fontSize: '22px', fontWeight: '700', color: treadStatus?.color }}>{lowestTread}/32"</span>
-                      <span style={{ marginLeft: '10px', fontSize: '11px', fontWeight: '700', color: treadStatus?.color, backgroundColor: treadStatus?.color + '20', padding: '3px 10px', borderRadius: '12px' }}>{treadStatus?.label}</span>
+                      <span style={{ 
+                        marginLeft: '10px', 
+                        fontSize: '11px', 
+                        fontWeight: '700', 
+                        color: treadStatus?.color, 
+                        backgroundColor: treadStatus?.color + '20', 
+                        padding: '3px 10px', 
+                        borderRadius: '12px' 
+                      }}>
+                        {treadStatus?.label}
+                      </span>
                     </div>
                     <div style={{ textAlign: 'right', fontSize: '10px', color: '#666' }}>
                       <div>Your stopping: <strong>~{stoppingDistance}ft</strong></div>
@@ -543,25 +665,66 @@ export default function QuoteBuilder() {
                   </div>
                 )}
 
-                {/* Legend */}
+                {/* Legend - Updated thresholds */}
                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '15px', fontSize: '9px', color: '#888' }}>
-                  <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#27ae60', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>7+ Good</span>
-                  <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#f1c40f', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>5-6 Marginal</span>
-                  <span><span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#e74c3c', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>&lt;5 Replace</span>
+                  <span>
+                    <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#27ae60', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>
+                    7+ Good
+                  </span>
+                  <span>
+                    <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#f1c40f', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>
+                    5-6 Consider
+                  </span>
+                  <span>
+                    <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: '#e74c3c', borderRadius: '2px', marginRight: '4px', verticalAlign: 'middle' }}></span>
+                    0-4 Replace
+                  </span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Error */}
-          {error && <div style={{ backgroundColor: '#fee', border: '1px solid #e74c3c', borderRadius: '10px', padding: '15px', marginTop: '25px', color: '#c0392b', fontSize: '13px', textAlign: 'center' }}>{error}</div>}
+          {error && (
+            <div style={{ 
+              backgroundColor: '#fee', 
+              border: '1px solid #e74c3c', 
+              borderRadius: '10px', 
+              padding: '15px', 
+              marginTop: '25px', 
+              color: '#c0392b', 
+              fontSize: '13px', 
+              textAlign: 'center' 
+            }}>
+              {error}
+            </div>
+          )}
 
           {/* Generate Button */}
           <div style={{ textAlign: 'center', marginTop: '30px' }}>
-            <button onClick={handleGenerateQuote} disabled={generating || !selectedEmployee} style={{ backgroundColor: generating || !selectedEmployee ? '#ccc' : '#9b59b6', color: 'white', border: 'none', padding: '16px 60px', borderRadius: '30px', fontSize: '14px', fontWeight: '700', letterSpacing: '3px', cursor: generating || !selectedEmployee ? 'not-allowed' : 'pointer', boxShadow: generating || !selectedEmployee ? 'none' : '0 4px 15px rgba(155, 89, 182, 0.3)' }}>
+            <button 
+              onClick={handleGenerateQuote} 
+              disabled={generating || !selectedEmployee} 
+              style={{ 
+                backgroundColor: generating || !selectedEmployee ? '#ccc' : '#9b59b6', 
+                color: 'white', 
+                border: 'none', 
+                padding: '16px 60px', 
+                borderRadius: '30px', 
+                fontSize: '14px', 
+                fontWeight: '700', 
+                letterSpacing: '3px', 
+                cursor: generating || !selectedEmployee ? 'not-allowed' : 'pointer', 
+                boxShadow: generating || !selectedEmployee ? 'none' : '0 4px 15px rgba(155, 89, 182, 0.3)' 
+              }}
+            >
               {generating ? 'GENERATING...' : 'GENERATE QUOTE'}
             </button>
-            {!selectedEmployee && <p style={{ color: '#e74c3c', fontSize: '12px', marginTop: '10px' }}>Please select an employee to continue</p>}
+            {!selectedEmployee && (
+              <p style={{ color: '#e74c3c', fontSize: '12px', marginTop: '10px' }}>
+                Please select an employee to continue
+              </p>
+            )}
           </div>
         </div>
       </div>
