@@ -1198,5 +1198,3 @@ const QuoteView = () => {
 };
 
 export default QuoteView;
-
-export default QuoteView;
