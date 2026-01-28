@@ -539,7 +539,7 @@ const QuoteView = () => {
                 fontWeight: '600',
                 cursor: 'pointer',
                 marginTop: '12px',
-                display: 'block'
+                marginLeft: 'auto'
               }}
             >
               🖨️ Print Quote
@@ -859,17 +859,21 @@ const QuoteView = () => {
                 style={{
                   backgroundColor: '#8b1538',
                   color: 'white',
-                  padding: '14px 24px',
+                  padding: '10px 16px',
                   borderRadius: '8px',
                   textDecoration: 'none',
-                  fontWeight: '700',
-                  fontSize: '14px',
-                  display: 'inline-flex',
+                  fontWeight: '600',
+                  fontSize: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '8px'
+                  gap: '2px',
+                  minWidth: '80px',
+                  textAlign: 'center'
                 }}
               >
-                📅 Schedule Installation
+                <span style={{ fontSize: '18px' }}>📅</span>
+                <span>Schedule</span>
               </a>
             )}
             {store?.phone && (
@@ -878,18 +882,22 @@ const QuoteView = () => {
                 style={{
                   backgroundColor: '#f1f5f9',
                   color: '#334155',
-                  padding: '14px 24px',
+                  padding: '10px 16px',
                   borderRadius: '8px',
                   textDecoration: 'none',
-                  fontWeight: '700',
-                  fontSize: '14px',
-                  display: 'inline-flex',
+                  fontWeight: '600',
+                  fontSize: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '8px',
-                  border: '2px solid #e2e8f0'
+                  gap: '2px',
+                  border: '2px solid #e2e8f0',
+                  minWidth: '80px',
+                  textAlign: 'center'
                 }}
               >
-                📞 Call Store
+                <span style={{ fontSize: '18px' }}>📞</span>
+                <span>Call</span>
               </a>
             )}
             <button
@@ -898,19 +906,23 @@ const QuoteView = () => {
               style={{
                 backgroundColor: '#3b82f6',
                 color: 'white',
-                padding: '14px 24px',
+                padding: '10px 16px',
                 borderRadius: '8px',
                 border: 'none',
-                fontWeight: '700',
-                fontSize: '14px',
+                fontWeight: '600',
+                fontSize: '12px',
                 cursor: sendingEmail ? 'not-allowed' : 'pointer',
                 opacity: sendingEmail ? 0.7 : 1,
-                display: 'inline-flex',
+                display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '2px',
+                minWidth: '80px',
+                textAlign: 'center'
               }}
             >
-              {sendingEmail ? '...' : '✉️ Email Quote'}
+              <span style={{ fontSize: '18px' }}>✉️</span>
+              <span>{sendingEmail ? '...' : 'Email'}</span>
             </button>
             <button
               onClick={handleTextQuote}
@@ -918,19 +930,23 @@ const QuoteView = () => {
               style={{
                 backgroundColor: '#10b981',
                 color: 'white',
-                padding: '14px 24px',
+                padding: '10px 16px',
                 borderRadius: '8px',
                 border: 'none',
-                fontWeight: '700',
-                fontSize: '14px',
+                fontWeight: '600',
+                fontSize: '12px',
                 cursor: sendingSms ? 'not-allowed' : 'pointer',
                 opacity: sendingSms ? 0.7 : 1,
-                display: 'inline-flex',
+                display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '2px',
+                minWidth: '80px',
+                textAlign: 'center'
               }}
             >
-              {sendingSms ? '...' : '💬 Text Quote'}
+              <span style={{ fontSize: '18px' }}>💬</span>
+              <span>{sendingSms ? '...' : 'Text'}</span>
             </button>
             <button
               onClick={handlePayOnline}
@@ -938,19 +954,23 @@ const QuoteView = () => {
               style={{
                 backgroundColor: '#0070ba',
                 color: 'white',
-                padding: '14px 24px',
+                padding: '10px 16px',
                 borderRadius: '8px',
                 border: 'none',
-                fontWeight: '700',
-                fontSize: '14px',
+                fontWeight: '600',
+                fontSize: '12px',
                 cursor: sendingInvoice ? 'not-allowed' : 'pointer',
                 opacity: sendingInvoice ? 0.7 : 1,
-                display: 'inline-flex',
+                display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '2px',
+                minWidth: '80px',
+                textAlign: 'center'
               }}
             >
-              {sendingInvoice ? 'Creating Invoice...' : '💳 Pay Now'}
+              <span style={{ fontSize: '18px' }}>💳</span>
+              <span>{sendingInvoice ? '...' : 'Pay'}</span>
             </button>
           </div>
 
