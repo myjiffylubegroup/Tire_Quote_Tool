@@ -806,7 +806,9 @@ const QuoteView = () => {
 
           {/* Action Message */}
           {actionMessage && (
-            <div style={{
+            <div 
+              data-print-hide="true"
+              style={{
               padding: '12px 20px',
               borderRadius: '8px',
               marginBottom: '20px',
@@ -820,8 +822,10 @@ const QuoteView = () => {
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div style={{ 
+          {/* Action Buttons - Hidden on Print */}
+          <div 
+            data-print-hide="true"
+            style={{ 
             display: 'flex', 
             gap: '12px', 
             justifyContent: 'center',
@@ -986,10 +990,34 @@ const QuoteView = () => {
       {/* Print Styles */}
       <style>{`
         @media print {
-          body { background: white !important; }
-          div { box-shadow: none !important; }
-          a[href]:after { content: none !important; }
+          @page {
+            size: letter;
+            margin: 0.4in;
+          }
+          
+          body { 
+            background: white !important; 
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          /* Hide elements marked for print hiding */
+          [data-print-hide="true"] { 
+            display: none !important; 
+          }
+          
+          /* Hide all buttons */
           button { display: none !important; }
+          
+          /* Remove shadows */
+          div { box-shadow: none !important; }
+          
+          /* Compact spacing */
+          h4 { margin-bottom: 8px !important; }
+          table td { padding: 6px 0 !important; }
+          
+          /* Remove link URL printing */
+          a[href]:after { content: none !important; }
         }
       `}</style>
     </div>
