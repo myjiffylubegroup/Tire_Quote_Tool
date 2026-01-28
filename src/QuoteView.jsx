@@ -525,6 +525,25 @@ const QuoteView = () => {
                 EXPIRED
               </div>
             )}
+            {/* Print Button - hidden on print */}
+            <button
+              data-print-hide="true"
+              onClick={() => window.print()}
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                border: '1px solid rgba(255,255,255,0.4)',
+                padding: '6px 14px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                marginTop: '12px',
+                display: 'block'
+              }}
+            >
+              🖨️ Print Quote
+            </button>
           </div>
         </div>
 
@@ -850,7 +869,7 @@ const QuoteView = () => {
                   gap: '8px'
                 }}
               >
-                📅 SCHEDULE
+                📅 Schedule Installation
               </a>
             )}
             {store?.phone && (
@@ -870,7 +889,7 @@ const QuoteView = () => {
                   border: '2px solid #e2e8f0'
                 }}
               >
-                📞 CALL
+                📞 Call Store
               </a>
             )}
             <button
@@ -891,7 +910,7 @@ const QuoteView = () => {
                 gap: '8px'
               }}
             >
-              {sendingEmail ? '...' : '✉️ EMAIL'}
+              {sendingEmail ? '...' : '✉️ Email Quote'}
             </button>
             <button
               onClick={handleTextQuote}
@@ -911,7 +930,7 @@ const QuoteView = () => {
                 gap: '8px'
               }}
             >
-              {sendingSms ? '...' : '💬 TEXT'}
+              {sendingSms ? '...' : '💬 Text Quote'}
             </button>
             <button
               onClick={handlePayOnline}
@@ -931,7 +950,7 @@ const QuoteView = () => {
                 gap: '8px'
               }}
             >
-              {sendingInvoice ? 'Creating Invoice...' : '💳 PAY WITH PAYPAL'}
+              {sendingInvoice ? 'Creating Invoice...' : '💳 Pay Now'}
             </button>
           </div>
 
