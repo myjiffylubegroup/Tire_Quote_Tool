@@ -27,7 +27,7 @@ const PROMOS = [
   { id: 'SENIOR_12', name: 'Senior 55+ (12%)' },
 ];
 
-// Rebate options - empty for now, ready for future manufacturer rebates
+// Rebate options - empty for now
 const REBATES = [];
 
 // Updated thresholds: 0-4 red, 5-6 yellow, 7+ green
@@ -194,92 +194,24 @@ const TireTreadBlock = ({ label, values, onChange }) => (
   </div>
 );
 
-// Navigation items
-const NAV_ITEMS = [
-  { label: 'TIRE FINDER', href: '#/', active: false },
-  { label: 'STORE INVENTORY', href: '#/inventory', active: false },
-  { label: 'ENTERPRISE RENT-A-CAR', href: '#/enterprise', active: false },
-  { label: 'FLEET NEGOTIATED', href: '#/fleet', active: false },
-];
-
-// Header Component - matches TireFinder
-const Header = ({ selectedStore, onStoreChange }) => (
-  <>
-    <header style={{ backgroundColor: 'white', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-        <a href="#/">
-          <img 
-            src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/assets/JL_Multicare_Horz_1C.png"
-            alt="Jiffy Lube Multicare"
-            style={{ height: '45px' }}
-          />
-        </a>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '12px', color: '#888', fontWeight: '600' }}>STORE:</span>
-          <select
-            value={selectedStore}
-            onChange={(e) => onStoreChange(e.target.value)}
-            style={{
-              padding: '8px 30px 8px 15px',
-              border: '2px solid #9b59b6',
-              borderRadius: '20px',
-              backgroundColor: 'white',
-              color: '#333',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              outline: 'none',
-              appearance: 'none',
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 10px center',
-            }}
-          >
-            {STORES.map(store => (
-              <option key={store.id} value={store.id}>{store.id} - {store.name}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-    </header>
-
-    {/* Purple Nav Bar */}
-    <nav style={{ backgroundColor: '#9b59b6', padding: '12px 0' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
-        {NAV_ITEMS.map((item) => (
-          <a
-            key={item.label}
-            href={item.href}
-            style={{
-              color: 'white',
-              textDecoration: 'none',
-              fontSize: '12px',
-              fontWeight: '600',
-              letterSpacing: '1px',
-              padding: '5px 10px',
-              borderBottom: item.active ? '2px solid white' : '2px solid transparent',
-            }}
-          >
-            {item.label}
-          </a>
-        ))}
-      </div>
+// Header Component
+const Header = () => (
+  <div style={{ backgroundColor: 'white', padding: '15px 25px', boxShadow: '0 2px 10px rgba(0,0,0,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <a href="#/">
+      <img src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/assets/JL_Multicare_Horz_1C.png" alt="Jiffy Lube" style={{ height: '40px' }} />
+    </a>
+    <nav style={{ display: 'flex', gap: '25px' }}>
+      <a href="#/" style={{ color: '#9b59b6', textDecoration: 'none', fontSize: '12px', fontWeight: '700', letterSpacing: '1px' }}>TIRE FINDER</a>
+      <a href="#/inventory" style={{ color: '#888', textDecoration: 'none', fontSize: '12px', fontWeight: '600', letterSpacing: '1px' }}>STORE INVENTORY</a>
     </nav>
-  </>
+  </div>
 );
 
-// Footer Component - matches TireFinder
+// Footer Component
 const Footer = () => (
-  <footer style={{ backgroundColor: '#2c3e50', color: '#95a5a6', padding: '30px 20px' }}>
-    <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-      <p style={{ fontSize: '13px', marginBottom: '8px' }}>
-        © 2026 My Jiffy Lube Group. Tire data provided by MOTOR & USAutoForce.
-      </p>
-      <p style={{ fontSize: '11px', color: '#7f8c8d' }}>
-        tires.myjiffylube.ai
-      </p>
-    </div>
-  </footer>
+  <div style={{ textAlign: 'center', padding: '25px 20px', color: '#aaa', fontSize: '11px' }}>
+    © {new Date().getFullYear()} Jiffy Lube. Tire Quote System v2.0
+  </div>
 );
 
 export default function QuoteBuilder() {
@@ -309,11 +241,10 @@ export default function QuoteBuilder() {
   });
 
   const [quantity, setQuantity] = useState(4);
-  
-  // Promo and Rebate selection
   const [selectedPromo, setSelectedPromo] = useState('');
   const [selectedRebate, setSelectedRebate] = useState('');
-  
+  const [rebateAmount, setRebateAmount] = useState('');
+  const [rebateDescription, setRebateDescription] = useState('');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
 
@@ -332,12 +263,10 @@ export default function QuoteBuilder() {
     return allValues.length > 0 ? Math.min(...allValues) : null;
   };
 
-  // Load tire/vehicle/qty from sessionStorage on mount
   useEffect(() => {
     const savedTire = sessionStorage.getItem('jl_quote_tire');
     const savedVehicle = sessionStorage.getItem('jl_quote_vehicle');
     const savedQty = sessionStorage.getItem('jl_quote_qty');
-    
     if (savedTire) setTireData(JSON.parse(savedTire));
     if (savedVehicle) setVehicleData(JSON.parse(savedVehicle));
     if (savedQty) setQuantity(parseInt(savedQty));
@@ -450,13 +379,9 @@ export default function QuoteBuilder() {
           fet: tireData.fet ? parseFloat(tireData.fet) : 0
         },
         quantity, 
-        
-        // Promo selection from dropdown
         promo_id: selectedPromo || null,
-        
-        // Rebate - will be used when rebates are added
-        rebate_amount: selectedRebate ? (REBATES.find(r => r.id === selectedRebate)?.amount || 0) : 0, 
-        rebate_description: selectedRebate ? (REBATES.find(r => r.id === selectedRebate)?.description || null) : null
+        rebate_amount: rebateAmount ? parseFloat(rebateAmount) : 0, 
+        rebate_description: rebateDescription || null
       };
       
       const response = await fetch(`${API_BASE}/generate-quote`, { 
@@ -467,7 +392,6 @@ export default function QuoteBuilder() {
       const data = await response.json();
       
       if (data.success) {
-        // Clear sessionStorage
         sessionStorage.removeItem('jl_quote_tire');
         sessionStorage.removeItem('jl_quote_vehicle');
         sessionStorage.removeItem('jl_quote_qty');
@@ -489,7 +413,7 @@ export default function QuoteBuilder() {
   if (!tireData) {
     return (
       <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)' }}>
-        <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
+        <Header />
         <div style={{ maxWidth: '600px', margin: '0 auto', padding: '60px 20px', textAlign: 'center' }}>
           <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '50px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
             <div style={{ fontSize: '60px', marginBottom: '20px' }}>🛞</div>
@@ -505,7 +429,7 @@ export default function QuoteBuilder() {
 
   return (
     <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', background: 'linear-gradient(180deg, #e8f4f8 0%, #d0e8f0 100%)' }}>
-      <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
+      <Header />
 
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '30px 20px' }}>
         <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '40px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
@@ -514,7 +438,7 @@ export default function QuoteBuilder() {
           <p style={{ color: '#888', textAlign: 'center', fontSize: '13px', marginBottom: '30px', letterSpacing: '2px' }}>TIRE QUOTE BUILDER</p>
 
           {/* Selected Tire Banner */}
-          <div style={{ backgroundColor: '#9b59b6', borderRadius: '10px', padding: '20px 25px', color: 'white', marginBottom: promoData ? '15px' : '30px' }}>
+          <div style={{ backgroundColor: '#9b59b6', borderRadius: '10px', padding: '20px 25px', color: 'white', marginBottom: '30px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
               <div>
                 <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: '700' }}>{tireData.brand_code || tireData.brand} {tireData.tire_size || tireData.size} {tireData.name || tireData.sales_class}</h3>
@@ -630,7 +554,7 @@ export default function QuoteBuilder() {
                     <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>QTY</label>
                     <SelectDropdown value={quantity} onChange={(v) => setQuantity(parseInt(v))} options={QTY_OPTIONS} placeholder="4" />
                   </div>
-                  <div style={{ flex: 1, minWidth: '140px' }}>
+                  <div style={{ flex: 1, minWidth: '120px' }}>
                     <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>PROMOTION</label>
                     <SelectDropdown 
                       value={selectedPromo} 
@@ -639,13 +563,13 @@ export default function QuoteBuilder() {
                       placeholder="NONE" 
                     />
                   </div>
-                  <div style={{ flex: 1, minWidth: '140px' }}>
+                  <div style={{ flex: 1, minWidth: '120px' }}>
                     <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>REBATE</label>
                     <SelectDropdown 
                       value={selectedRebate} 
                       onChange={setSelectedRebate} 
                       options={REBATES.map(r => ({ value: r.id, label: r.name }))} 
-                      placeholder={REBATES.length === 0 ? "NO REBATES AVAILABLE" : "NONE"}
+                      placeholder="NONE"
                       disabled={REBATES.length === 0}
                     />
                   </div>
