@@ -1060,13 +1060,17 @@ const QuoteView = () => {
         @media print {
           @page {
             size: letter landscape;
-            margin: 0.3in;
+            margin: 0.25in;
+          }
+          
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           
           body { 
-            background: white !important; 
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            background: white !important;
+            font-size: 10px !important;
           }
           
           /* Hide elements marked for print hiding */
@@ -1077,16 +1081,17 @@ const QuoteView = () => {
           /* Hide all buttons */
           button { display: none !important; }
           
-          /* Remove shadows and rounded corners for print */
+          /* Remove shadows */
           div { box-shadow: none !important; }
           
           /* Remove link URL printing */
           a[href]:after { content: none !important; }
           
-          /* Main container - full width in landscape */
+          /* Main container - full width */
           .quote-outer-container {
             padding: 0 !important;
             background: white !important;
+            min-height: auto !important;
           }
           
           .quote-main-container {
@@ -1095,221 +1100,99 @@ const QuoteView = () => {
             border-radius: 0 !important;
           }
           
-          /* Header section - compact */
+          /* Header - very compact */
           .quote-header {
-            padding: 12px 15px !important;
+            padding: 8px 12px !important;
           }
           
           .quote-header img {
-            height: 35px !important;
+            height: 30px !important;
           }
           
-          .quote-header-store {
-            font-size: 10px !important;
-          }
-          
-          .quote-header-right {
-            font-size: 10px !important;
-          }
-          
-          .quote-header-number {
-            font-size: 14px !important;
-          }
-          
-          /* Content area - 2 columns */
+          /* Content area - 2 columns side by side */
           .quote-content {
-            padding: 10px 15px !important;
+            padding: 8px 12px !important;
             display: flex !important;
             flex-direction: row !important;
-            gap: 20px !important;
+            gap: 15px !important;
+            align-items: flex-start !important;
           }
           
-          /* Left column - customer, vehicle, tread, stopping */
+          /* Left column */
           .print-column-left {
-            flex: 1 !important;
-            display: block !important;
-            min-width: 0 !important;
+            flex: 0 0 45% !important;
+            max-width: 45% !important;
           }
           
-          /* Right column - tire, pricing, warranty */
+          /* Right column */
           .print-column-right {
-            flex: 1 !important;
-            display: block !important;
-            min-width: 0 !important;
+            flex: 0 0 53% !important;
+            max-width: 53% !important;
           }
           
-          /* Customer/Vehicle row - stack vertically in print */
+          /* Customer/Vehicle - compact */
           .customer-vehicle-row {
-            flex-direction: column !important;
-            gap: 8px !important;
-            margin-bottom: 10px !important;
+            display: block !important;
+            margin-bottom: 8px !important;
+            padding-bottom: 8px !important;
           }
           
-          .customer-box, .vehicle-box {
-            padding: 8px !important;
-          }
-          
-          /* Tread diagram - smaller */
-          .tread-section {
-            margin-bottom: 10px !important;
-          }
-          
-          .tread-container {
-            padding: 8px !important;
-          }
-          
-          .tread-title {
+          /* All headings smaller */
+          h4 {
             font-size: 9px !important;
-            margin-bottom: 6px !important;
+            margin-bottom: 5px !important;
           }
           
-          .car-image {
-            height: 70px !important;
-          }
-          
-          .tire-box {
-            padding: 4px !important;
-            min-width: 55px !important;
-          }
-          
-          .tire-box-label {
-            font-size: 7px !important;
-          }
-          
-          .tire-box-value {
-            font-size: 14px !important;
-          }
-          
-          .tire-box-status {
-            font-size: 6px !important;
-          }
-          
-          /* Stopping distance - compact */
-          .stopping-section {
-            padding: 8px !important;
-            margin-bottom: 10px !important;
-          }
-          
-          .stopping-title {
-            font-size: 9px !important;
-            margin-bottom: 6px !important;
-          }
-          
-          .stopping-bar-label {
-            font-size: 9px !important;
-          }
-          
-          .stopping-bar-value {
+          h3 {
             font-size: 12px !important;
           }
           
-          .stopping-insight {
+          /* All paragraph text smaller */
+          p, div, span, td {
             font-size: 9px !important;
-            padding: 6px !important;
-            margin-top: 6px !important;
-          }
-          
-          /* Tire info - compact */
-          .tire-card {
-            padding: 10px !important;
-            margin-bottom: 8px !important;
-          }
-          
-          .tire-name {
-            font-size: 13px !important;
-          }
-          
-          .tire-details {
-            font-size: 9px !important;
-          }
-          
-          .tire-price {
-            font-size: 18px !important;
-          }
-          
-          .tire-badges span {
-            font-size: 8px !important;
-            padding: 2px 6px !important;
-          }
-          
-          /* Warranty banner */
-          .warranty-banner {
-            padding: 6px 10px !important;
-            font-size: 10px !important;
-            margin-bottom: 8px !important;
-          }
-          
-          /* Savings banner */
-          .savings-banner {
-            padding: 10px !important;
-            margin-bottom: 8px !important;
-          }
-          
-          .savings-banner-title {
-            font-size: 11px !important;
-          }
-          
-          .savings-banner-amount {
-            font-size: 18px !important;
           }
           
           /* Pricing table - compact */
-          .pricing-section {
-            margin-bottom: 8px !important;
-          }
-          
-          .pricing-title {
+          table {
             font-size: 9px !important;
-            margin-bottom: 6px !important;
           }
           
-          .pricing-table td {
-            padding: 4px 0 !important;
-            font-size: 10px !important;
+          table td {
+            padding: 3px 0 !important;
           }
           
-          .pricing-total td {
-            font-size: 14px !important;
-            padding-top: 6px !important;
-          }
-          
-          /* Per tire installed */
-          .per-tire-box {
-            padding: 8px !important;
-            margin-bottom: 8px !important;
-          }
-          
-          .per-tire-box span {
-            font-size: 11px !important;
-          }
-          
-          .per-tire-amount {
-            font-size: 16px !important;
-          }
-          
-          /* Warranty disclaimer - very compact */
-          .warranty-disclaimer {
-            padding: 8px !important;
-            font-size: 7px !important;
-            margin-bottom: 6px !important;
-            line-height: 1.3 !important;
-          }
-          
-          /* Price match - very compact */
+          /* Warranty and price match - tiny */
+          .warranty-disclaimer,
           .price-match {
-            padding: 8px !important;
-            font-size: 8px !important;
-            margin-bottom: 6px !important;
+            padding: 5px 8px !important;
+            font-size: 7px !important;
+            line-height: 1.2 !important;
+            margin-bottom: 5px !important;
           }
           
-          /* Footer */
+          /* Footer - compact */
           .quote-footer {
-            padding-top: 8px !important;
-            font-size: 9px !important;
+            padding-top: 5px !important;
+            font-size: 8px !important;
+            border-top: 1px solid #ccc !important;
           }
           
           .quote-footer p {
             margin: 2px 0 !important;
+          }
+          
+          /* Margins reduced throughout */
+          [style*="marginBottom: '30px'"],
+          [style*="marginBottom: '25px'"],
+          [style*="marginBottom: '20px'"] {
+            margin-bottom: 8px !important;
+          }
+          
+          /* Padding reduced */
+          [style*="padding: '30px'"],
+          [style*="padding: '25px'"],
+          [style*="padding: '20px'"] {
+            padding: 8px !important;
           }
         }
       `}</style>
