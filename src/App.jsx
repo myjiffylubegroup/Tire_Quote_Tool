@@ -3,6 +3,7 @@ import TireFinder from './TireFinder';
 import StoreInventory from './StoreInventory';
 import QuoteBuilder from './QuoteBuilder';
 import QuoteView from './QuoteView';
+import QuoteLookup from './QuoteLookup';
 import EnterpriseTireFinder from './EnterpriseTireFinder';
 import FleetTireFinder from './FleetTireFinder';
 
@@ -22,6 +23,7 @@ export default function App() {
   // Route to appropriate component
   // #/ or #/finder -> TireFinder
   // #/inventory -> StoreInventory
+  // #/quotes -> QuoteLookup
   // #/quote/build -> QuoteBuilder
   // #/quote/:code -> QuoteView
   // #/enterprise -> EnterpriseTireFinder
@@ -30,6 +32,10 @@ export default function App() {
   
   if (path === '/inventory') {
     return <StoreInventory />;
+  }
+  
+  if (path === '/quotes') {
+    return <QuoteLookup />;
   }
   
   if (path === '/quote/build') {
