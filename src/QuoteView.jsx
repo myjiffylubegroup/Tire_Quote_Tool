@@ -943,56 +943,70 @@ const QuoteView = () => {
               <span>{sendingEmail ? '...' : '✉️ Email'}</span>
               <span>Quote</span>
             </button>
-            <button
-              onClick={handleTextQuote}
-              disabled={sendingSms}
-              style={{
-                backgroundColor: '#10b981',
-                color: 'white',
-                padding: '12px 18px',
-                borderRadius: '8px',
-                border: 'none',
-                fontWeight: '600',
-                fontSize: '13px',
-                cursor: sendingSms ? 'not-allowed' : 'pointer',
-                opacity: sendingSms ? 0.7 : 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '2px',
-                minWidth: '90px',
-                textAlign: 'center',
-                lineHeight: '1.3'
-              }}
-            >
-              <span>{sendingSms ? '...' : '💬 Text'}</span>
-              <span>Quote</span>
-            </button>
-            <button
-              onClick={handlePayOnline}
-              disabled={sendingInvoice}
-              style={{
-                backgroundColor: '#0070ba',
-                color: 'white',
-                padding: '12px 18px',
-                borderRadius: '8px',
-                border: 'none',
-                fontWeight: '600',
-                fontSize: '13px',
-                cursor: sendingInvoice ? 'not-allowed' : 'pointer',
-                opacity: sendingInvoice ? 0.7 : 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '2px',
-                minWidth: '90px',
-                textAlign: 'center',
-                lineHeight: '1.3'
-              }}
-            >
-              <span>{sendingInvoice ? '...' : '💳 Pay'}</span>
-              <span>Now</span>
-            </button>
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              <span style={{ fontSize: '9px', color: '#94a3b8', fontStyle: 'italic' }}>Coming Soon</span>
+              <button
+                disabled={true}
+                style={{
+                  backgroundColor: '#9ca3af',
+                  color: 'white',
+                  padding: '12px 18px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  cursor: 'not-allowed',
+                  opacity: 0.6,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '2px',
+                  minWidth: '90px',
+                  textAlign: 'center',
+                  lineHeight: '1.3'
+                }}
+              >
+                <span>💬 Text</span>
+                <span>Quote</span>
+              </button>
+            </div>
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              <span style={{ fontSize: '9px', color: '#94a3b8', fontStyle: 'italic' }}>Coming Soon</span>
+              <button
+                disabled={true}
+                style={{
+                  backgroundColor: '#9ca3af',
+                  color: 'white',
+                  padding: '12px 18px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  cursor: 'not-allowed',
+                  opacity: 0.6,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '2px',
+                  minWidth: '90px',
+                  textAlign: 'center',
+                  lineHeight: '1.3'
+                }}
+              >
+                <span>💳 Pay</span>
+                <span>Now</span>
+              </button>
+            </div>
           </div>
 
           {/* Warranty Disclaimer */}
@@ -1015,23 +1029,6 @@ const QuoteView = () => {
               Road hazards, abuse and neglect are not covered.
             </div>
           )}
-
-          {/* Price Match Guarantee */}
-          <div 
-            className="price-match"
-            style={{
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: '8px',
-            padding: '15px',
-            marginBottom: '20px',
-            fontSize: '12px',
-            color: '#64748b',
-            lineHeight: '1.5'
-          }}>
-            <strong>Price Match Guarantee:</strong> We price match other local tire stores. 
-            Bring their out-the-door written estimate and we will match that price for you.
-          </div>
           
           </div>{/* End print-column-right */}
 
@@ -1199,5 +1196,7 @@ const QuoteView = () => {
     </div>
   );
 };
+
+export default QuoteView;
 
 export default QuoteView;
