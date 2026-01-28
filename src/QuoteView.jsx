@@ -467,13 +467,17 @@ const QuoteView = () => {
     !quote.vehicle.display.toLowerCase().includes('unknown');
 
   return (
-    <div style={{ 
+    <div 
+      className="quote-outer-container"
+      style={{ 
       fontFamily: "'Segoe UI', sans-serif", 
       backgroundColor: '#f1f5f9', 
       minHeight: '100vh',
       padding: '20px'
     }}>
-      <div style={{ 
+      <div 
+        className="quote-main-container"
+        style={{ 
         maxWidth: '800px', 
         margin: '0 auto', 
         backgroundColor: 'white', 
@@ -483,7 +487,9 @@ const QuoteView = () => {
       }}>
         
         {/* Header */}
-        <div style={{ 
+        <div 
+          className="quote-header"
+          style={{ 
           backgroundColor: '#8b1538', 
           color: 'white', 
           padding: '25px 30px',
@@ -548,10 +554,15 @@ const QuoteView = () => {
         </div>
 
         {/* Content */}
-        <div style={{ padding: '30px' }}>
+        <div className="quote-content" style={{ padding: '30px' }}>
+          
+          {/* Print Left Column - Customer, Vehicle, Tread, Stopping Distance */}
+          <div className="print-column-left">
           
           {/* Customer & Vehicle Row */}
-          <div style={{ 
+          <div 
+            className="customer-vehicle-row"
+            style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
             gap: '25px',
@@ -617,6 +628,11 @@ const QuoteView = () => {
               <CarTreadDiagram treadData={treadData} />
             </div>
           )}
+          
+          </div>{/* End print-column-left */}
+          
+          {/* Print Right Column - Tire Info, Pricing, Warranty */}
+          <div className="print-column-right">
 
           {/* Recommended Tire */}
           <div style={{ marginBottom: '30px' }}>
@@ -981,7 +997,9 @@ const QuoteView = () => {
 
           {/* Warranty Disclaimer */}
           {tire?.warranty_miles && (
-            <div style={{
+            <div 
+              className="warranty-disclaimer"
+              style={{
               backgroundColor: '#fffbeb',
               border: '1px solid #fcd34d',
               borderRadius: '8px',
@@ -999,7 +1017,9 @@ const QuoteView = () => {
           )}
 
           {/* Price Match Guarantee */}
-          <div style={{
+          <div 
+            className="price-match"
+            style={{
             backgroundColor: '#f8fafc',
             border: '1px solid #e2e8f0',
             borderRadius: '8px',
@@ -1012,9 +1032,13 @@ const QuoteView = () => {
             <strong>Price Match Guarantee:</strong> We price match other local tire stores. 
             Bring their out-the-door written estimate and we will match that price for you.
           </div>
+          
+          </div>{/* End print-column-right */}
 
           {/* Footer */}
-          <div style={{ 
+          <div 
+            className="quote-footer"
+            style={{ 
             textAlign: 'center', 
             borderTop: '1px solid #e2e8f0', 
             paddingTop: '20px',
@@ -1031,12 +1055,12 @@ const QuoteView = () => {
         </div>
       </div>
 
-      {/* Print Styles */}
+      {/* Print Styles - Landscape 2-Column Layout */}
       <style>{`
         @media print {
           @page {
-            size: letter;
-            margin: 0.4in;
+            size: letter landscape;
+            margin: 0.3in;
           }
           
           body { 
@@ -1053,15 +1077,240 @@ const QuoteView = () => {
           /* Hide all buttons */
           button { display: none !important; }
           
-          /* Remove shadows */
+          /* Remove shadows and rounded corners for print */
           div { box-shadow: none !important; }
-          
-          /* Compact spacing */
-          h4 { margin-bottom: 8px !important; }
-          table td { padding: 6px 0 !important; }
           
           /* Remove link URL printing */
           a[href]:after { content: none !important; }
+          
+          /* Main container - full width in landscape */
+          .quote-outer-container {
+            padding: 0 !important;
+            background: white !important;
+          }
+          
+          .quote-main-container {
+            max-width: 100% !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+          }
+          
+          /* Header section - compact */
+          .quote-header {
+            padding: 12px 15px !important;
+          }
+          
+          .quote-header img {
+            height: 35px !important;
+          }
+          
+          .quote-header-store {
+            font-size: 10px !important;
+          }
+          
+          .quote-header-right {
+            font-size: 10px !important;
+          }
+          
+          .quote-header-number {
+            font-size: 14px !important;
+          }
+          
+          /* Content area - 2 columns */
+          .quote-content {
+            padding: 10px 15px !important;
+            display: flex !important;
+            flex-direction: row !important;
+            gap: 20px !important;
+          }
+          
+          /* Left column - customer, vehicle, tread, stopping */
+          .print-column-left {
+            flex: 1 !important;
+            display: block !important;
+            min-width: 0 !important;
+          }
+          
+          /* Right column - tire, pricing, warranty */
+          .print-column-right {
+            flex: 1 !important;
+            display: block !important;
+            min-width: 0 !important;
+          }
+          
+          /* Customer/Vehicle row - stack vertically in print */
+          .customer-vehicle-row {
+            flex-direction: column !important;
+            gap: 8px !important;
+            margin-bottom: 10px !important;
+          }
+          
+          .customer-box, .vehicle-box {
+            padding: 8px !important;
+          }
+          
+          /* Tread diagram - smaller */
+          .tread-section {
+            margin-bottom: 10px !important;
+          }
+          
+          .tread-container {
+            padding: 8px !important;
+          }
+          
+          .tread-title {
+            font-size: 9px !important;
+            margin-bottom: 6px !important;
+          }
+          
+          .car-image {
+            height: 70px !important;
+          }
+          
+          .tire-box {
+            padding: 4px !important;
+            min-width: 55px !important;
+          }
+          
+          .tire-box-label {
+            font-size: 7px !important;
+          }
+          
+          .tire-box-value {
+            font-size: 14px !important;
+          }
+          
+          .tire-box-status {
+            font-size: 6px !important;
+          }
+          
+          /* Stopping distance - compact */
+          .stopping-section {
+            padding: 8px !important;
+            margin-bottom: 10px !important;
+          }
+          
+          .stopping-title {
+            font-size: 9px !important;
+            margin-bottom: 6px !important;
+          }
+          
+          .stopping-bar-label {
+            font-size: 9px !important;
+          }
+          
+          .stopping-bar-value {
+            font-size: 12px !important;
+          }
+          
+          .stopping-insight {
+            font-size: 9px !important;
+            padding: 6px !important;
+            margin-top: 6px !important;
+          }
+          
+          /* Tire info - compact */
+          .tire-card {
+            padding: 10px !important;
+            margin-bottom: 8px !important;
+          }
+          
+          .tire-name {
+            font-size: 13px !important;
+          }
+          
+          .tire-details {
+            font-size: 9px !important;
+          }
+          
+          .tire-price {
+            font-size: 18px !important;
+          }
+          
+          .tire-badges span {
+            font-size: 8px !important;
+            padding: 2px 6px !important;
+          }
+          
+          /* Warranty banner */
+          .warranty-banner {
+            padding: 6px 10px !important;
+            font-size: 10px !important;
+            margin-bottom: 8px !important;
+          }
+          
+          /* Savings banner */
+          .savings-banner {
+            padding: 10px !important;
+            margin-bottom: 8px !important;
+          }
+          
+          .savings-banner-title {
+            font-size: 11px !important;
+          }
+          
+          .savings-banner-amount {
+            font-size: 18px !important;
+          }
+          
+          /* Pricing table - compact */
+          .pricing-section {
+            margin-bottom: 8px !important;
+          }
+          
+          .pricing-title {
+            font-size: 9px !important;
+            margin-bottom: 6px !important;
+          }
+          
+          .pricing-table td {
+            padding: 4px 0 !important;
+            font-size: 10px !important;
+          }
+          
+          .pricing-total td {
+            font-size: 14px !important;
+            padding-top: 6px !important;
+          }
+          
+          /* Per tire installed */
+          .per-tire-box {
+            padding: 8px !important;
+            margin-bottom: 8px !important;
+          }
+          
+          .per-tire-box span {
+            font-size: 11px !important;
+          }
+          
+          .per-tire-amount {
+            font-size: 16px !important;
+          }
+          
+          /* Warranty disclaimer - very compact */
+          .warranty-disclaimer {
+            padding: 8px !important;
+            font-size: 7px !important;
+            margin-bottom: 6px !important;
+            line-height: 1.3 !important;
+          }
+          
+          /* Price match - very compact */
+          .price-match {
+            padding: 8px !important;
+            font-size: 8px !important;
+            margin-bottom: 6px !important;
+          }
+          
+          /* Footer */
+          .quote-footer {
+            padding-top: 8px !important;
+            font-size: 9px !important;
+          }
+          
+          .quote-footer p {
+            margin: 2px 0 !important;
+          }
         }
       `}</style>
     </div>
