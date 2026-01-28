@@ -1,0 +1,588 @@
+import React, { useState, useEffect } from 'react';
+
+const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
+const API_KEY = 'TIRES2026';
+
+const STORES = [
+  { id: 609, name: 'Santa Maria' },
+  { id: 1002, name: 'San Luis Obispo' },
+  { id: 1257, name: 'Goleta' },
+  { id: 1270, name: 'Arroyo Grande' },
+  { id: 1396, name: 'Santa Barbara (Downtown)' },
+  { id: 1932, name: 'Atascadero' },
+  { id: 2911, name: 'Paso Robles' },
+  { id: 4182, name: 'Santa Barbara (Upper State)' },
+];
+
+const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
+
+const NAV_ITEMS = [
+  { label: 'TIRE FINDER', href: '#/' },
+  { label: 'STORE INVENTORY', href: '#/inventory' },
+  { label: 'RETRIEVE QUOTE', href: '#/quotes' },
+  { label: 'ENTERPRISE RENT-A-CAR', href: '#/enterprise' },
+  { label: 'FLEET NEGOTIATED', href: '#/fleet' },
+];
+
+const formatCurrency = (amount) => 
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatPhone = (phone) => {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+  }
+  return phone;
+};
+
+// Header Component - matches TireFinder
+const Header = ({ selectedStore, onStoreChange }) => (
+  <>
+    <header style={{ backgroundColor: 'white', borderBottom: '1px solid #eee', padding: '15px 0' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+        <a href="#/">
+          <img 
+            src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png"
+            alt="Jiffy Lube Multicare"
+            style={{ height: '50px' }}
+          />
+        </a>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '1px' }}>STORE:</span>
+          <select
+            value={selectedStore}
+            onChange={(e) => onStoreChange(e.target.value)}
+            style={{
+              padding: '8px 30px 8px 12px',
+              border: '2px solid #9b59b6',
+              borderRadius: '20px',
+              backgroundColor: 'white',
+              color: '#333',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              outline: 'none',
+              appearance: 'none',
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 10px center',
+            }}
+          >
+            {STORES.map(store => (
+              <option key={store.id} value={store.id}>{store.id} - {store.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <nav style={{ backgroundColor: '#9b59b6', padding: '12px 0' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
+        {NAV_ITEMS.map((item) => (
+          <a
+            key={item.label}
+            href={item.href}
+            style={{
+              color: 'white',
+              textDecoration: 'none',
+              fontSize: '12px',
+              fontWeight: '600',
+              letterSpacing: '1px',
+              padding: '5px 10px',
+              borderBottom: item.href === '#/quotes' ? '2px solid white' : '2px solid transparent',
+            }}
+          >
+            {item.label}
+          </a>
+        ))}
+      </div>
+    </nav>
+  </>
+);
+
+// Footer Component - matches TireFinder
+const Footer = () => (
+  <footer style={{ backgroundColor: '#2c3e50', color: '#95a5a6', padding: '30px 20px' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
+      <p style={{ fontSize: '13px', marginBottom: '8px' }}>
+        © 2026 My Jiffy Lube Group. Tire data provided by MOTOR & USAutoForce.
+      </p>
+      <p style={{ fontSize: '11px', color: '#7f8c8d' }}>
+        tires.myjiffylube.ai
+      </p>
+    </div>
+  </footer>
+);
+
+// Styled Input
+const StyledInput = ({ value, onChange, placeholder, type = 'text', style, ...props }) => (
+  <input
+    type={type}
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    placeholder={placeholder}
+    style={{
+      width: '100%',
+      padding: '10px 15px',
+      border: '2px solid #9b59b6',
+      borderRadius: '25px',
+      backgroundColor: 'white',
+      color: '#333',
+      fontSize: '13px',
+      fontWeight: '500',
+      outline: 'none',
+      boxSizing: 'border-box',
+      ...style
+    }}
+    {...props}
+  />
+);
+
+// Styled Select
+const StyledSelect = ({ value, onChange, options, placeholder, style }) => (
+  <select
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    style={{
+      width: '100%',
+      padding: '10px 15px',
+      border: '2px solid #9b59b6',
+      borderRadius: '25px',
+      backgroundColor: 'white',
+      color: '#333',
+      fontSize: '13px',
+      fontWeight: '500',
+      cursor: 'pointer',
+      outline: 'none',
+      appearance: 'none',
+      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'right 15px center',
+      ...style
+    }}
+  >
+    <option value="">{placeholder}</option>
+    {options.map((opt) => (
+      <option key={typeof opt === 'object' ? opt.value : opt} value={typeof opt === 'object' ? opt.value : opt}>
+        {typeof opt === 'object' ? opt.label : opt}
+      </option>
+    ))}
+  </select>
+);
+
+export default function QuoteLookup() {
+  const [selectedStore, setSelectedStore] = useState(() => localStorage.getItem('jl_tire_store') || '609');
+  
+  // Search state
+  const [searchType, setSearchType] = useState('name');
+  const [searchValue, setSearchValue] = useState('');
+  const [licenseState, setLicenseState] = useState('CA');
+  const [sortBy, setSortBy] = useState('date');
+  const [sortOrder, setSortOrder] = useState('desc');
+  
+  // Results state
+  const [quotes, setQuotes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // Save store to localStorage
+  useEffect(() => {
+    localStorage.setItem('jl_tire_store', selectedStore);
+  }, [selectedStore]);
+
+  // Load recent quotes on mount
+  useEffect(() => {
+    handleSearch(true);
+  }, [selectedStore]);
+
+  const handleSearch = async (initialLoad = false) => {
+    setLoading(true);
+    setError(null);
+    if (!initialLoad) setHasSearched(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/search-quotes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: API_KEY,
+          store_id: parseInt(selectedStore),
+          search_type: searchValue.trim() ? searchType : 'all',
+          search_value: searchValue.trim() || undefined,
+          license_state: searchType === 'plate' ? licenseState : undefined,
+          sort_by: sortBy,
+          sort_order: sortOrder,
+          limit: 50
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setQuotes(data.quotes || []);
+      } else {
+        setError(data.error || 'Failed to search quotes');
+      }
+    } catch (e) {
+      setError('Failed to connect to server');
+    }
+
+    setLoading(false);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  const handleClear = () => {
+    setSearchValue('');
+    setSearchType('name');
+    setHasSearched(false);
+    handleSearch(true);
+  };
+
+  const openQuote = (shortCode) => {
+    window.location.hash = `#/quote/${shortCode}`;
+  };
+
+  return (
+    <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+      <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
+
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '30px 20px' }}>
+        
+        {/* Search Card */}
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '15px', 
+          padding: '30px', 
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+          marginBottom: '25px'
+        }}>
+          <h2 style={{ 
+            color: '#9b59b6', 
+            fontSize: '24px', 
+            fontWeight: '700', 
+            textAlign: 'center', 
+            marginBottom: '5px',
+            textTransform: 'uppercase',
+            letterSpacing: '2px'
+          }}>
+            Retrieve Quote
+          </h2>
+          <p style={{ 
+            color: '#888', 
+            textAlign: 'center', 
+            fontSize: '13px', 
+            marginBottom: '25px',
+            letterSpacing: '1px'
+          }}>
+            Search saved quotes by customer name, license plate, phone, or quote number
+          </p>
+
+          {/* Search Form */}
+          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            
+            {/* Search Type */}
+            <div style={{ width: '150px' }}>
+              <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                SEARCH BY
+              </label>
+              <StyledSelect
+                value={searchType}
+                onChange={setSearchType}
+                options={[
+                  { value: 'name', label: 'Customer Name' },
+                  { value: 'plate', label: 'License Plate' },
+                  { value: 'phone', label: 'Phone Number' },
+                  { value: 'quote_number', label: 'Quote Number' },
+                ]}
+                placeholder="Select..."
+              />
+            </div>
+
+            {/* Search Value */}
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                {searchType === 'name' ? 'CUSTOMER NAME' : 
+                 searchType === 'plate' ? 'LICENSE PLATE' :
+                 searchType === 'phone' ? 'PHONE NUMBER' : 'QUOTE NUMBER'}
+              </label>
+              <StyledInput
+                value={searchValue}
+                onChange={setSearchValue}
+                onKeyPress={handleKeyPress}
+                placeholder={
+                  searchType === 'name' ? 'e.g., John Smith' :
+                  searchType === 'plate' ? 'e.g., 8ABC123' :
+                  searchType === 'phone' ? 'e.g., 805-555-1234' :
+                  'e.g., JL-609-20260128-001'
+                }
+              />
+            </div>
+
+            {/* License State (only for plate search) */}
+            {searchType === 'plate' && (
+              <div style={{ width: '100px' }}>
+                <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                  STATE
+                </label>
+                <StyledSelect
+                  value={licenseState}
+                  onChange={setLicenseState}
+                  options={US_STATES}
+                  placeholder="State"
+                />
+              </div>
+            )}
+
+            {/* Sort By */}
+            <div style={{ width: '120px' }}>
+              <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                SORT BY
+              </label>
+              <StyledSelect
+                value={sortBy}
+                onChange={setSortBy}
+                options={[
+                  { value: 'date', label: 'Date' },
+                  { value: 'name', label: 'Name' },
+                ]}
+                placeholder="Sort..."
+              />
+            </div>
+
+            {/* Sort Order */}
+            <div style={{ width: '120px' }}>
+              <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                ORDER
+              </label>
+              <StyledSelect
+                value={sortOrder}
+                onChange={setSortOrder}
+                options={[
+                  { value: 'desc', label: 'Newest First' },
+                  { value: 'asc', label: 'Oldest First' },
+                ]}
+                placeholder="Order..."
+              />
+            </div>
+
+            {/* Search Button */}
+            <button
+              onClick={() => handleSearch()}
+              disabled={loading}
+              style={{
+                backgroundColor: '#9b59b6',
+                color: 'white',
+                border: 'none',
+                padding: '12px 30px',
+                borderRadius: '25px',
+                fontSize: '13px',
+                fontWeight: '700',
+                letterSpacing: '1px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? 'SEARCHING...' : 'SEARCH'}
+            </button>
+
+            {/* Clear Button */}
+            {hasSearched && (
+              <button
+                onClick={handleClear}
+                style={{
+                  backgroundColor: '#f1f5f9',
+                  color: '#64748b',
+                  border: 'none',
+                  padding: '12px 20px',
+                  borderRadius: '25px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                }}
+              >
+                CLEAR
+              </button>
+            )}
+          </div>
+
+          {error && (
+            <p style={{ color: '#e74c3c', textAlign: 'center', marginTop: '15px', fontSize: '13px' }}>
+              {error}
+            </p>
+          )}
+        </div>
+
+        {/* Results */}
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '15px', 
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+          overflow: 'hidden'
+        }}>
+          {/* Results Header */}
+          <div style={{ 
+            backgroundColor: '#f8f9fa', 
+            padding: '15px 25px', 
+            borderBottom: '1px solid #eee',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+              {quotes.length} Quote{quotes.length !== 1 ? 's' : ''} Found
+            </span>
+            <span style={{ fontSize: '12px', color: '#888' }}>
+              Store: {STORES.find(s => s.id === parseInt(selectedStore))?.name || selectedStore}
+            </span>
+          </div>
+
+          {/* Results Table */}
+          {quotes.length > 0 ? (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #eee' }}>
+                    <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Quote #</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Date</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Customer</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Vehicle</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Tire</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#666' }}>Total</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Status</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {quotes.map((quote, idx) => (
+                    <tr 
+                      key={quote.quote_id}
+                      style={{ 
+                        borderBottom: '1px solid #eee',
+                        backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.15s'
+                      }}
+                      onClick={() => openQuote(quote.short_code)}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f3e8ff'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = idx % 2 === 0 ? 'white' : '#fafafa'}
+                    >
+                      <td style={{ padding: '12px 15px', fontWeight: '600', color: '#9b59b6' }}>
+                        {quote.quote_number}
+                      </td>
+                      <td style={{ padding: '12px 15px', color: '#666' }}>
+                        {formatDate(quote.created_at)}
+                      </td>
+                      <td style={{ padding: '12px 15px' }}>
+                        <div style={{ fontWeight: '500', color: '#333' }}>{quote.customer.name}</div>
+                        {quote.customer.phone && (
+                          <div style={{ fontSize: '11px', color: '#888' }}>{formatPhone(quote.customer.phone)}</div>
+                        )}
+                        {quote.customer.license_plate && (
+                          <div style={{ fontSize: '11px', color: '#888' }}>
+                            {quote.customer.license_plate} ({quote.customer.license_state})
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 15px', color: '#666', maxWidth: '200px' }}>
+                        <div style={{ 
+                          whiteSpace: 'nowrap', 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis' 
+                        }}>
+                          {quote.vehicle}
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 15px', color: '#666' }}>
+                        <div style={{ fontWeight: '500' }}>{quote.tire.brand} {quote.tire.size}</div>
+                        <div style={{ fontSize: '11px', color: '#888' }}>Qty: {quote.quantity}</div>
+                      </td>
+                      <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#333' }}>
+                        {formatCurrency(quote.total_amount)}
+                      </td>
+                      <td style={{ padding: '12px 15px', textAlign: 'center' }}>
+                        {quote.is_expired ? (
+                          <span style={{ 
+                            backgroundColor: '#fef3c7', 
+                            color: '#92400e', 
+                            padding: '3px 8px', 
+                            borderRadius: '10px', 
+                            fontSize: '10px', 
+                            fontWeight: '600' 
+                          }}>
+                            EXPIRED
+                          </span>
+                        ) : (
+                          <span style={{ 
+                            backgroundColor: '#d1fae5', 
+                            color: '#065f46', 
+                            padding: '3px 8px', 
+                            borderRadius: '10px', 
+                            fontSize: '10px', 
+                            fontWeight: '600' 
+                          }}>
+                            ACTIVE
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 15px', textAlign: 'center' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openQuote(quote.short_code);
+                          }}
+                          style={{
+                            backgroundColor: '#9b59b6',
+                            color: 'white',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '15px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          VIEW
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div style={{ padding: '50px 20px', textAlign: 'center', color: '#888' }}>
+              {loading ? (
+                <p>Searching...</p>
+              ) : hasSearched ? (
+                <>
+                  <p style={{ fontSize: '16px', marginBottom: '10px' }}>No quotes found</p>
+                  <p style={{ fontSize: '13px' }}>Try adjusting your search criteria</p>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize: '16px', marginBottom: '10px' }}>Recent quotes will appear here</p>
+                  <p style={{ fontSize: '13px' }}>Enter search criteria above to find specific quotes</p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Footer />
+    </div>
+  );
+}
