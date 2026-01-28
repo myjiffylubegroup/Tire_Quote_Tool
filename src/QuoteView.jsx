@@ -661,6 +661,26 @@ const QuoteView = () => {
             </div>
           </div>
 
+          {/* Savings Banner (if promo applied) */}
+          {p?.promo_discount > 0 && (
+            <div style={{
+              background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
+              color: 'white',
+              borderRadius: '12px',
+              padding: '20px',
+              marginBottom: '25px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '16px', marginBottom: '5px' }}>🎉 Congratulations!</div>
+              <div style={{ fontSize: '28px', fontWeight: '700', marginBottom: '5px' }}>
+                You're saving {formatCurrency(p?.promo_discount)}
+              </div>
+              <div style={{ fontSize: '14px', opacity: 0.9 }}>
+                with {p?.promo_name || 'your promotion'}
+              </div>
+            </div>
+          )}
+
           {/* Pricing Breakdown */}
           <div style={{ marginBottom: '30px' }}>
             <h4 style={{ margin: '0 0 15px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
@@ -930,6 +950,21 @@ const QuoteView = () => {
               Road hazards, abuse and neglect are not covered.
             </div>
           )}
+
+          {/* Price Match Guarantee */}
+          <div style={{
+            backgroundColor: '#eff6ff',
+            border: '1px solid #93c5fd',
+            borderRadius: '8px',
+            padding: '15px',
+            marginBottom: '20px',
+            fontSize: '12px',
+            color: '#1e40af',
+            lineHeight: '1.5'
+          }}>
+            <strong>💪 Price Match Guarantee:</strong> We price match other local tire stores. 
+            Bring their out-the-door written estimate and we will match that price for you.
+          </div>
 
           {/* Footer */}
           <div style={{ 
