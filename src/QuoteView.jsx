@@ -664,19 +664,18 @@ const QuoteView = () => {
           {/* Savings Banner (if promo applied) */}
           {p?.promo_discount > 0 && (
             <div style={{
-              background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
-              color: 'white',
-              borderRadius: '12px',
-              padding: '20px',
+              backgroundColor: '#f0fdf4',
+              border: '2px solid #16a34a',
+              borderRadius: '10px',
+              padding: '18px 20px',
               marginBottom: '25px',
               textAlign: 'center'
             }}>
-              <div style={{ fontSize: '16px', marginBottom: '5px' }}>🎉 Congratulations!</div>
-              <div style={{ fontSize: '28px', fontWeight: '700', marginBottom: '5px' }}>
-                You're saving {formatCurrency(p?.promo_discount)}
+              <div style={{ fontSize: '14px', color: '#166534', marginBottom: '5px', fontWeight: '600' }}>
+                {p?.promo_name || 'Promotion Applied'}
               </div>
-              <div style={{ fontSize: '14px', opacity: 0.9 }}>
-                with {p?.promo_name || 'your promotion'}
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#16a34a' }}>
+                You're saving {formatCurrency(p?.promo_discount)}
               </div>
             </div>
           )}
@@ -953,16 +952,16 @@ const QuoteView = () => {
 
           {/* Price Match Guarantee */}
           <div style={{
-            backgroundColor: '#eff6ff',
-            border: '1px solid #93c5fd',
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
             borderRadius: '8px',
             padding: '15px',
             marginBottom: '20px',
             fontSize: '12px',
-            color: '#1e40af',
+            color: '#64748b',
             lineHeight: '1.5'
           }}>
-            <strong>💪 Price Match Guarantee:</strong> We price match other local tire stores. 
+            <strong>Price Match Guarantee:</strong> We price match other local tire stores. 
             Bring their out-the-door written estimate and we will match that price for you.
           </div>
 

@@ -17,6 +17,19 @@ const STORES = [
 const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
 const QTY_OPTIONS = [1, 2, 4, 5, 6, 8];
 
+// Promo options - matches quote_config in database
+const PROMOS = [
+  { id: 'FREE_INSTALL', name: 'Free Installation' },
+  { id: '10PCT_TIRES', name: '10% Off Tires' },
+  { id: 'NEXEN_B3G1', name: 'Buy 3 Nexen Get 1 Free' },
+  { id: 'MILITARY_15', name: 'Military Discount (15%)' },
+  { id: 'FIRST_RESP_12', name: 'First Responder (12%)' },
+  { id: 'SENIOR_12', name: 'Senior 55+ (12%)' },
+];
+
+// Rebate options - empty for now, ready for future manufacturer rebates
+const REBATES = [];
+
 // Updated thresholds: 0-4 red, 5-6 yellow, 7+ green
 const getTreadColor = (val) => {
   if (val === '' || val === null || val === undefined) return '#9b59b6';
@@ -297,13 +310,10 @@ export default function QuoteBuilder() {
 
   const [quantity, setQuantity] = useState(4);
   
-  // Promo and Rebate from TireFinder
-  const [promoData, setPromoData] = useState(null);
-  const [rebateData, setRebateData] = useState(null);
+  // Promo and Rebate selection
+  const [selectedPromo, setSelectedPromo] = useState('');
+  const [selectedRebate, setSelectedRebate] = useState('');
   
-  // Legacy manual rebate fields (still supported for manual entry)
-  const [rebateAmount, setRebateAmount] = useState('');
-  const [rebateDescription, setRebateDescription] = useState('');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
 
@@ -322,24 +332,15 @@ export default function QuoteBuilder() {
     return allValues.length > 0 ? Math.min(...allValues) : null;
   };
 
+  // Load tire/vehicle/qty from sessionStorage on mount
   useEffect(() => {
     const savedTire = sessionStorage.getItem('jl_quote_tire');
     const savedVehicle = sessionStorage.getItem('jl_quote_vehicle');
     const savedQty = sessionStorage.getItem('jl_quote_qty');
-    const savedPromo = sessionStorage.getItem('jl_quote_promo');
-    const savedRebate = sessionStorage.getItem('jl_quote_rebate');
     
     if (savedTire) setTireData(JSON.parse(savedTire));
     if (savedVehicle) setVehicleData(JSON.parse(savedVehicle));
     if (savedQty) setQuantity(parseInt(savedQty));
-    if (savedPromo) setPromoData(JSON.parse(savedPromo));
-    if (savedRebate) {
-      const rebate = JSON.parse(savedRebate);
-      setRebateData(rebate);
-      // Pre-fill legacy rebate fields if rebate was selected
-      if (rebate.amount) setRebateAmount(rebate.amount.toString());
-      if (rebate.description) setRebateDescription(rebate.description);
-    }
   }, []);
 
   useEffect(() => { localStorage.setItem('jl_tire_store', selectedStore); }, [selectedStore]);
@@ -450,12 +451,12 @@ export default function QuoteBuilder() {
         },
         quantity, 
         
-        // Promo from TireFinder selection
-        promo_id: promoData?.id || null,
+        // Promo selection from dropdown
+        promo_id: selectedPromo || null,
         
-        // Rebate - use rebateData if present, otherwise fall back to manual entry
-        rebate_amount: rebateData?.amount || (rebateAmount ? parseFloat(rebateAmount) : 0), 
-        rebate_description: rebateData?.description || rebateDescription || null
+        // Rebate - will be used when rebates are added
+        rebate_amount: selectedRebate ? (REBATES.find(r => r.id === selectedRebate)?.amount || 0) : 0, 
+        rebate_description: selectedRebate ? (REBATES.find(r => r.id === selectedRebate)?.description || null) : null
       };
       
       const response = await fetch(`${API_BASE}/generate-quote`, { 
@@ -466,12 +467,10 @@ export default function QuoteBuilder() {
       const data = await response.json();
       
       if (data.success) {
-        // Clear all sessionStorage
+        // Clear sessionStorage
         sessionStorage.removeItem('jl_quote_tire');
         sessionStorage.removeItem('jl_quote_vehicle');
         sessionStorage.removeItem('jl_quote_qty');
-        sessionStorage.removeItem('jl_quote_promo');
-        sessionStorage.removeItem('jl_quote_rebate');
         window.location.hash = `#/quote/${data.quote.short_code}`;
       } else { 
         setError(data.error || 'Failed to generate quote'); 
@@ -528,47 +527,6 @@ export default function QuoteBuilder() {
               </div>
             </div>
           </div>
-
-          {/* Promo Banner (if selected in TireFinder) */}
-          {promoData && (
-            <div style={{ 
-              backgroundColor: '#f0fff4', 
-              border: '2px solid #27ae60', 
-              borderRadius: '10px', 
-              padding: '15px 20px', 
-              marginBottom: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '15px'
-            }}>
-              <div style={{ fontSize: '24px' }}>💰</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: '700', color: '#27ae60' }}>
-                  {promoData.name}
-                </div>
-                <div style={{ fontSize: '12px', color: '#666' }}>
-                  Promo will be applied to this quote
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setPromoData(null);
-                  sessionStorage.removeItem('jl_quote_promo');
-                }}
-                style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #ccc',
-                  borderRadius: '15px',
-                  padding: '5px 12px',
-                  fontSize: '11px',
-                  color: '#888',
-                  cursor: 'pointer'
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          )}
 
           {/* Vehicle Info (if available) - NO EMOJI */}
           {vehicleData?.display && (
@@ -672,13 +630,24 @@ export default function QuoteBuilder() {
                     <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>QTY</label>
                     <SelectDropdown value={quantity} onChange={(v) => setQuantity(parseInt(v))} options={QTY_OPTIONS} placeholder="4" />
                   </div>
-                  <div style={{ flex: 1, minWidth: '80px' }}>
-                    <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>REBATE $</label>
-                    <StyledInput type="number" value={rebateAmount} onChange={setRebateAmount} placeholder="0.00" />
+                  <div style={{ flex: 1, minWidth: '140px' }}>
+                    <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>PROMOTION</label>
+                    <SelectDropdown 
+                      value={selectedPromo} 
+                      onChange={setSelectedPromo} 
+                      options={PROMOS.map(p => ({ value: p.id, label: p.name }))} 
+                      placeholder="NONE" 
+                    />
                   </div>
-                  <div style={{ flex: 2, minWidth: '120px' }}>
-                    <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>REBATE DESC</label>
-                    <StyledInput value={rebateDescription} onChange={setRebateDescription} placeholder="e.g., Spring Rebate" />
+                  <div style={{ flex: 1, minWidth: '140px' }}>
+                    <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>REBATE</label>
+                    <SelectDropdown 
+                      value={selectedRebate} 
+                      onChange={setSelectedRebate} 
+                      options={REBATES.map(r => ({ value: r.id, label: r.name }))} 
+                      placeholder={REBATES.length === 0 ? "NO REBATES AVAILABLE" : "NONE"}
+                      disabled={REBATES.length === 0}
+                    />
                   </div>
                 </div>
               </div>

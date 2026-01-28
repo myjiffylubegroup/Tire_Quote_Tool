@@ -31,22 +31,6 @@ const FALLBACK_WIDTHS = ['155','165','175','185','195','205','215','225','235','
 const FALLBACK_ASPECTS = ['25','30','35','40','45','50','55','60','65','70','75','80','85'];
 const FALLBACK_RIMS = ['13','14','15','16','17','18','19','20','21','22','24'];
 
-// =============================================================================
-// PROMO DEFINITIONS (client-side for dropdown display)
-// Server-side validation happens in generate-quote Edge Function
-// =============================================================================
-const PROMOS = [
-  { id: 'FREE_INSTALL', name: 'Free Installation', description: 'Waives $24.99/tire M&B', validation: null },
-  { id: '10PCT_TIRES', name: '10% Off Tires', description: '10% off tire cost', validation: null },
-  { id: 'NEXEN_B3G1', name: 'Buy 3 Nexen Get 1 Free', description: '4th tire free', validation: { brand_codes: ['NEX'], exact_qty: 4 } },
-  { id: 'MILITARY_15', name: 'Military Discount (15%)', description: '15% off tires', validation: null },
-  { id: 'FIRST_RESP_12', name: 'First Responder (12%)', description: '12% off tires', validation: null },
-  { id: 'SENIOR_12', name: 'Senior 55+ (12%)', description: '12% off tires', validation: null },
-];
-
-// Rebates (empty for now, ready for future manufacturer rebates)
-const REBATES = [];
-
 // Styled Select Dropdown matching Nexen exactly
 const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => (
   <select
@@ -252,7 +236,7 @@ const SpecBox = ({ label, value, highlight }) => (
 );
 
 // Inventory Results Component
-const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote, selectedPromo, selectedRebate }) => {
+const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px', color: '#9b59b6' }}>
@@ -294,15 +278,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote, selec
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {results.map((tire, idx) => (
-          <TireCard 
-            key={tire.part_number + idx} 
-            tire={tire} 
-            primaryWarehouse={primaryWarehouse} 
-            onQuote={onQuote}
-            selectedPromo={selectedPromo}
-            selectedRebate={selectedRebate}
-            qtyNeeded={qtyNeeded}
-          />
+          <TireCard key={tire.part_number + idx} tire={tire} primaryWarehouse={primaryWarehouse} onQuote={onQuote} />
         ))}
       </div>
     </div>
@@ -310,7 +286,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote, selec
 };
 
 // Individual Tire Card
-const TireCard = ({ tire, primaryWarehouse, onQuote, selectedPromo, selectedRebate, qtyNeeded }) => {
+const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
   const isPriority = tire.brand_code === 'NEX' || tire.brand_code === 'ADV';
   const primaryQty = primaryWarehouse === 'fresno' ? tire.qty_fresno : tire.qty_santa_clarita;
   const secondaryQty = primaryWarehouse === 'fresno' ? tire.qty_santa_clarita : tire.qty_fresno;
@@ -318,9 +294,6 @@ const TireCard = ({ tire, primaryWarehouse, onQuote, selectedPromo, selectedReba
   
   // Consumer price: cost × 1.5, round up to whole dollar, minus $0.01
   const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
-
-  // Check if selected promo applies to this tire
-  const promoApplies = selectedPromo ? validatePromoForTire(selectedPromo, tire, qtyNeeded) : { valid: true };
 
   return (
     <div style={{
@@ -482,131 +455,6 @@ const Badge = ({ label, color }) => (
   </span>
 );
 
-// =============================================================================
-// PROMO VALIDATION HELPER
-// =============================================================================
-const validatePromoForTire = (promoId, tire, qty) => {
-  const promo = PROMOS.find(p => p.id === promoId);
-  if (!promo || !promo.validation) {
-    return { valid: true };
-  }
-
-  const validation = promo.validation;
-  const errors = [];
-
-  // Check brand requirement
-  if (validation.brand_codes && validation.brand_codes.length > 0) {
-    const tireBrand = tire.brand_code || tire.brand;
-    if (!validation.brand_codes.includes(tireBrand)) {
-      errors.push(`Requires ${validation.brand_codes.join(' or ')} brand tires`);
-    }
-  }
-
-  // Check exact quantity requirement
-  if (validation.exact_qty && qty !== validation.exact_qty) {
-    errors.push(`Requires exactly ${validation.exact_qty} tires`);
-  }
-
-  // Check minimum quantity
-  if (validation.min_qty && qty < validation.min_qty) {
-    errors.push(`Requires at least ${validation.min_qty} tires`);
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors: errors,
-    message: errors.join('. ')
-  };
-};
-
-// =============================================================================
-// VALIDATION WARNING MODAL
-// =============================================================================
-const ValidationModal = ({ show, onClose, onProceed, errors, promoName }) => {
-  if (!show) return null;
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 1000,
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '15px',
-        padding: '30px',
-        maxWidth: '450px',
-        width: '90%',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <div style={{ fontSize: '48px', marginBottom: '10px' }}>⚠️</div>
-          <h3 style={{ margin: '0 0 10px 0', color: '#e74c3c', fontSize: '20px' }}>
-            Promo Validation Warning
-          </h3>
-        </div>
-        
-        <div style={{
-          backgroundColor: '#fff3cd',
-          border: '1px solid #ffc107',
-          borderRadius: '8px',
-          padding: '15px',
-          marginBottom: '20px',
-        }}>
-          <p style={{ margin: '0 0 10px 0', fontWeight: '600', color: '#856404' }}>
-            The selected promotion "{promoName}" may not apply:
-          </p>
-          <ul style={{ margin: '0', paddingLeft: '20px', color: '#856404' }}>
-            {errors.map((err, idx) => (
-              <li key={idx} style={{ marginBottom: '5px' }}>{err}</li>
-            ))}
-          </ul>
-        </div>
-
-        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-          <button
-            onClick={onClose}
-            style={{
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              padding: '12px 25px',
-              borderRadius: '25px',
-              fontSize: '13px',
-              fontWeight: '700',
-              cursor: 'pointer',
-            }}
-          >
-            Go Back & Fix
-          </button>
-          <button
-            onClick={onProceed}
-            style={{
-              backgroundColor: '#e74c3c',
-              color: 'white',
-              border: 'none',
-              padding: '12px 25px',
-              borderRadius: '25px',
-              fontSize: '13px',
-              fontWeight: '700',
-              cursor: 'pointer',
-            }}
-          >
-            Proceed Anyway
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export default function TireFinder() {
   // Store & Qty selection - load from localStorage if available
   const [selectedStore, setSelectedStore] = useState(() => {
@@ -616,15 +464,6 @@ export default function TireFinder() {
     return '609';
   });
   const [qtyNeeded, setQtyNeeded] = useState(4);
-
-  // Promo & Rebate selection
-  const [selectedPromo, setSelectedPromo] = useState('');
-  const [selectedRebate, setSelectedRebate] = useState('');
-
-  // Validation modal state
-  const [showValidationModal, setShowValidationModal] = useState(false);
-  const [validationErrors, setValidationErrors] = useState([]);
-  const [pendingQuoteTire, setPendingQuoteTire] = useState(null);
 
   // Save store to localStorage when it changes
   useEffect(() => {
@@ -671,52 +510,11 @@ export default function TireFinder() {
     searchInventory(spec.tire_size);
   };
 
-  // Handle quote button click - validate promo and save to sessionStorage
+  // Handle quote button click - save tire data and navigate to quote builder
   const handleQuote = (tire) => {
-    // Validate promo if one is selected
-    if (selectedPromo) {
-      const validation = validatePromoForTire(selectedPromo, tire, qtyNeeded);
-      if (!validation.valid) {
-        // Show warning modal
-        setValidationErrors(validation.errors);
-        setPendingQuoteTire(tire);
-        setShowValidationModal(true);
-        return;
-      }
-    }
-
-    // Proceed with quote
-    proceedToQuote(tire);
-  };
-
-  // Actually proceed to quote (after validation or override)
-  const proceedToQuote = (tire) => {
     // Save tire data to sessionStorage for QuoteBuilder
     sessionStorage.setItem('jl_quote_tire', JSON.stringify(tire));
     sessionStorage.setItem('jl_quote_qty', qtyNeeded.toString());
-    
-    // Save promo and rebate selections
-    if (selectedPromo) {
-      const promo = PROMOS.find(p => p.id === selectedPromo);
-      sessionStorage.setItem('jl_quote_promo', JSON.stringify({
-        id: selectedPromo,
-        name: promo?.name || selectedPromo
-      }));
-    } else {
-      sessionStorage.removeItem('jl_quote_promo');
-    }
-
-    if (selectedRebate) {
-      const rebate = REBATES.find(r => r.id === selectedRebate);
-      sessionStorage.setItem('jl_quote_rebate', JSON.stringify({
-        id: selectedRebate,
-        name: rebate?.name || selectedRebate,
-        amount: rebate?.amount || 0,
-        description: rebate?.description || ''
-      }));
-    } else {
-      sessionStorage.removeItem('jl_quote_rebate');
-    }
     
     // Save vehicle data if available from YMM search
     if (selectedYear && selectedMake && selectedModel) {
@@ -741,23 +539,6 @@ export default function TireFinder() {
     
     // Navigate to quote builder
     window.location.hash = '#/quote/build';
-  };
-
-  // Handle validation modal close (go back)
-  const handleValidationClose = () => {
-    setShowValidationModal(false);
-    setValidationErrors([]);
-    setPendingQuoteTire(null);
-  };
-
-  // Handle validation modal proceed anyway
-  const handleValidationProceed = () => {
-    setShowValidationModal(false);
-    if (pendingQuoteTire) {
-      proceedToQuote(pendingQuoteTire);
-    }
-    setValidationErrors([]);
-    setPendingQuoteTire(null);
   };
 
   // Fetch years on mount
@@ -967,51 +748,48 @@ export default function TireFinder() {
           // Store ALL tire specs (could be multiple)
           setTireSpecs(data.data);
         } else {
-          setError('No tire specifications found for this vehicle');
+          setError('No tire specs found for this vehicle');
         }
       } catch (e) {
-        setError('Failed to lookup vehicle specifications');
+        setError('Failed to load tire specs');
       }
-      
       setLoading(false);
+      
     } else if (selectedWidth && selectedAspect && selectedRim) {
       // Tire Size Search
       const tireSize = `${selectedWidth}/${selectedAspect}R${selectedRim}`;
-      searchInventory(tireSize);
+      console.log('Searching for tire size:', tireSize);
+      await searchInventory(tireSize);
+      
+    } else if (partNumber.trim()) {
+      // Part Number Search
+      await searchByPartNumber();
     }
   };
 
-  // Determine if search button should be enabled
-  const canSearchYMM = selectedYear && selectedMake && selectedModel && selectedSubmodel;
-  const canSearchSize = selectedWidth && selectedAspect && selectedRim;
-  const canSearch = canSearchYMM || canSearchSize;
+  const canSearch = 
+    (selectedYear && selectedMake && selectedModel && selectedSubmodel) ||
+    (selectedWidth && selectedAspect && selectedRim) ||
+    partNumber.trim();
 
   return (
-    <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f0f0f0' }}>
-      {/* Validation Modal */}
-      <ValidationModal
-        show={showValidationModal}
-        onClose={handleValidationClose}
-        onProceed={handleValidationProceed}
-        errors={validationErrors}
-        promoName={PROMOS.find(p => p.id === selectedPromo)?.name || selectedPromo}
-      />
-
+    <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       {/* Header */}
-      <header style={{ backgroundColor: 'white', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+      <header style={{ backgroundColor: 'white', borderBottom: '1px solid #eee', padding: '15px 0' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
           <img 
-            src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/assets/JL_Multicare_Horz_1C.png"
+            src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png"
             alt="Jiffy Lube Multicare"
-            style={{ height: '45px' }}
+            style={{ height: '50px' }}
           />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '12px', color: '#888', fontWeight: '600' }}>STORE:</span>
+          {/* Store Selector Only in Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '1px' }}>STORE:</span>
             <select
               value={selectedStore}
               onChange={(e) => setSelectedStore(e.target.value)}
               style={{
-                padding: '8px 30px 8px 15px',
+                padding: '8px 30px 8px 12px',
                 border: '2px solid #9b59b6',
                 borderRadius: '20px',
                 backgroundColor: 'white',
@@ -1137,7 +915,7 @@ export default function TireFinder() {
               </div>
             </div>
 
-            {/* Center - Car Image + QTY + Part Number + PROMO + REBATE */}
+            {/* Center - Car Image + QTY + Part Number */}
             <div style={{ 
               flex: '1.3', 
               minWidth: '220px', 
@@ -1246,101 +1024,6 @@ export default function TireFinder() {
                   />
                 </div>
               </div>
-
-              {/* PROMO and REBATE Dropdowns - NEW */}
-              <div style={{ 
-                display: 'flex', 
-                gap: '15px', 
-                marginTop: '15px',
-                width: '100%',
-                maxWidth: '320px',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-              }}>
-                {/* Promo Selector */}
-                <div style={{ flex: '1', minWidth: '145px' }}>
-                  <label style={{ fontSize: '10px', color: '#27ae60', fontWeight: '700', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
-                    💰 PROMOTION
-                  </label>
-                  <select
-                    value={selectedPromo}
-                    onChange={(e) => setSelectedPromo(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 15px',
-                      border: '2px solid #27ae60',
-                      borderRadius: '25px',
-                      backgroundColor: selectedPromo ? '#f0fff4' : 'white',
-                      color: '#333',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      outline: 'none',
-                      appearance: 'none',
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2327ae60' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'right 10px center',
-                    }}
-                  >
-                    <option value="">NONE</option>
-                    {PROMOS.map(promo => (
-                      <option key={promo.id} value={promo.id}>{promo.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Rebate Selector */}
-                <div style={{ flex: '1', minWidth: '145px' }}>
-                  <label style={{ fontSize: '10px', color: '#3498db', fontWeight: '700', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
-                    🏷️ REBATE
-                  </label>
-                  <select
-                    value={selectedRebate}
-                    onChange={(e) => setSelectedRebate(e.target.value)}
-                    disabled={REBATES.length === 0}
-                    style={{
-                      width: '100%',
-                      padding: '10px 15px',
-                      border: '2px solid #3498db',
-                      borderRadius: '25px',
-                      backgroundColor: REBATES.length === 0 ? '#f5f5f5' : (selectedRebate ? '#ebf8ff' : 'white'),
-                      color: REBATES.length === 0 ? '#999' : '#333',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      textAlign: 'center',
-                      cursor: REBATES.length === 0 ? 'not-allowed' : 'pointer',
-                      outline: 'none',
-                      appearance: 'none',
-                      backgroundImage: REBATES.length === 0 ? 'none' : `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%233498db' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'right 10px center',
-                    }}
-                  >
-                    <option value="">{REBATES.length === 0 ? 'NO REBATES AVAILABLE' : 'NONE'}</option>
-                    {REBATES.map(rebate => (
-                      <option key={rebate.id} value={rebate.id}>{rebate.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Show selected promo description */}
-              {selectedPromo && (
-                <div style={{
-                  marginTop: '10px',
-                  padding: '8px 15px',
-                  backgroundColor: '#f0fff4',
-                  border: '1px solid #27ae60',
-                  borderRadius: '15px',
-                  fontSize: '11px',
-                  color: '#27ae60',
-                  textAlign: 'center',
-                  fontWeight: '600',
-                }}>
-                  ✓ {PROMOS.find(p => p.id === selectedPromo)?.description}
-                </div>
-              )}
 
               {loading && (
                 <p style={{ color: '#9b59b6', marginTop: '10px', fontSize: '13px' }}>Loading...</p>
@@ -1467,8 +1150,6 @@ export default function TireFinder() {
             loading={inventoryLoading}
             qtyNeeded={qtyNeeded}
             onQuote={handleQuote}
-            selectedPromo={selectedPromo}
-            selectedRebate={selectedRebate}
           />
         </div>
       </div>
