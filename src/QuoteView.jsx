@@ -859,21 +859,22 @@ const QuoteView = () => {
                 style={{
                   backgroundColor: '#8b1538',
                   color: 'white',
-                  padding: '10px 16px',
+                  padding: '12px 18px',
                   borderRadius: '8px',
                   textDecoration: 'none',
                   fontWeight: '600',
-                  fontSize: '12px',
+                  fontSize: '13px',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   gap: '2px',
-                  minWidth: '80px',
-                  textAlign: 'center'
+                  minWidth: '90px',
+                  textAlign: 'center',
+                  lineHeight: '1.3'
                 }}
               >
-                <span style={{ fontSize: '18px' }}>📅</span>
-                <span>Schedule</span>
+                <span>📅 Schedule</span>
+                <span>Installation</span>
               </a>
             )}
             {store?.phone && (
@@ -882,22 +883,23 @@ const QuoteView = () => {
                 style={{
                   backgroundColor: '#f1f5f9',
                   color: '#334155',
-                  padding: '10px 16px',
+                  padding: '12px 18px',
                   borderRadius: '8px',
                   textDecoration: 'none',
                   fontWeight: '600',
-                  fontSize: '12px',
+                  fontSize: '13px',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   gap: '2px',
                   border: '2px solid #e2e8f0',
-                  minWidth: '80px',
-                  textAlign: 'center'
+                  minWidth: '90px',
+                  textAlign: 'center',
+                  lineHeight: '1.3'
                 }}
               >
-                <span style={{ fontSize: '18px' }}>📞</span>
-                <span>Call</span>
+                <span>📞 Call</span>
+                <span>Store</span>
               </a>
             )}
             <button
@@ -906,23 +908,24 @@ const QuoteView = () => {
               style={{
                 backgroundColor: '#3b82f6',
                 color: 'white',
-                padding: '10px 16px',
+                padding: '12px 18px',
                 borderRadius: '8px',
                 border: 'none',
                 fontWeight: '600',
-                fontSize: '12px',
+                fontSize: '13px',
                 cursor: sendingEmail ? 'not-allowed' : 'pointer',
                 opacity: sendingEmail ? 0.7 : 1,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '2px',
-                minWidth: '80px',
-                textAlign: 'center'
+                minWidth: '90px',
+                textAlign: 'center',
+                lineHeight: '1.3'
               }}
             >
-              <span style={{ fontSize: '18px' }}>✉️</span>
-              <span>{sendingEmail ? '...' : 'Email'}</span>
+              <span>{sendingEmail ? '...' : '✉️ Email'}</span>
+              <span>Quote</span>
             </button>
             <button
               onClick={handleTextQuote}
@@ -930,23 +933,24 @@ const QuoteView = () => {
               style={{
                 backgroundColor: '#10b981',
                 color: 'white',
-                padding: '10px 16px',
+                padding: '12px 18px',
                 borderRadius: '8px',
                 border: 'none',
                 fontWeight: '600',
-                fontSize: '12px',
+                fontSize: '13px',
                 cursor: sendingSms ? 'not-allowed' : 'pointer',
                 opacity: sendingSms ? 0.7 : 1,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '2px',
-                minWidth: '80px',
-                textAlign: 'center'
+                minWidth: '90px',
+                textAlign: 'center',
+                lineHeight: '1.3'
               }}
             >
-              <span style={{ fontSize: '18px' }}>💬</span>
-              <span>{sendingSms ? '...' : 'Text'}</span>
+              <span>{sendingSms ? '...' : '💬 Text'}</span>
+              <span>Quote</span>
             </button>
             <button
               onClick={handlePayOnline}
@@ -954,23 +958,24 @@ const QuoteView = () => {
               style={{
                 backgroundColor: '#0070ba',
                 color: 'white',
-                padding: '10px 16px',
+                padding: '12px 18px',
                 borderRadius: '8px',
                 border: 'none',
                 fontWeight: '600',
-                fontSize: '12px',
+                fontSize: '13px',
                 cursor: sendingInvoice ? 'not-allowed' : 'pointer',
                 opacity: sendingInvoice ? 0.7 : 1,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '2px',
-                minWidth: '80px',
-                textAlign: 'center'
+                minWidth: '90px',
+                textAlign: 'center',
+                lineHeight: '1.3'
               }}
             >
-              <span style={{ fontSize: '18px' }}>💳</span>
-              <span>{sendingInvoice ? '...' : 'Pay'}</span>
+              <span>{sendingInvoice ? '...' : '💳 Pay'}</span>
+              <span>Now</span>
             </button>
           </div>
 
