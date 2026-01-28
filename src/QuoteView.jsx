@@ -12,7 +12,6 @@
 //   - FET if applicable
 //   - Warranty disclaimer
 //   - Email/Text/Pay buttons
-//   - PayPal Invoice API integration (NEW in v3)
 // =============================================================================
 
 import React, { useState, useEffect } from 'react';
@@ -362,7 +361,6 @@ const QuoteView = () => {
     }
   };
 
-  // NEW: PayPal Invoice Integration
   const handlePayOnline = async () => {
     // Check if customer has email
     let customerEmail = quote?.customer?.email;
@@ -387,9 +385,7 @@ const QuoteView = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           key: API_KEY,
-          quote_id: quote.quote_id,
-          // If email was manually entered, we need to update the quote first
-          // For now, we'll just use the existing email
+          quote_id: quote.quote_id
         })
       });
 
@@ -400,15 +396,7 @@ const QuoteView = () => {
           type: 'success', 
           text: `PayPal invoice sent to ${customerEmail}! Check your email to pay securely.` 
         });
-        
-        // If there's a direct invoice URL, we could optionally open it
-        if (data.invoice_url) {
-          // Option 1: Show link in message
-          // Option 2: Auto-open (commented out to avoid popup blockers)
-          // window.open(data.invoice_url, '_blank');
-        }
       } else {
-        // Handle specific errors
         if (data.error?.includes('email is required')) {
           setActionMessage({ 
             type: 'error', 
@@ -557,14 +545,18 @@ const QuoteView = () => {
               <h4 style={{ margin: '0 0 12px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
                 PREPARED FOR
               </h4>
-              <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>
-                {customer?.name || 'Valued Customer'}
+              <div style={{ fontSize: '18px', fontWeight: '600', color: '#1e293b', marginBottom: '5px' }}>
+                {customer?.full_name || 'Valued Customer'}
               </div>
-              {customer?.email && (
-                <div style={{ fontSize: '13px', color: '#64748b' }}>{customer.email}</div>
-              )}
               {customer?.phone && (
-                <div style={{ fontSize: '13px', color: '#64748b' }}>{formatPhone(customer.phone)}</div>
+                <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '3px' }}>
+                  📞 {customer.phone_formatted || formatPhone(customer.phone)}
+                </div>
+              )}
+              {customer?.email && (
+                <div style={{ fontSize: '14px', color: '#64748b' }}>
+                  ✉️ {customer.email}
+                </div>
               )}
             </div>
 
@@ -574,26 +566,24 @@ const QuoteView = () => {
                 VEHICLE
               </h4>
               {hasVehicleInfo ? (
-                <>
-                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>
-                    {quote.vehicle.display}
-                  </div>
-                  {quote.vehicle.license_plate && (
-                    <div style={{ fontSize: '13px', color: '#64748b' }}>
-                      Plate: {quote.vehicle.license_plate}
-                    </div>
-                  )}
-                </>
+                <div style={{ fontSize: '18px', fontWeight: '600', color: '#1e293b' }}>
+                  {quote.vehicle.display}
+                </div>
               ) : (
-                <div style={{ 
-                  fontSize: '14px', 
-                  color: '#94a3b8', 
-                  fontStyle: 'italic',
-                  backgroundColor: '#f8fafc',
-                  padding: '8px 12px',
-                  borderRadius: '6px'
-                }}>
-                  Vehicle Not Verified
+                <div style={{ fontSize: '14px', color: '#94a3b8', fontStyle: 'italic' }}>
+                  Vehicle Make/Model Not Verified
+                </div>
+              )}
+              {customer?.license_plate && (
+                <div style={{ fontSize: '14px', color: '#64748b', marginTop: '5px' }}>
+                  Plate: {customer.license_plate} ({customer.license_state || 'CA'})
+                </div>
+              )}
+              {quote.vehicle?.oe_tire_size && (
+                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '5px' }}>
+                  OE Size: {quote.vehicle.oe_tire_size}
+                  {quote.vehicle.oe_load_rating && ` | Load: ${quote.vehicle.oe_load_rating}`}
+                  {quote.vehicle.oe_speed_rating && ` | Speed: ${quote.vehicle.oe_speed_rating}`}
                 </div>
               )}
             </div>
@@ -602,165 +592,159 @@ const QuoteView = () => {
           {/* Tread Depth Section */}
           {treadData && (
             <div style={{ marginBottom: '30px' }}>
-              <h3 style={{ 
-                margin: '0 0 15px 0', 
-                color: '#334155', 
-                fontSize: '14px', 
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <span>📊</span> YOUR TIRE CONDITION
-              </h3>
+              <h4 style={{ margin: '0 0 15px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
+                CURRENT TIRE CONDITION
+              </h4>
               <CarTreadDiagram treadData={treadData} />
             </div>
           )}
 
-          {/* Tire Info */}
-          <div style={{ 
-            backgroundColor: '#f8fafc', 
-            borderRadius: '12px', 
-            padding: '20px',
-            marginBottom: '25px'
-          }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#334155', fontSize: '14px', fontWeight: '700' }}>
+          {/* Recommended Tire */}
+          <div style={{ marginBottom: '30px' }}>
+            <h4 style={{ margin: '0 0 15px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
               RECOMMENDED TIRES
-            </h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-              {/* Tire image placeholder */}
-              <div style={{ 
-                width: '80px', 
-                height: '80px', 
-                backgroundColor: '#e2e8f0', 
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '32px'
-              }}>
-                🛞
-              </div>
-              <div style={{ flex: 1, minWidth: '200px' }}>
-                <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>
-                  {tire?.brand} {tire?.model}
+            </h4>
+            <div style={{ 
+              backgroundColor: '#8b1538', 
+              borderRadius: '10px', 
+              padding: '20px 25px', 
+              color: 'white' 
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: '700' }}>
+                    {tire?.brand} {tire?.name}
+                  </h3>
+                  <p style={{ margin: '0', opacity: 0.9, fontSize: '14px' }}>
+                    {tire?.size} • Part# {tire?.part_number}
+                  </p>
+                  <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {tire?.speed_rating && (
+                      <span style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: '4px 10px', borderRadius: '15px', fontSize: '11px' }}>
+                        Speed: {tire.speed_rating}
+                      </span>
+                    )}
+                    {tire?.load_rating && (
+                      <span style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: '4px 10px', borderRadius: '15px', fontSize: '11px' }}>
+                        Load: {tire.load_rating}
+                      </span>
+                    )}
+                    {tire?.snowflake && (
+                      <span style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: '4px 10px', borderRadius: '15px', fontSize: '11px' }}>
+                        ❄️ 3PMSF
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>
-                  Size: {tire?.size} • Qty: {p?.quantity}
-                </div>
-                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', fontSize: '12px' }}>
-                  {tire?.warranty_miles && (
-                    <span style={{ 
-                      backgroundColor: '#dbeafe', 
-                      color: '#1e40af', 
-                      padding: '4px 10px', 
-                      borderRadius: '4px',
-                      fontWeight: '600'
-                    }}>
-                      {tire.warranty_miles.toLocaleString()} mi warranty
-                    </span>
-                  )}
-                  {tire?.speed_rating && (
-                    <span style={{ 
-                      backgroundColor: '#f3e8ff', 
-                      color: '#7c3aed', 
-                      padding: '4px 10px', 
-                      borderRadius: '4px',
-                      fontWeight: '600'
-                    }}>
-                      Speed: {tire.speed_rating}
-                    </span>
-                  )}
-                  {tire?.load_index && (
-                    <span style={{ 
-                      backgroundColor: '#fef3c7', 
-                      color: '#92400e', 
-                      padding: '4px 10px', 
-                      borderRadius: '4px',
-                      fontWeight: '600'
-                    }}>
-                      Load: {tire.load_index}
-                    </span>
-                  )}
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '14px', opacity: 0.8 }}>Qty: {p?.quantity}</div>
+                  <div style={{ fontSize: '28px', fontWeight: '700' }}>{formatCurrency(p?.price_per_tire)}</div>
+                  <div style={{ fontSize: '12px', opacity: 0.8 }}>per tire</div>
                 </div>
               </div>
             </div>
+            
+            {/* Warranty Info */}
+            <div style={{ 
+              marginTop: '10px', 
+              padding: '12px 15px', 
+              backgroundColor: '#f8fafc', 
+              borderRadius: '8px',
+              fontSize: '13px',
+              color: '#64748b'
+            }}>
+              {tire?.warranty_miles ? (
+                <span>✓ <strong>{parseInt(tire.warranty_miles).toLocaleString()} Mile</strong> Tread Life Warranty</span>
+              ) : (
+                <span style={{ fontStyle: 'italic' }}>No specified tread life warranty</span>
+              )}
+            </div>
           </div>
 
-          {/* Pricing Table */}
-          <div style={{ marginBottom: '25px' }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#334155', fontSize: '14px', fontWeight: '700' }}>
-              PRICING BREAKDOWN
-            </h3>
+          {/* Pricing Breakdown */}
+          <div style={{ marginBottom: '30px' }}>
+            <h4 style={{ margin: '0 0 15px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>
+              PRICING
+            </h4>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <tbody>
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '12px 0', fontSize: '14px', color: '#475569' }}>
-                    Tires ({p?.quantity} × {formatCurrency(p?.unit_price)})
+                  <td style={{ padding: '12px 0', fontSize: '14px', color: '#334155' }}>
+                    Tires ({formatCurrency(p?.price_per_tire)} × {p?.quantity})
                   </td>
-                  <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', fontWeight: '600' }}>
-                    {formatCurrency(p?.tire_subtotal)}
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '12px 0', fontSize: '14px', color: '#475569' }}>
-                    Installation ({p?.quantity} × {formatCurrency(p?.labor_per_tire)})
-                  </td>
-                  <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', fontWeight: '600' }}>
-                    {formatCurrency(p?.labor_total)}
-                  </td>
-                </tr>
-                {p?.disposal_total > 0 && (
-                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '12px 0', fontSize: '14px', color: '#475569' }}>
-                      Disposal Fee ({p?.quantity} × {formatCurrency(p?.disposal_fee_per_tire)})
-                    </td>
-                    <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', fontWeight: '600' }}>
-                      {formatCurrency(p?.disposal_total)}
-                    </td>
-                  </tr>
-                )}
-                {p?.ca_fee_total > 0 && (
-                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '12px 0', fontSize: '14px', color: '#475569' }}>
-                      CA Tire Fee ({p?.quantity} × {formatCurrency(p?.ca_tire_fee_per_tire)})
-                    </td>
-                    <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', fontWeight: '600' }}>
-                      {formatCurrency(p?.ca_fee_total)}
-                    </td>
-                  </tr>
-                )}
-                {p?.fet_total > 0 && (
-                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '12px 0', fontSize: '14px', color: '#475569' }}>
-                      Federal Excise Tax ({p?.quantity} × {formatCurrency(p?.fet_per_tire)})
-                    </td>
-                    <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', fontWeight: '600' }}>
-                      {formatCurrency(p?.fet_total)}
-                    </td>
-                  </tr>
-                )}
-                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '12px 0', fontSize: '14px', color: '#475569' }}>
-                    Subtotal
-                  </td>
-                  <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', fontWeight: '600' }}>
-                    {formatCurrency(p?.subtotal)}
+                  <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
+                    {formatCurrency(p?.subtotal_tires)}
                   </td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '12px 0', fontSize: '14px', color: '#475569' }}>
+                  <td style={{ padding: '12px 0', fontSize: '14px', color: '#334155' }}>
+                    Mount & Balance ({formatCurrency(p?.mount_balance_per_tire)} × {p?.quantity})
+                  </td>
+                  <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', color: '#1e293b' }}>
+                    {formatCurrency(p?.subtotal_mount_balance)}
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '12px 0', fontSize: '14px', color: '#334155' }}>
+                    Road Hazard Protection ({formatCurrency(p?.road_hazard_per_tire)} × {p?.quantity})
+                  </td>
+                  <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', color: '#1e293b' }}>
+                    {formatCurrency(p?.subtotal_road_hazard)}
+                  </td>
+                </tr>
+                {(p?.subtotal_disposal > 0 || p?.disposal_per_tire > 0) && (
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '12px 0', fontSize: '14px', color: '#334155' }}>
+                      Tire Disposal Fee ({formatCurrency(p?.disposal_per_tire || 2.50)} × {p?.quantity})
+                    </td>
+                    <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', color: '#1e293b' }}>
+                      {formatCurrency(p?.subtotal_disposal || (2.50 * p?.quantity))}
+                    </td>
+                  </tr>
+                )}
+                {(p?.subtotal_ca_state_fee > 0 || p?.ca_state_fee_per_tire > 0) && (
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '12px 0', fontSize: '14px', color: '#334155' }}>
+                      CA State Tire Fee ({formatCurrency(p?.ca_state_fee_per_tire || 1.75)} × {p?.quantity})
+                    </td>
+                    <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', color: '#1e293b' }}>
+                      {formatCurrency(p?.subtotal_ca_state_fee || (1.75 * p?.quantity))}
+                    </td>
+                  </tr>
+                )}
+                {p?.subtotal_fet > 0 && (
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '12px 0', fontSize: '14px', color: '#334155' }}>
+                      Federal Excise Tax (FET)
+                    </td>
+                    <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', color: '#1e293b' }}>
+                      {formatCurrency(p?.subtotal_fet)}
+                    </td>
+                  </tr>
+                )}
+                {p?.promo_discount > 0 && (
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '12px 0', fontSize: '14px', color: '#16a34a' }}>
+                      Discount {p?.promo_name && `(${p.promo_name})`}
+                    </td>
+                    <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', color: '#16a34a', fontWeight: '600' }}>
+                      -{formatCurrency(p?.promo_discount)}
+                    </td>
+                  </tr>
+                )}
+                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '12px 0', fontSize: '14px', color: '#334155' }}>
                     Sales Tax ({((p?.tax_rate || 0) * 100).toFixed(2)}%)
                   </td>
-                  <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', fontWeight: '600' }}>
+                  <td style={{ padding: '12px 0', textAlign: 'right', fontSize: '14px', color: '#1e293b' }}>
                     {formatCurrency(p?.tax_amount)}
                   </td>
                 </tr>
-                <tr style={{ backgroundColor: '#8b1538', color: 'white' }}>
-                  <td style={{ padding: '15px 0', fontSize: '18px', fontWeight: '700' }}>
+                <tr style={{ backgroundColor: '#f8fafc' }}>
+                  <td style={{ padding: '15px 0', fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
                     TOTAL
                   </td>
-                  <td style={{ padding: '15px 0', textAlign: 'right', fontSize: '24px', fontWeight: '700', color: 'white' }}>
+                  <td style={{ padding: '15px 0', textAlign: 'right', fontSize: '24px', fontWeight: '700', color: '#8b1538' }}>
                     {formatCurrency(p?.total_amount)}
                   </td>
                 </tr>
@@ -910,7 +894,7 @@ const QuoteView = () => {
               onClick={handlePayOnline}
               disabled={sendingInvoice}
               style={{
-                backgroundColor: '#0070ba', // PayPal blue
+                backgroundColor: '#0070ba',
                 color: 'white',
                 padding: '14px 24px',
                 borderRadius: '8px',
