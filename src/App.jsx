@@ -6,6 +6,7 @@ import QuoteView from './QuoteView';
 import QuoteLookup from './QuoteLookup';
 import EnterpriseTireFinder from './EnterpriseTireFinder';
 import FleetTireFinder from './FleetTireFinder';
+import StaffPinGate from './StaffPinGate';
 
 // Simple hash-based router (no additional dependencies needed)
 export default function App() {
@@ -21,41 +22,65 @@ export default function App() {
   }, []);
 
   // Route to appropriate component
+  // PUBLIC ROUTES (no auth required):
   // #/ or #/finder -> TireFinder
   // #/inventory -> StoreInventory
+  // #/quote/:code -> QuoteView (customer link)
+  //
+  // PROTECTED ROUTES (staff PIN required):
   // #/quotes -> QuoteLookup
   // #/quote/build -> QuoteBuilder
-  // #/quote/:code -> QuoteView
   // #/enterprise -> EnterpriseTireFinder
   // #/fleet -> FleetTireFinder
+  
   const path = currentPath.replace('#', '') || '/';
+  
+  // === PUBLIC ROUTES ===
   
   if (path === '/inventory') {
     return <StoreInventory />;
   }
   
-  if (path === '/quotes') {
-    return <QuoteLookup />;
-  }
-  
-  if (path === '/quote/build') {
-    return <QuoteBuilder />;
-  }
-  
-  if (path === '/enterprise') {
-    return <EnterpriseTireFinder />;
-  }
-  
-  if (path === '/fleet') {
-    return <FleetTireFinder />;
-  }
-  
-  // Match /quote/:code pattern
+  // QuoteView - public (customer has the short code link)
   if (path.startsWith('/quote/') && path !== '/quote/build') {
     const code = path.replace('/quote/', '');
     return <QuoteView code={code} />;
   }
   
-  // Default to Tire Finder
+  // === PROTECTED ROUTES (wrapped with StaffPinGate) ===
+  
+  if (path === '/quotes') {
+    return (
+      <StaffPinGate>
+        <QuoteLookup />
+      </StaffPinGate>
+    );
+  }
+  
+  if (path === '/quote/build') {
+    return (
+      <StaffPinGate>
+        <QuoteBuilder />
+      </StaffPinGate>
+    );
+  }
+  
+  if (path === '/enterprise') {
+    return (
+      <StaffPinGate>
+        <EnterpriseTireFinder />
+      </StaffPinGate>
+    );
+  }
+  
+  if (path === '/fleet') {
+    return (
+      <StaffPinGate>
+        <FleetTireFinder />
+      </StaffPinGate>
+    );
+  }
+  
+  // === DEFAULT (public) ===
   return <TireFinder />;
 }
