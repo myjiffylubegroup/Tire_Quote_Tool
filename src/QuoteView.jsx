@@ -1056,18 +1056,29 @@ const QuoteView = () => {
       <style>{`
         @media print {
           @page {
-            size: letter landscape;
-            margin: 0.25in;
+            size: landscape;
+            margin: 0.2in;
           }
           
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
           
-          body { 
+          html, body {
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
             background: white !important;
-            font-size: 10px !important;
+            font-size: 9px !important;
+          }
+          
+          /* Prevent page breaks inside elements */
+          div, table, tr, td, p, h1, h2, h3, h4 {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
           
           /* Hide elements marked for print hiding */
@@ -1075,7 +1086,7 @@ const QuoteView = () => {
             display: none !important; 
           }
           
-          /* Hide all buttons */
+          /* Hide all buttons and Coming Soon wrappers */
           button { display: none !important; }
           
           /* Remove shadows */
@@ -1084,112 +1095,123 @@ const QuoteView = () => {
           /* Remove link URL printing */
           a[href]:after { content: none !important; }
           
-          /* Main container - full width */
+          /* Main container - full width, no overflow */
           .quote-outer-container {
             padding: 0 !important;
             background: white !important;
             min-height: auto !important;
+            overflow: visible !important;
           }
           
           .quote-main-container {
             max-width: 100% !important;
+            width: 100% !important;
             margin: 0 !important;
             border-radius: 0 !important;
+            overflow: visible !important;
+            page-break-inside: avoid !important;
           }
           
           /* Header - very compact */
           .quote-header {
-            padding: 8px 12px !important;
+            padding: 6px 10px !important;
+            page-break-after: avoid !important;
           }
           
           .quote-header img {
-            height: 30px !important;
+            height: 28px !important;
           }
           
-          /* Content area - 2 columns side by side */
+          /* Content area - FORCE 2 columns side by side */
           .quote-content {
-            padding: 8px 12px !important;
+            padding: 6px 10px !important;
             display: flex !important;
             flex-direction: row !important;
-            gap: 15px !important;
+            flex-wrap: nowrap !important;
+            gap: 12px !important;
             align-items: flex-start !important;
+            width: 100% !important;
+            page-break-inside: avoid !important;
           }
           
-          /* Left column */
+          /* Left column - FORCE width */
           .print-column-left {
-            flex: 0 0 45% !important;
-            max-width: 45% !important;
+            flex: 0 0 44% !important;
+            max-width: 44% !important;
+            width: 44% !important;
+            overflow: hidden !important;
           }
           
-          /* Right column */
+          /* Right column - FORCE width */
           .print-column-right {
-            flex: 0 0 53% !important;
-            max-width: 53% !important;
+            flex: 0 0 54% !important;
+            max-width: 54% !important;
+            width: 54% !important;
+            overflow: hidden !important;
           }
           
           /* Customer/Vehicle - compact */
           .customer-vehicle-row {
             display: block !important;
-            margin-bottom: 8px !important;
-            padding-bottom: 8px !important;
+            margin-bottom: 6px !important;
+            padding-bottom: 6px !important;
           }
           
           /* All headings smaller */
           h4 {
-            font-size: 9px !important;
-            margin-bottom: 5px !important;
+            font-size: 8px !important;
+            margin: 0 0 4px 0 !important;
           }
           
           h3 {
-            font-size: 12px !important;
+            font-size: 11px !important;
+            margin: 0 !important;
           }
           
-          /* All paragraph text smaller */
-          p, div, span, td {
-            font-size: 9px !important;
+          /* All text smaller */
+          p, div, span, td, th {
+            font-size: 8px !important;
+            line-height: 1.2 !important;
           }
           
-          /* Pricing table - compact */
+          /* Pricing table - very compact */
           table {
-            font-size: 9px !important;
+            font-size: 8px !important;
+            width: 100% !important;
           }
           
           table td {
-            padding: 3px 0 !important;
+            padding: 2px 0 !important;
           }
           
-          /* Warranty and price match - tiny */
-          .warranty-disclaimer,
-          .price-match {
-            padding: 5px 8px !important;
-            font-size: 7px !important;
+          /* Warranty disclaimer - tiny */
+          .warranty-disclaimer {
+            padding: 4px 6px !important;
+            font-size: 6px !important;
             line-height: 1.2 !important;
-            margin-bottom: 5px !important;
+            margin-bottom: 4px !important;
           }
           
           /* Footer - compact */
           .quote-footer {
-            padding-top: 5px !important;
-            font-size: 8px !important;
+            padding-top: 4px !important;
+            font-size: 7px !important;
             border-top: 1px solid #ccc !important;
+            page-break-before: avoid !important;
           }
           
           .quote-footer p {
-            margin: 2px 0 !important;
+            margin: 1px 0 !important;
           }
           
-          /* Margins reduced throughout */
-          [style*="marginBottom: '30px'"],
-          [style*="marginBottom: '25px'"],
-          [style*="marginBottom: '20px'"] {
-            margin-bottom: 8px !important;
+          /* Force all margins smaller */
+          [style*="marginBottom"] {
+            margin-bottom: 6px !important;
           }
           
-          /* Padding reduced */
-          [style*="padding: '30px'"],
-          [style*="padding: '25px'"],
-          [style*="padding: '20px'"] {
-            padding: 8px !important;
+          /* Reduce all padding */
+          [style*="padding"] {
+            padding: 6px !important;
           }
         }
       `}</style>
