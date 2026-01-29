@@ -7,6 +7,7 @@ import QuoteLookup from './QuoteLookup';
 import EnterpriseTireFinder from './EnterpriseTireFinder';
 import FleetTireFinder from './FleetTireFinder';
 import StaffPinGate from './StaffPinGate';
+import SmsConsent from './SmsConsent';
 
 // Simple hash-based router (no additional dependencies needed)
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
   // #/ or #/finder -> TireFinder
   // #/inventory -> StoreInventory
   // #/quote/:code -> QuoteView (customer link)
+  // #/sms-consent -> SmsConsent (Twilio compliance)
   //
   // PROTECTED ROUTES (staff PIN required):
   // #/quotes -> QuoteLookup
@@ -39,6 +41,10 @@ export default function App() {
   
   if (path === '/inventory') {
     return <StoreInventory />;
+  }
+  
+  if (path === '/sms-consent') {
+    return <SmsConsent />;
   }
   
   // QuoteView - public (customer has the short code link)
