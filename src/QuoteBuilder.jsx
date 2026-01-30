@@ -202,6 +202,302 @@ const TireTreadBlock = ({ label, values, onChange }) => (
   </div>
 );
 
+// ============================================
+// CUSTOMER SEARCH MODAL
+// ============================================
+const CustomerSearchModal = ({ isOpen, onClose, onSelectCustomer }) => {
+  const [searchType, setSearchType] = useState('name'); // 'name' or 'phone'
+  const [searchValue, setSearchValue] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState([]);
+  const [searched, setSearched] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Reset when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSearchType('name');
+      setSearchValue('');
+      setResults([]);
+      setSearched(false);
+      setError(null);
+    }
+  }, [isOpen]);
+
+  const handleSearch = async () => {
+    if (!searchValue.trim()) return;
+    
+    setSearching(true);
+    setError(null);
+    setResults([]);
+    setSearched(false);
+
+    try {
+      let url = `${API_BASE}/customer-lookup?key=${API_KEY}&search_type=${searchType}`;
+      
+      if (searchType === 'name') {
+        url += `&last_name=${encodeURIComponent(searchValue.trim())}`;
+      } else if (searchType === 'phone') {
+        const phoneDigits = searchValue.replace(/\D/g, '');
+        url += `&phone=${encodeURIComponent(phoneDigits)}`;
+      }
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.success) {
+        setSearched(true);
+        if (data.found) {
+          // Could be single customer or array of customers
+          if (data.customers) {
+            setResults(data.customers);
+          } else if (data.customer) {
+            setResults([data.customer]);
+          }
+        } else {
+          setResults([]);
+        }
+      } else {
+        setError(data.error || 'Search failed');
+      }
+    } catch (e) {
+      setError('Failed to search customers');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSelect = (customer) => {
+    onSelectCustomer(customer);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      padding: '20px'
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '15px',
+        padding: '30px',
+        width: '100%',
+        maxWidth: '550px',
+        maxHeight: '80vh',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.2)'
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 style={{ margin: 0, color: '#9b59b6', fontSize: '18px', fontWeight: '700', letterSpacing: '1px' }}>
+            ADVANCED CUSTOMER SEARCH
+          </h3>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#999',
+              padding: '0',
+              lineHeight: '1'
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Search Type Tabs */}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+          <button
+            onClick={() => { setSearchType('name'); setSearchValue(''); setResults([]); setSearched(false); }}
+            style={{
+              flex: 1,
+              padding: '10px',
+              border: `2px solid ${searchType === 'name' ? '#9b59b6' : '#ddd'}`,
+              borderRadius: '25px',
+              backgroundColor: searchType === 'name' ? '#9b59b6' : 'white',
+              color: searchType === 'name' ? 'white' : '#666',
+              fontSize: '12px',
+              fontWeight: '700',
+              letterSpacing: '1px',
+              cursor: 'pointer'
+            }}
+          >
+            BY LAST NAME
+          </button>
+          <button
+            onClick={() => { setSearchType('phone'); setSearchValue(''); setResults([]); setSearched(false); }}
+            style={{
+              flex: 1,
+              padding: '10px',
+              border: `2px solid ${searchType === 'phone' ? '#9b59b6' : '#ddd'}`,
+              borderRadius: '25px',
+              backgroundColor: searchType === 'phone' ? '#9b59b6' : 'white',
+              color: searchType === 'phone' ? 'white' : '#666',
+              fontSize: '12px',
+              fontWeight: '700',
+              letterSpacing: '1px',
+              cursor: 'pointer'
+            }}
+          >
+            BY PHONE
+          </button>
+        </div>
+
+        {/* Search Input */}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+          {searchType === 'phone' ? (
+            <PhoneInput
+              value={searchValue}
+              onChange={setSearchValue}
+              placeholder="(805) 555-1234"
+              style={{ flex: 1 }}
+            />
+          ) : (
+            <StyledInput
+              value={searchValue}
+              onChange={setSearchValue}
+              placeholder="Enter last name..."
+              style={{ flex: 1, textTransform: 'none' }}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            />
+          )}
+          <button
+            onClick={handleSearch}
+            disabled={!searchValue.trim() || searching}
+            style={{
+              backgroundColor: searchValue.trim() && !searching ? '#9b59b6' : '#ccc',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '25px',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: searchValue.trim() && !searching ? 'pointer' : 'not-allowed',
+              minWidth: '100px'
+            }}
+          >
+            {searching ? 'SEARCHING...' : 'SEARCH'}
+          </button>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div style={{
+            backgroundColor: '#fee',
+            border: '1px solid #e74c3c',
+            borderRadius: '8px',
+            padding: '10px',
+            marginBottom: '15px',
+            color: '#c0392b',
+            fontSize: '12px',
+            textAlign: 'center'
+          }}>
+            {error}
+          </div>
+        )}
+
+        {/* Results */}
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: '200px' }}>
+          {searched && results.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#999' }}>
+              <div style={{ fontSize: '40px', marginBottom: '10px' }}>🔍</div>
+              <p style={{ margin: 0, fontSize: '13px' }}>No customers found</p>
+            </div>
+          )}
+
+          {results.length > 0 && (
+            <div>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '10px', fontWeight: '600' }}>
+                {results.length} RESULT{results.length !== 1 ? 'S' : ''} FOUND
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {results.map((customer, idx) => (
+                  <button
+                    key={customer.vehicle_customer_id || idx}
+                    onClick={() => handleSelect(customer)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '12px 15px',
+                      border: '2px solid #eee',
+                      borderRadius: '10px',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#9b59b6';
+                      e.currentTarget.style.backgroundColor = '#faf5fc';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#eee';
+                      e.currentTarget.style.backgroundColor = 'white';
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontWeight: '700', color: '#333', fontSize: '14px', marginBottom: '4px' }}>
+                          {customer.full_name || `${customer.first_name} ${customer.last_name}`.trim() || 'Unknown'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>
+                          {customer.phone && <span>{customer.phone}</span>}
+                          {customer.phone && customer.email && <span> • </span>}
+                          {customer.email && <span>{customer.email}</span>}
+                        </div>
+                        {customer.vehicle_ymm && (
+                          <div style={{ fontSize: '11px', color: '#888', marginTop: '4px' }}>
+                            🚗 {customer.vehicle_ymm}
+                          </div>
+                        )}
+                      </div>
+                      {customer.license_plate && (
+                        <div style={{
+                          backgroundColor: '#f0f0f0',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          color: '#666'
+                        }}>
+                          {customer.license_state} {customer.license_plate}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer hint */}
+        <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #eee', textAlign: 'center' }}>
+          <span style={{ fontSize: '11px', color: '#999' }}>
+            Click a customer to select them for the quote
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Header Component - matches TireFinder
 const Header = ({ selectedStore, onStoreChange }) => (
   <>
@@ -300,6 +596,9 @@ export default function QuoteBuilder() {
     first_name: '', last_name: '', full_name: '', phone: '', email: '', vehicle_ymm: '', data_source: 'manual'
   });
 
+  // Advanced search modal state
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+
   // Tread depths: 4 tires × 3 readings each
   const [treadDepths, setTreadDepths] = useState({
     lf: { inside: '', middle: '', outside: '' },
@@ -385,10 +684,36 @@ export default function QuoteBuilder() {
         }
       } else {
         setCustomerFound(false);
-        setCustomerData({ first_name: '', last_name: '', full_name: '', phone: '', email: '', vehicle_ymm: '', data_source: 'manual' });
+        // Don't clear data - user might want to search another way
       }
     } catch (e) { setError('Failed to lookup customer'); }
     finally { setCustomerLookupLoading(false); }
+  };
+
+  // Handle selection from advanced search modal
+  const handleAdvancedSearchSelect = (customer) => {
+    setCustomerFound(true);
+    const formattedPhone = customer.phone || '';
+    setCustomerData({
+      first_name: customer.first_name || '',
+      last_name: customer.last_name || '',
+      full_name: customer.full_name || '',
+      phone: formattedPhone,
+      email: customer.email || '',
+      vehicle_ymm: customer.vehicle_ymm || '',
+      data_source: 'lookup'
+    });
+    // Also populate license plate if available
+    if (customer.license_plate) {
+      setLicensePlate(customer.license_plate);
+      if (customer.license_state) {
+        setLicenseState(customer.license_state);
+      }
+    }
+    // Update vehicle if we have it and no vehicle selected
+    if (customer.vehicle_ymm && !vehicleData?.display) {
+      setVehicleData({ display: customer.vehicle_ymm });
+    }
   };
 
   const handleGenerateQuote = async () => {
@@ -499,6 +824,13 @@ export default function QuoteBuilder() {
     <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
 
+      {/* Advanced Search Modal */}
+      <CustomerSearchModal 
+        isOpen={showAdvancedSearch}
+        onClose={() => setShowAdvancedSearch(false)}
+        onSelectCustomer={handleAdvancedSearchSelect}
+      />
+
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '30px 20px' }}>
         <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '40px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           
@@ -596,6 +928,26 @@ export default function QuoteBuilder() {
                     {customerLookupLoading ? '...' : '🔍'}
                   </button>
                 </div>
+
+                {/* Advanced Search Link */}
+                <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+                  <button
+                    onClick={() => setShowAdvancedSearch(true)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#9b59b6',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                      padding: '0'
+                    }}
+                  >
+                    🔍 Search by Name or Phone
+                  </button>
+                </div>
+
                 {customerFound && (
                   <div style={{ backgroundColor: '#f0fff4', border: '1px solid #27ae60', borderRadius: '8px', padding: '10px', marginBottom: '12px', fontSize: '11px', color: '#27ae60', fontWeight: '600' }}>
                     ✓ Customer found!
