@@ -47,7 +47,7 @@ const calculateEnterprisePrice = (cost, brandCode) => {
   if (isNexen) {
     if (c < 100) return c + 20;
     if (c < 150) return c + 25;
-    if (c < 200  return c + 30;
+    if (c < 200) return c + 30;
     return c * 1.20;
   } else {
     // Other brands: add $15 to each Nexen tier
