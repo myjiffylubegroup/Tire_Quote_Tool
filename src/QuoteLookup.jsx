@@ -16,6 +16,7 @@ const STORES = [
 
 const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
 
+// Navigation items - consistent across all pages
 const NAV_ITEMS = [
   { label: 'TIRE FINDER', href: '#/' },
   { label: 'STORE INVENTORY', href: '#/inventory' },
@@ -194,6 +195,7 @@ export default function QuoteLookup() {
   const [licenseState, setLicenseState] = useState('CA');
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [filterStatus, setFilterStatus] = useState('all');
   
   // Results state
   const [quotes, setQuotes] = useState([]);
@@ -228,6 +230,7 @@ export default function QuoteLookup() {
           license_state: searchType === 'plate' ? licenseState : undefined,
           sort_by: sortBy,
           sort_order: sortOrder,
+          filter_status: filterStatus,
           limit: 50
         })
       });
@@ -255,6 +258,7 @@ export default function QuoteLookup() {
   const handleClear = () => {
     setSearchValue('');
     setSearchType('name');
+    setFilterStatus('all');
     setHasSearched(false);
     handleSearch(true);
   };
@@ -386,6 +390,25 @@ export default function QuoteLookup() {
               />
             </div>
 
+            {/* Conversion Filter */}
+            <div style={{ width: '150px' }}>
+              <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                FILTER
+              </label>
+              <StyledSelect
+                value={filterStatus}
+                onChange={setFilterStatus}
+                options={[
+                  { value: 'all', label: 'All Quotes' },
+                  { value: 'needs_followup', label: '🔴🟡 Needs Follow-up' },
+                  { value: 'purchased', label: '✅ Purchased' },
+                  { value: 'not_purchased', label: '— Not Purchased' },
+                  { value: 'unmatched', label: '? Unmatched' },
+                ]}
+                placeholder="Filter..."
+              />
+            </div>
+
             {/* Search Button */}
             <button
               onClick={() => handleSearch()}
@@ -467,8 +490,10 @@ export default function QuoteLookup() {
                     <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Date</th>
                     <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Customer</th>
                     <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Vehicle</th>
+                    <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Tread</th>
                     <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Tire</th>
                     <th style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#666' }}>Total</th>
+                    <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Purchased</th>
                     <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Status</th>
                     <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}></th>
                   </tr>
@@ -513,12 +538,74 @@ export default function QuoteLookup() {
                           {quote.vehicle}
                         </div>
                       </td>
+                      <td style={{ padding: '12px 10px', textAlign: 'center' }}>
+                        {quote.tread ? (
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: '3px', flexWrap: 'nowrap' }}>
+                            {quote.tread.red_count > 0 && (
+                              <span style={{ 
+                                backgroundColor: '#fee2e2', color: '#dc2626',
+                                padding: '2px 6px', borderRadius: '8px', 
+                                fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap'
+                              }}>
+                                🔴 {quote.tread.red_count}
+                              </span>
+                            )}
+                            {quote.tread.yellow_count > 0 && (
+                              <span style={{ 
+                                backgroundColor: '#fef3c7', color: '#d97706',
+                                padding: '2px 6px', borderRadius: '8px', 
+                                fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap'
+                              }}>
+                                🟡 {quote.tread.yellow_count}
+                              </span>
+                            )}
+                            {quote.tread.green_count > 0 && quote.tread.red_count === 0 && quote.tread.yellow_count === 0 && (
+                              <span style={{ 
+                                backgroundColor: '#d1fae5', color: '#059669',
+                                padding: '2px 6px', borderRadius: '8px', 
+                                fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap'
+                              }}>
+                                🟢 {quote.tread.green_count}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#ccc', fontSize: '11px' }}>—</span>
+                        )}
+                      </td>
                       <td style={{ padding: '12px 15px', color: '#666' }}>
                         <div style={{ fontWeight: '500' }}>{quote.tire.brand} {quote.tire.size}</div>
                         <div style={{ fontSize: '11px', color: '#888' }}>Qty: {quote.quantity}</div>
                       </td>
                       <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#333' }}>
                         {formatCurrency(quote.total_amount)}
+                      </td>
+                      <td style={{ padding: '12px 10px', textAlign: 'center' }}>
+                        {quote.conversion ? (
+                          quote.conversion.status === 'purchased' ? (
+                            <span 
+                              title={`${quote.conversion.tires_purchased} tire${quote.conversion.tires_purchased !== 1 ? 's' : ''} · Store ${quote.conversion.purchase_store} · ${quote.conversion.days_to_purchase} day${quote.conversion.days_to_purchase !== 1 ? 's' : ''}`}
+                              style={{ 
+                                backgroundColor: '#d1fae5', color: '#065f46',
+                                padding: '3px 8px', borderRadius: '10px', 
+                                fontSize: '10px', fontWeight: '600', cursor: 'default'
+                              }}>
+                              ✅ {quote.conversion.tires_purchased}
+                            </span>
+                          ) : quote.conversion.status === 'unmatched' ? (
+                            <span style={{ 
+                              backgroundColor: '#f1f5f9', color: '#94a3b8',
+                              padding: '3px 8px', borderRadius: '10px', 
+                              fontSize: '10px', fontWeight: '600'
+                            }}>
+                              NO PLATE
+                            </span>
+                          ) : (
+                            <span style={{ color: '#cbd5e1', fontSize: '14px' }}>—</span>
+                          )
+                        ) : (
+                          <span style={{ color: '#cbd5e1', fontSize: '14px' }}>—</span>
+                        )}
                       </td>
                       <td style={{ padding: '12px 15px', textAlign: 'center' }}>
                         {quote.is_expired ? (
