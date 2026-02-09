@@ -30,10 +30,11 @@ const PROMOS = [
 // Rebate options - empty for now
 const REBATES = [];
 
-// Navigation items - matches TireFinder
+// Navigation items - consistent across all pages
 const NAV_ITEMS = [
   { label: 'TIRE FINDER', href: '#/' },
   { label: 'STORE INVENTORY', href: '#/inventory' },
+  { label: 'RETRIEVE QUOTE', href: '#/quotes' },
   { label: 'ENTERPRISE RENT-A-CAR', href: '#/enterprise' },
   { label: 'FLEET NEGOTIATED', href: '#/fleet' },
 ];
@@ -564,12 +565,20 @@ const Header = ({ selectedStore, onStoreChange }) => (
   </>
 );
 
-// Footer Component - matches TireFinder
+// Footer Component
 const Footer = () => (
   <footer style={{ backgroundColor: '#2c3e50', color: '#95a5a6', padding: '30px 20px' }}>
     <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
+      <div style={{ marginBottom: '12px' }}>
+        <a href="#/about" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px', marginRight: '15px' }}>About Us</a>
+        <a href="#/contact" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px', marginRight: '15px' }}>Contact</a>
+        <a href="#/privacy-policy" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px', marginRight: '15px' }}>Privacy Policy</a>
+        <a href="#/terms" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px', marginRight: '15px' }}>Terms & Conditions</a>
+        <a href="#/sms-consent" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px', marginRight: '15px' }}>SMS Terms</a>
+        <a href="#/do-not-sell" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px' }}>Do Not Sell My Info</a>
+      </div>
       <p style={{ fontSize: '13px', marginBottom: '8px' }}>
-        © 2026 My Jiffy Lube Group. Tire data provided by MOTOR & USAutoForce.
+        © 2026 P.C.J.L., Inc. Tire data provided by MOTOR & USAutoForce.
       </p>
       <p style={{ fontSize: '11px', color: '#7f8c8d' }}>
         tires.myjiffylube.ai

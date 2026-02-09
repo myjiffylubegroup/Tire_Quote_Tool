@@ -25,6 +25,7 @@ const STORES = [
 const NAV_ITEMS = [
   { label: 'TIRE FINDER', href: '#/', active: false },
   { label: 'STORE INVENTORY', href: '#/inventory', active: false },
+  { label: 'RETRIEVE QUOTE', href: '#/quotes', active: false },
   { label: 'ENTERPRISE RENT-A-CAR', href: '#/enterprise', active: false },
   { label: 'FLEET NEGOTIATED', href: '#/fleet', active: true },
 ];
@@ -1182,11 +1183,19 @@ export default function FleetTireFinder() {
       {/* Footer - Fleet Style */}
       <footer style={{ backgroundColor: FLEET_GRAY, color: '#95a5a6', padding: '30px 20px' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ marginBottom: '12px' }}>
+            <a href="#/about" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px', marginRight: '15px' }}>About Us</a>
+            <a href="#/contact" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px', marginRight: '15px' }}>Contact</a>
+            <a href="#/privacy-policy" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px', marginRight: '15px' }}>Privacy Policy</a>
+            <a href="#/terms" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px', marginRight: '15px' }}>Terms & Conditions</a>
+            <a href="#/sms-consent" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px', marginRight: '15px' }}>SMS Terms</a>
+            <a href="#/do-not-sell" style={{ color: '#95a5a6', textDecoration: 'none', fontSize: '11px' }}>Do Not Sell My Info</a>
+          </div>
           <p style={{ fontSize: '13px', marginBottom: '8px', color: '#ccc' }}>
             Jiffy Lube Fleet Tire Program • Commercial Fleet Accounts Only
           </p>
           <p style={{ fontSize: '11px', color: '#7f8c8d' }}>
-            Powered by Jiffy Lube Multicare • tires.myjiffylube.ai
+            Powered by P.C.J.L., Inc. • Jiffy Lube MultiCare • tires.myjiffylube.ai
           </p>
         </div>
       </footer>

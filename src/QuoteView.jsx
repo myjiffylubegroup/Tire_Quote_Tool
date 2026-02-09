@@ -1052,6 +1052,15 @@ const QuoteView = () => {
         </div>
       </div>
 
+      {/* Legal Footer - hidden in print */}
+      <div className="no-print" style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '11px' }}>
+        <a href="#/privacy-policy" style={{ color: '#94a3b8', textDecoration: 'none', marginRight: '12px' }}>Privacy Policy</a>
+        <a href="#/terms" style={{ color: '#94a3b8', textDecoration: 'none', marginRight: '12px' }}>Terms & Conditions</a>
+        <a href="#/contact" style={{ color: '#94a3b8', textDecoration: 'none', marginRight: '12px' }}>Contact</a>
+        <a href="#/do-not-sell" style={{ color: '#94a3b8', textDecoration: 'none' }}>Do Not Sell My Info</a>
+        <p style={{ marginTop: '8px', marginBottom: '0' }}>© 2026 P.C.J.L., Inc. • Jiffy Lube MultiCare • tires.myjiffylube.ai</p>
+      </div>
+
       {/* Print Styles - Landscape 2-Column Layout */}
       <style>{`
         @media print {
