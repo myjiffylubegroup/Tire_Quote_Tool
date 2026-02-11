@@ -15,7 +15,7 @@ const STORES = [
 ];
 
 const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
-const QTY_OPTIONS = [1, 2, 3, 4, 5, 6];
+const QTY_OPTIONS = [1, 2, 4, 5, 6, 8];
 
 // Promo options - matches quote_config in database
 const PROMOS = [
@@ -624,14 +624,6 @@ export default function QuoteBuilder() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
 
-  // Alternative tire options (good/best) - loaded from sessionStorage (set by TireFinder)
-  const [altGoodTire, setAltGoodTire] = useState(null);
-  const [altBestTire, setAltBestTire] = useState(null);
-
-  // Revision tracking
-  const [revisedFromQuoteId, setRevisedFromQuoteId] = useState(null);
-  const [reviseLoading, setReviseLoading] = useState(false);
-
   const updateTread = (tire, position, value) => {
     setTreadDepths(prev => ({
       ...prev,
@@ -654,12 +646,6 @@ export default function QuoteBuilder() {
     if (savedTire) setTireData(JSON.parse(savedTire));
     if (savedVehicle) setVehicleData(JSON.parse(savedVehicle));
     if (savedQty) setQuantity(parseInt(savedQty));
-
-    // Load alt tires from TireFinder selection
-    const savedGood = sessionStorage.getItem('jl_quote_alt_good');
-    const savedBest = sessionStorage.getItem('jl_quote_alt_best');
-    if (savedGood) setAltGoodTire(JSON.parse(savedGood));
-    if (savedBest) setAltBestTire(JSON.parse(savedBest));
   }, []);
 
   useEffect(() => { localStorage.setItem('jl_tire_store', selectedStore); }, [selectedStore]);
@@ -682,158 +668,6 @@ export default function QuoteBuilder() {
     };
     fetchEmployees();
   }, [selectedStore]);
-
-<<<<<<< HEAD
-  // Re-Quote pre-fill: detect jl_requote_data in sessionStorage (set by QuoteLookup or QuoteView)
-  useEffect(() => {
-    const saved = sessionStorage.getItem('jl_requote_data');
-    if (!saved) return;
-
-    try {
-      const rq = JSON.parse(saved);
-      setRevisedFromQuoteId(rq.from_quote_id);
-
-      // Pre-fill customer
-      if (rq.customer) {
-        setCustomerData({
-          first_name: rq.customer.first_name || '',
-          last_name: rq.customer.last_name || '',
-          full_name: rq.customer.full_name || '',
-          phone: rq.customer.phone ? formatPhoneNumber(rq.customer.phone) : '',
-          email: rq.customer.email || '',
-          vehicle_ymm: '',
-          data_source: rq.customer.data_source || 'manual'
-        });
-        if (rq.customer.license_plate) {
-          setLicensePlate(rq.customer.license_plate);
-          setLicenseState(rq.customer.license_state || 'CA');
-        }
-        setCustomerFound(true);
-      }
-
-      // Pre-fill tread depths
-      if (rq.treads?.tires) {
-        const t = rq.treads.tires;
-        setTreadDepths({
-          lf: { inside: t.front_left?.inside?.toString() || '', middle: t.front_left?.middle?.toString() || '', outside: t.front_left?.outside?.toString() || '' },
-          rf: { inside: t.front_right?.inside?.toString() || '', middle: t.front_right?.middle?.toString() || '', outside: t.front_right?.outside?.toString() || '' },
-          lr: { inside: t.rear_left?.inside?.toString() || '', middle: t.rear_left?.middle?.toString() || '', outside: t.rear_left?.outside?.toString() || '' },
-          rr: { inside: t.rear_right?.inside?.toString() || '', middle: t.rear_right?.middle?.toString() || '', outside: t.rear_right?.outside?.toString() || '' },
-        });
-      }
-
-      // Set store
-      if (rq.store_id) {
-        setSelectedStore(rq.store_id.toString());
-      }
-    } catch (e) {
-      console.error('Failed to parse re-quote data:', e);
-    }
-=======
-  // Revise pre-fill: detect ?revise=QUOTE_ID in URL hash
-  useEffect(() => {
-    const hash = window.location.hash;
-    const reviseMatch = hash.match(/[?&]revise=([a-f0-9-]+)/i);
-    if (!reviseMatch) return;
-
-    const quoteId = reviseMatch[1];
-    setReviseLoading(true);
-
-    const fetchReviseQuote = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/get-quote?id=${quoteId}&key=${API_KEY}`);
-        const data = await response.json();
-        if (data.success && data.quote) {
-          const q = data.quote;
-          setRevisedFromQuoteId(q.quote_id);
-
-          // Pre-fill tire data
-          if (q.tire) {
-            const tData = {
-              part_number: q.tire.part_number,
-              brand: q.tire.brand,
-              brand_code: q.tire.brand,
-              name: q.tire.name,
-              sales_class: q.tire.name,
-              tire_size: q.tire.size,
-              size: q.tire.size,
-              tire_type: q.tire.type,
-              warranty: q.tire.warranty_miles,
-              load_rating: q.tire.load_rating,
-              speed_rating: q.tire.speed_rating,
-              load_range: q.tire.load_range,
-              snowflake: q.tire.snowflake,
-              run_flat: q.tire.run_flat,
-              consumer_price: q.pricing.price_per_tire,
-              price: q.pricing.price_per_tire,
-              cost: null,
-              fet: q.pricing.fet_per_tire
-            };
-            setTireData(tData);
-          }
-
-          // Pre-fill vehicle
-          if (q.vehicle?.display) {
-            setVehicleData(q.vehicle);
-          }
-
-          // Pre-fill customer
-          if (q.customer) {
-            setCustomerData({
-              first_name: q.customer.first_name || '',
-              last_name: q.customer.last_name || '',
-              full_name: q.customer.full_name || '',
-              phone: q.customer.phone ? formatPhoneNumber(q.customer.phone) : '',
-              email: q.customer.email || '',
-              vehicle_ymm: '',
-              data_source: q.customer.data_source || 'manual'
-            });
-            if (q.customer.license_plate) {
-              setLicensePlate(q.customer.license_plate);
-              setLicenseState(q.customer.license_state || 'CA');
-            }
-          }
-
-          // Pre-fill quantity, promo
-          if (q.pricing?.quantity) setQuantity(q.pricing.quantity);
-          if (q.pricing?.promo_id) setSelectedPromo(q.pricing.promo_id);
-
-          // Pre-fill tread depths
-          if (q.tread_depth?.tires) {
-            const t = q.tread_depth.tires;
-            setTreadDepths({
-              lf: { inside: t.front_left?.inside?.toString() || '', middle: t.front_left?.middle?.toString() || '', outside: t.front_left?.outside?.toString() || '' },
-              rf: { inside: t.front_right?.inside?.toString() || '', middle: t.front_right?.middle?.toString() || '', outside: t.front_right?.outside?.toString() || '' },
-              lr: { inside: t.rear_left?.inside?.toString() || '', middle: t.rear_left?.middle?.toString() || '', outside: t.rear_left?.outside?.toString() || '' },
-              rr: { inside: t.rear_right?.inside?.toString() || '', middle: t.rear_right?.middle?.toString() || '', outside: t.rear_right?.outside?.toString() || '' },
-            });
-          }
-
-          // Pre-fill alt tires
-          if (q.alternatives?.good) {
-            setAltGoodTire(q.alternatives.good);
-          }
-          if (q.alternatives?.best) {
-            setAltBestTire(q.alternatives.best);
-          }
-
-          // Set store
-          if (q.store?.id) {
-            setSelectedStore(q.store.id.toString());
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load revise quote:', e);
-      } finally {
-        setReviseLoading(false);
-      }
-    };
-
-    fetchReviseQuote();
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
-  }, []);
-
-  // Alt tire search function removed - alt tires now selected in TireFinder
 
   const handleCustomerLookup = async () => {
     if (!licensePlate.trim()) return;
@@ -949,24 +783,7 @@ export default function QuoteBuilder() {
         quantity, 
         promo_id: selectedPromo || null,
         rebate_amount: rebateAmount ? parseFloat(rebateAmount) : 0, 
-        rebate_description: rebateDescription || null,
-        // Alternative tire options
-        alt_good: altGoodTire ? {
-          part_number: altGoodTire.part_number,
-          brand: altGoodTire.brand || altGoodTire.brand_code,
-          name: altGoodTire.name || altGoodTire.sales_class,
-          price_per_tire: altGoodTire.consumer_price || altGoodTire.price || altGoodTire.price_per_tire,
-          warranty_miles: altGoodTire.warranty ? parseInt(altGoodTire.warranty) : (altGoodTire.warranty_miles || null)
-        } : null,
-        alt_best: altBestTire ? {
-          part_number: altBestTire.part_number,
-          brand: altBestTire.brand || altBestTire.brand_code,
-          name: altBestTire.name || altBestTire.sales_class,
-          price_per_tire: altBestTire.consumer_price || altBestTire.price || altBestTire.price_per_tire,
-          warranty_miles: altBestTire.warranty ? parseInt(altBestTire.warranty) : (altBestTire.warranty_miles || null)
-        } : null,
-        // Revision linkage
-        revised_from_quote_id: revisedFromQuoteId || null
+        rebate_description: rebateDescription || null
       };
       
       const response = await fetch(`${API_BASE}/generate-quote`, { 
@@ -980,12 +797,6 @@ export default function QuoteBuilder() {
         sessionStorage.removeItem('jl_quote_tire');
         sessionStorage.removeItem('jl_quote_vehicle');
         sessionStorage.removeItem('jl_quote_qty');
-        sessionStorage.removeItem('jl_quote_alt_good');
-        sessionStorage.removeItem('jl_quote_alt_best');
-<<<<<<< HEAD
-        sessionStorage.removeItem('jl_requote_data');
-=======
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
         window.location.hash = `#/quote/${data.quote.short_code}`;
       } else { 
         setError(data.error || 'Failed to generate quote'); 
@@ -1029,41 +840,11 @@ export default function QuoteBuilder() {
         onSelectCustomer={handleAdvancedSearchSelect}
       />
 
-      {/* Revise Loading Overlay */}
-      {reviseLoading && (
-        <div style={{ 
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-          backgroundColor: 'rgba(255,255,255,0.9)', 
-          display: 'flex', alignItems: 'center', justifyContent: 'center', 
-          zIndex: 1000 
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '40px', marginBottom: '15px' }}>🔄</div>
-<<<<<<< HEAD
-            <div style={{ fontSize: '16px', color: '#9b59b6', fontWeight: '600' }}>Loading quote for re-quote...</div>
-=======
-            <div style={{ fontSize: '16px', color: '#9b59b6', fontWeight: '600' }}>Loading quote for revision...</div>
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
-          </div>
-        </div>
-      )}
-
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '30px 20px' }}>
         <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '40px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           
-          <h2 style={{ color: '#9b59b6', fontSize: '28px', fontWeight: '700', textAlign: 'center', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '3px' }}>
-<<<<<<< HEAD
-            {revisedFromQuoteId ? 'RE-QUOTE' : 'CREATE QUOTE'}
-          </h2>
-          <p style={{ color: '#888', textAlign: 'center', fontSize: '13px', marginBottom: '30px', letterSpacing: '2px' }}>
-            {revisedFromQuoteId ? 'NEW QUOTE FROM PREVIOUS — NEW TIRES SELECTED' : 'TIRE QUOTE BUILDER'}
-=======
-            {revisedFromQuoteId ? 'REVISE QUOTE' : 'CREATE QUOTE'}
-          </h2>
-          <p style={{ color: '#888', textAlign: 'center', fontSize: '13px', marginBottom: '30px', letterSpacing: '2px' }}>
-            {revisedFromQuoteId ? 'CREATING NEW QUOTE FROM PREVIOUS' : 'TIRE QUOTE BUILDER'}
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
-          </p>
+          <h2 style={{ color: '#9b59b6', fontSize: '28px', fontWeight: '700', textAlign: 'center', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '3px' }}>CREATE QUOTE</h2>
+          <p style={{ color: '#888', textAlign: 'center', fontSize: '13px', marginBottom: '30px', letterSpacing: '2px' }}>TIRE QUOTE BUILDER</p>
 
           {/* Selected Tire Banner */}
           <div style={{ backgroundColor: '#9b59b6', borderRadius: '10px', padding: '20px 25px', color: 'white', marginBottom: '30px' }}>
@@ -1187,10 +968,6 @@ export default function QuoteBuilder() {
                   <PhoneInput value={customerData.phone} onChange={(v) => setCustomerData({...customerData, phone: v})} placeholder="(805) 555-1234" />
                   <StyledInput value={customerData.email} onChange={(v) => setCustomerData({...customerData, email: v})} placeholder="EMAIL" />
                 </div>
-                {/* SMS Consent Notice */}
-                <div style={{ marginTop: '8px', fontSize: '9px', color: '#94a3b8', lineHeight: '1.4', textAlign: 'center' }}>
-                  📱 By providing a phone number, customer consents to receive tire quote & service messages via SMS. Msg & data rates may apply. Reply STOP to opt out. <a href="#/sms-consent" style={{ color: '#9b59b6', textDecoration: 'underline' }}>SMS Terms</a>
-                </div>
               </div>
 
               {/* Quote Options */}
@@ -1227,56 +1004,6 @@ export default function QuoteBuilder() {
                   </div>
                 </div>
               </div>
-
-              {/* Alternative Tire Options (from TireFinder) */}
-              {(altGoodTire || altBestTire) && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-                    <div style={{ flex: 1, height: '1px', backgroundColor: '#9b59b6', marginRight: '8px', position: 'relative' }}>
-                      <div style={{ position: 'absolute', left: 0, top: '-3px', width: '7px', height: '7px', backgroundColor: '#9b59b6', borderRadius: '50%' }} />
-                    </div>
-                    <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>COMPARE OPTIONS</span>
-                  </div>
-
-                  {altGoodTire && (
-                    <div style={{ 
-                      backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', 
-                      padding: '8px 12px', marginBottom: '8px',
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                    }}>
-                      <div>
-                        <span style={{ fontSize: '9px', color: '#16a34a', fontWeight: '700' }}>GOOD </span>
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>
-                          {altGoodTire.brand_code || altGoodTire.brand} {altGoodTire.sales_class || altGoodTire.name}
-                        </span>
-                        <span style={{ fontSize: '11px', color: '#666', marginLeft: '8px' }}>
-                          {formatCurrency(altGoodTire.consumer_price || altGoodTire.price || altGoodTire.price_per_tire)}/tire
-                        </span>
-                      </div>
-                      <button onClick={() => setAltGoodTire(null)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}>×</button>
-                    </div>
-                  )}
-
-                  {altBestTire && (
-                    <div style={{ 
-                      backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', 
-                      padding: '8px 12px',
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                    }}>
-                      <div>
-                        <span style={{ fontSize: '9px', color: '#dc2626', fontWeight: '700' }}>BEST </span>
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>
-                          {altBestTire.brand_code || altBestTire.brand} {altBestTire.sales_class || altBestTire.name}
-                        </span>
-                        <span style={{ fontSize: '11px', color: '#666', marginLeft: '8px' }}>
-                          {formatCurrency(altBestTire.consumer_price || altBestTire.price || altBestTire.price_per_tire)}/tire
-                        </span>
-                      </div>
-                      <button onClick={() => setAltBestTire(null)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}>×</button>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Right Column - Tread Depth with Car Image */}

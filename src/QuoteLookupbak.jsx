@@ -267,65 +267,6 @@ export default function QuoteLookup() {
     window.location.hash = `#/quote/${shortCode}`;
   };
 
-  // Check if quote was created today (Pacific time) — matches get-quote is_editable logic
-  const isSameDay = (createdAt) => {
-    if (!createdAt) return false;
-    const now = new Date();
-    const pacific = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-    const created = new Date(new Date(createdAt).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-    return pacific.getFullYear() === created.getFullYear() &&
-           pacific.getMonth() === created.getMonth() &&
-           pacific.getDate() === created.getDate();
-  };
-
-  const editQuote = (shortCode) => {
-    window.location.hash = `#/quote/${shortCode}?edit=true`;
-  };
-
-<<<<<<< HEAD
-  // Re-Quote: fetch full quote data, stash to sessionStorage, navigate to TireFinder
-  const [reQuoting, setReQuoting] = useState(null);
-  const reQuote = async (quoteId) => {
-    setReQuoting(quoteId);
-    try {
-      const response = await fetch(`${API_BASE}/get-quote?id=${quoteId}&key=${API_KEY}`);
-      const data = await response.json();
-      if (data.success && data.quote) {
-        const q = data.quote;
-        const reQuoteData = {
-          from_quote_id: q.quote_id,
-          from_quote_number: q.quote_number,
-          customer: {
-            first_name: q.customer.first_name || '',
-            last_name: q.customer.last_name || '',
-            full_name: q.customer.full_name || '',
-            phone: q.customer.phone || '',
-            email: q.customer.email || '',
-            license_plate: q.customer.license_plate || '',
-            license_state: q.customer.license_state || 'CA',
-            data_source: q.customer.data_source || 'manual'
-          },
-          vehicle: q.vehicle || null,
-          treads: q.tread_depth || null,
-          store_id: q.store?.id || null,
-          quantity: q.pricing?.quantity || 4
-        };
-        sessionStorage.setItem('jl_requote_data', JSON.stringify(reQuoteData));
-        window.location.hash = '#/';
-      } else {
-        setError('Failed to load quote for re-quoting');
-      }
-    } catch (e) {
-      setError('Failed to connect to server');
-    } finally {
-      setReQuoting(null);
-    }
-=======
-  const reviseQuote = (quoteId) => {
-    window.location.hash = `#/quote/build?revise=${quoteId}`;
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
-  };
-
   return (
     <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
@@ -554,11 +495,7 @@ export default function QuoteLookup() {
                     <th style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#666' }}>Total</th>
                     <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Purchased</th>
                     <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Status</th>
-<<<<<<< HEAD
-                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666', minWidth: '180px' }}>Actions</th>
-=======
-                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666', minWidth: '170px' }}>Actions</th>
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
+                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -695,79 +632,25 @@ export default function QuoteLookup() {
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openQuote(quote.short_code);
-                            }}
-                            style={{
-                              backgroundColor: '#9b59b6',
-                              color: 'white',
-                              border: 'none',
-                              padding: '5px 10px',
-                              borderRadius: '12px',
-                              fontSize: '10px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            VIEW
-                          </button>
-                          {isSameDay(quote.created_at) && !quote.is_expired && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                editQuote(quote.short_code);
-                              }}
-                              style={{
-                                backgroundColor: 'transparent',
-                                color: '#9b59b6',
-                                border: '1.5px solid #9b59b6',
-                                padding: '5px 10px',
-                                borderRadius: '12px',
-                                fontSize: '10px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              EDIT
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-<<<<<<< HEAD
-                              reQuote(quote.quote_id);
-                            }}
-                            disabled={reQuoting === quote.quote_id}
-=======
-                              reviseQuote(quote.quote_id);
-                            }}
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
-                            style={{
-                              backgroundColor: 'transparent',
-                              color: '#3b82f6',
-                              border: '1.5px solid #3b82f6',
-                              padding: '5px 10px',
-                              borderRadius: '12px',
-                              fontSize: '10px',
-                              fontWeight: '600',
-<<<<<<< HEAD
-                              cursor: reQuoting === quote.quote_id ? 'wait' : 'pointer',
-                              opacity: reQuoting === quote.quote_id ? 0.5 : 1,
-                            }}
-                          >
-                            {reQuoting === quote.quote_id ? '...' : 'RE-QUOTE'}
-=======
-                              cursor: 'pointer',
-                            }}
-                          >
-                            REVISE
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
-                          </button>
-                        </div>
+                      <td style={{ padding: '12px 15px', textAlign: 'center' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openQuote(quote.short_code);
+                          }}
+                          style={{
+                            backgroundColor: '#9b59b6',
+                            color: 'white',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '15px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          VIEW
+                        </button>
                       </td>
                     </tr>
                   ))}

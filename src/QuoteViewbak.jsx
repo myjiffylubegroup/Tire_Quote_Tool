@@ -307,11 +307,6 @@ const QuoteView = () => {
           setError(data.error || 'Quote not found');
         } else {
           setQuote(data.quote);
-
-          // Auto-open edit mode if navigated from QuoteLookup with ?edit=true
-          if (data.quote.is_editable && window.location.hash.includes('edit=true')) {
-            setEditMode(true);
-          }
         }
       } catch (err) {
         setError('Failed to load quote');
@@ -539,34 +534,9 @@ const QuoteView = () => {
     }
   };
 
-<<<<<<< HEAD
-  // Handle re-quote - stash quote data to sessionStorage, navigate to TireFinder
-  const handleReQuote = () => {
-    const reQuoteData = {
-      from_quote_id: quote.quote_id,
-      from_quote_number: quote.quote_number,
-      customer: {
-        first_name: quote.customer.first_name || '',
-        last_name: quote.customer.last_name || '',
-        full_name: quote.customer.full_name || '',
-        phone: quote.customer.phone || '',
-        email: quote.customer.email || '',
-        license_plate: quote.customer.license_plate || '',
-        license_state: quote.customer.license_state || 'CA',
-        data_source: quote.customer.data_source || 'manual'
-      },
-      vehicle: quote.vehicle || null,
-      treads: quote.tread_depth || null,
-      store_id: quote.store?.id || null,
-      quantity: quote.pricing?.quantity || 4
-    };
-    sessionStorage.setItem('jl_requote_data', JSON.stringify(reQuoteData));
-    window.location.hash = '#/';
-=======
   // Handle revise - navigate to QuoteBuilder with revise param
   const handleRevise = () => {
     window.location.hash = `#/quote/build?revise=${quote.quote_id}`;
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
   };
 
   if (loading) {
@@ -1257,11 +1227,7 @@ const QuoteView = () => {
             </button>
           </div>
 
-<<<<<<< HEAD
-          {/* Edit / Re-Quote Buttons - Staff Only */}
-=======
           {/* Edit / Revise Buttons - Staff Only */}
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
           <div 
             data-print-hide="true"
             style={{ 
@@ -1306,22 +1272,14 @@ const QuoteView = () => {
               </>
             )}
             <button
-<<<<<<< HEAD
-              onClick={handleReQuote}
-=======
               onClick={handleRevise}
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
               style={{
                 backgroundColor: 'white', color: '#1d4ed8', border: '2px solid #1d4ed8',
                 padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '600',
                 cursor: 'pointer', letterSpacing: '1px'
               }}
             >
-<<<<<<< HEAD
-              🔄 Re-Quote
-=======
               🔄 Revise Quote
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
             </button>
           </div>
 
@@ -1379,11 +1337,7 @@ const QuoteView = () => {
                 </div>
               </div>
               <p style={{ fontSize: '10px', color: '#9b59b6', margin: '0', textAlign: 'center', fontStyle: 'italic' }}>
-<<<<<<< HEAD
-                Tire, vehicle, and store cannot be changed. Use "Re-Quote" to change those.
-=======
                 Tire, vehicle, and store cannot be changed. Use "Revise Quote" to change those.
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
               </p>
 
               {/* Tread Depth Editing */}

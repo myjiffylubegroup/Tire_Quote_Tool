@@ -25,7 +25,7 @@ const NAV_ITEMS = [
 ];
 
 // Quantity options
-const QTY_OPTIONS = [1, 2, 3, 4, 5, 6];
+const QTY_OPTIONS = [1, 2, 4, 5, 6, 8];
 
 // Fallback static options if API fails
 const FALLBACK_WIDTHS = ['155','165','175','185','195','205','215','225','235','245','255','265','275','285','295','305','315','325','335'];
@@ -237,7 +237,7 @@ const SpecBox = ({ label, value, highlight }) => (
 );
 
 // Inventory Results Component
-const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, onSelectionChange, onContinueToQuote }) => {
+const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px', color: '#9b59b6' }}>
@@ -252,7 +252,6 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, on
 
   const store = STORES.find(s => s.id === parseInt(storeId));
   const primaryWarehouse = store?.warehouse || 'fresno';
-  const hasChosen = !!selections.chosen;
 
   return (
     <div style={{
@@ -273,62 +272,14 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, on
       }}>
         Available Tires ({results.length})
       </h3>
-      <p style={{ textAlign: 'center', color: '#888', fontSize: '11px', marginBottom: '8px' }}>
+      <p style={{ textAlign: 'center', color: '#888', fontSize: '11px', marginBottom: '20px' }}>
         Primary: {primaryWarehouse === 'fresno' ? 'Fresno (4703)' : 'Santa Clarita (4708)'} • 
         Min Qty: {qtyNeeded} • Sorted: Store Stock → NEXEN → ADVANTA → Price
       </p>
-      <p style={{ textAlign: 'center', color: '#9b59b6', fontSize: '11px', marginBottom: '20px', fontStyle: 'italic' }}>
-        Select <strong>Chosen</strong> (required), plus optional <strong>Good</strong> & <strong>Best</strong> alternatives
-      </p>
-
-      {/* Floating Continue Bar */}
-      {hasChosen && (
-        <div style={{
-          position: 'sticky', top: '0', zIndex: 50,
-          backgroundColor: '#8b1538', borderRadius: '10px',
-          padding: '12px 20px', marginBottom: '15px',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          boxShadow: '0 4px 15px rgba(139, 21, 56, 0.3)',
-          flexWrap: 'wrap', gap: '10px',
-        }}>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ color: 'white', fontSize: '12px', fontWeight: '600' }}>
-              ⭐ {selections.chosen.brand_code} {selections.chosen.sales_class || selections.chosen.name}
-            </span>
-            {selections.good && (
-              <span style={{ color: '#bbf7d0', fontSize: '11px' }}>
-                | Good: {selections.good.brand_code} {selections.good.sales_class || selections.good.name}
-              </span>
-            )}
-            {selections.best && (
-              <span style={{ color: '#fecaca', fontSize: '11px' }}>
-                | Best: {selections.best.brand_code} {selections.best.sales_class || selections.best.name}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={onContinueToQuote}
-            style={{
-              backgroundColor: 'white', color: '#8b1538', border: 'none',
-              padding: '10px 25px', borderRadius: '20px',
-              fontSize: '12px', fontWeight: '700', letterSpacing: '1px',
-              cursor: 'pointer', whiteSpace: 'nowrap',
-            }}
-          >
-            CONTINUE TO QUOTE →
-          </button>
-        </div>
-      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {results.map((tire, idx) => (
-          <TireCard 
-            key={tire.part_number + idx} 
-            tire={tire} 
-            primaryWarehouse={primaryWarehouse} 
-            selections={selections}
-            onSelectionChange={onSelectionChange}
-          />
+          <TireCard key={tire.part_number + idx} tire={tire} primaryWarehouse={primaryWarehouse} onQuote={onQuote} />
         ))}
       </div>
     </div>
@@ -336,7 +287,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, on
 };
 
 // Individual Tire Card
-const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => {
+const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
   const isPriority = tire.brand_code === 'NEX' || tire.brand_code === 'ADV';
   const primaryQty = primaryWarehouse === 'fresno' ? tire.qty_fresno : tire.qty_santa_clarita;
   const secondaryQty = primaryWarehouse === 'fresno' ? tire.qty_santa_clarita : tire.qty_fresno;
@@ -345,41 +296,13 @@ const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => 
   // Consumer price: cost × 1.5, round up to whole dollar, minus $0.01
   const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
 
-  // Check which role this tire is assigned
-  const isGood = selections.good?.part_number === tire.part_number;
-  const isChosen = selections.chosen?.part_number === tire.part_number;
-  const isBest = selections.best?.part_number === tire.part_number;
-  const isAnySelected = isGood || isChosen || isBest;
-
-  // Handle role toggle
-  const handleRoleToggle = (role) => {
-    if (consumerPrice <= 0) return;
-    const tireWithPrice = { ...tire, consumer_price: consumerPrice };
-    
-    // If this tire already has this role, uncheck it
-    if ((role === 'good' && isGood) || (role === 'chosen' && isChosen) || (role === 'best' && isBest)) {
-      onSelectionChange(role, null);
-    } else {
-      // Clear any other role this tire currently has
-      if (isGood) onSelectionChange('good', null);
-      if (isChosen) onSelectionChange('chosen', null);
-      if (isBest) onSelectionChange('best', null);
-      // Assign the new role
-      onSelectionChange(role, tireWithPrice);
-    }
-  };
-
-  // Highlight border if selected
-  const selectedBorder = isChosen ? '3px solid #8b1538' : (isGood ? '3px solid #27ae60' : (isBest ? '3px solid #dc2626' : null));
-
   return (
     <div style={{
-      border: selectedBorder || (hasStoreStock ? '2px solid #27ae60' : (isPriority ? '2px solid #9b59b6' : '1px solid #e0e0e0')),
+      border: hasStoreStock ? '2px solid #27ae60' : (isPriority ? '2px solid #9b59b6' : '1px solid #e0e0e0'),
       borderRadius: '10px',
       padding: '15px',
-      backgroundColor: isChosen ? '#fdf2f4' : (isGood ? '#f0fdf4' : (isBest ? '#fef2f2' : (hasStoreStock ? '#f0fff4' : (isPriority ? '#faf5ff' : 'white')))),
+      backgroundColor: hasStoreStock ? '#f0fff4' : (isPriority ? '#faf5ff' : 'white'),
       position: 'relative',
-      transition: 'all 0.2s ease',
     }}>
       {/* Badges */}
       <div style={{ position: 'absolute', top: '-8px', left: '15px', display: 'flex', gap: '5px' }}>
@@ -409,26 +332,10 @@ const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => 
             {tire.brand_code === 'NEX' ? '⭐ NEXEN' : '💰 ADVANTA'}
           </span>
         )}
-        {/* Selection role badge */}
-        {isChosen && (
-          <span style={{ backgroundColor: '#8b1538', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
-            ⭐ CHOSEN
-          </span>
-        )}
-        {isGood && (
-          <span style={{ backgroundColor: '#27ae60', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
-            GOOD
-          </span>
-        )}
-        {isBest && (
-          <span style={{ backgroundColor: '#dc2626', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
-            BEST
-          </span>
-        )}
       </div>
 
       {/* Main Info Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginTop: hasStoreStock || isPriority || isAnySelected ? '5px' : '0' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginTop: hasStoreStock || isPriority ? '5px' : '0' }}>
         {/* Left: Name & Details */}
         <div style={{ flex: '1', minWidth: '200px' }}>
           <h4 style={{ margin: '0 0 5px 0', fontSize: '14px', fontWeight: '700', color: '#333' }}>
@@ -501,46 +408,28 @@ const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => 
             </div>
           </div>
 
-          {/* Role Selection Checkboxes */}
-          {consumerPrice > 0 && (
-            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '10px', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => handleRoleToggle('good')}
-                style={{
-                  padding: '5px 10px', borderRadius: '15px', fontSize: '10px', fontWeight: '700',
-                  letterSpacing: '0.5px', cursor: 'pointer', transition: 'all 0.2s ease',
-                  border: isGood ? '2px solid #27ae60' : '2px solid #d1d5db',
-                  backgroundColor: isGood ? '#dcfce7' : 'white',
-                  color: isGood ? '#16a34a' : '#666',
-                }}
-              >
-                {isGood ? '✓ ' : ''}Good
-              </button>
-              <button
-                onClick={() => handleRoleToggle('chosen')}
-                style={{
-                  padding: '5px 10px', borderRadius: '15px', fontSize: '10px', fontWeight: '700',
-                  letterSpacing: '0.5px', cursor: 'pointer', transition: 'all 0.2s ease',
-                  border: isChosen ? '2px solid #8b1538' : '2px solid #d1d5db',
-                  backgroundColor: isChosen ? '#fde8ed' : 'white',
-                  color: isChosen ? '#8b1538' : '#666',
-                }}
-              >
-                {isChosen ? '⭐ ' : ''}Chosen
-              </button>
-              <button
-                onClick={() => handleRoleToggle('best')}
-                style={{
-                  padding: '5px 10px', borderRadius: '15px', fontSize: '10px', fontWeight: '700',
-                  letterSpacing: '0.5px', cursor: 'pointer', transition: 'all 0.2s ease',
-                  border: isBest ? '2px solid #dc2626' : '2px solid #d1d5db',
-                  backgroundColor: isBest ? '#fef2f2' : 'white',
-                  color: isBest ? '#dc2626' : '#666',
-                }}
-              >
-                {isBest ? '✓ ' : ''}Best
-              </button>
-            </div>
+          {/* QUOTE Button */}
+          {consumerPrice > 0 && onQuote && (
+            <button
+              onClick={() => onQuote({ ...tire, consumer_price: consumerPrice })}
+              style={{
+                marginTop: '12px',
+                backgroundColor: '#cc0000',
+                color: 'white',
+                border: 'none',
+                padding: '8px 20px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: '700',
+                letterSpacing: '1px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#a00000'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#cc0000'}
+            >
+              📋 QUOTE
+            </button>
           )}
         </div>
       </div>
@@ -614,26 +503,6 @@ export default function TireFinder() {
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Tire selection state: Good / Chosen / Best
-  const [selections, setSelections] = useState({ good: null, chosen: null, best: null });
-
-<<<<<<< HEAD
-  // Re-Quote mode: data carried forward from a previous quote
-  const [reQuoteData, setReQuoteData] = useState(null);
-
-=======
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
-  const handleSelectionChange = (role, tire) => {
-    setSelections(prev => ({ ...prev, [role]: tire }));
-  };
-
-  // Reset selections when inventory results change
-  useEffect(() => {
-    if (!inventoryResults) {
-      setSelections({ good: null, chosen: null, best: null });
-    }
-  }, [inventoryResults]);
-
   // Handle selecting a specific tire size from multiple options
   const handleSelectTireSize = (spec) => {
     // Set to single-item array so it shows the detail view
@@ -642,58 +511,15 @@ export default function TireFinder() {
     searchInventory(spec.tire_size);
   };
 
-<<<<<<< HEAD
-  // Check for re-quote data on mount
-  useEffect(() => {
-    const saved = sessionStorage.getItem('jl_requote_data');
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        setReQuoteData(data);
-        // Lock store to match original quote
-        if (data.store_id) {
-          setSelectedStore(data.store_id.toString());
-        }
-        // Pre-set quantity
-        if (data.quantity) {
-          setQtyNeeded(data.quantity);
-        }
-      } catch (e) {
-        console.error('Failed to parse re-quote data:', e);
-        sessionStorage.removeItem('jl_requote_data');
-      }
-    }
-  }, []);
-
-  const cancelReQuote = () => {
-    sessionStorage.removeItem('jl_requote_data');
-    setReQuoteData(null);
-  };
-
-=======
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
-  // Handle continue to quote - save chosen tire + alternatives to sessionStorage
-  const handleContinueToQuote = () => {
-    if (!selections.chosen) return;
-
-    // Save chosen tire as the primary (same key as before for backward compatibility)
-    sessionStorage.setItem('jl_quote_tire', JSON.stringify(selections.chosen));
+  // Handle quote button click - save tire data and navigate to quote builder
+  const handleQuote = (tire) => {
+    // Save tire data to sessionStorage for QuoteBuilder
+    sessionStorage.setItem('jl_quote_tire', JSON.stringify(tire));
     sessionStorage.setItem('jl_quote_qty', qtyNeeded.toString());
-
-    // Save alt tires if selected
-    if (selections.good) {
-      sessionStorage.setItem('jl_quote_alt_good', JSON.stringify(selections.good));
-    } else {
-      sessionStorage.removeItem('jl_quote_alt_good');
-    }
-    if (selections.best) {
-      sessionStorage.setItem('jl_quote_alt_best', JSON.stringify(selections.best));
-    } else {
-      sessionStorage.removeItem('jl_quote_alt_best');
-    }
     
     // Save vehicle data if available from YMM search
     if (selectedYear && selectedMake && selectedModel) {
+      // Get OE tire specs from tireSpecs state (the selected/displayed spec)
       const selectedSpec = tireSpecs && tireSpecs.length > 0 ? tireSpecs[0] : null;
       
       const vehicleData = {
@@ -702,19 +528,15 @@ export default function TireFinder() {
         model: selectedModel,
         submodel: selectedSubmodel || null,
         display: `${selectedYear} ${selectedMake} ${selectedModel}${selectedSubmodel ? ' ' + selectedSubmodel : ''}`,
+        // Include OE tire specs from the selected fitment
         oe_tire_size: selectedSpec?.tire_size || null,
         oe_load_rating: selectedSpec?.load_index || null,
         oe_speed_rating: selectedSpec?.speed_index || null,
       };
       sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
-    } else if (reQuoteData?.vehicle) {
-      // Carry forward vehicle from original quote if no new YMM search
-      sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(reQuoteData.vehicle));
     } else {
       sessionStorage.removeItem('jl_quote_vehicle');
     }
-    
-    // jl_requote_data stays in sessionStorage — QuoteBuilder will read it for customer/treads/linkage
     
     // Navigate to quote builder
     window.location.hash = '#/quote/build';
@@ -1013,51 +835,6 @@ export default function TireFinder() {
           ))}
         </div>
       </nav>
-
-      {/* Re-Quote Banner */}
-      {reQuoteData && (
-        <div style={{
-          backgroundColor: '#eff6ff',
-          borderBottom: '2px solid #3b82f6',
-          padding: '12px 20px',
-        }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                padding: '3px 10px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: '700',
-                letterSpacing: '1px',
-              }}>
-                RE-QUOTE
-              </span>
-              <span style={{ fontSize: '13px', color: '#1e40af', fontWeight: '500' }}>
-                <strong>{reQuoteData.from_quote_number}</strong> for <strong>{reQuoteData.customer?.full_name || 'Customer'}</strong>
-                {reQuoteData.vehicle?.display ? ` · ${reQuoteData.vehicle.display}` : ''}
-                {' — select new tires below'}
-              </span>
-            </div>
-            <button
-              onClick={cancelReQuote}
-              style={{
-                backgroundColor: 'transparent',
-                color: '#6b7280',
-                border: '1px solid #d1d5db',
-                padding: '4px 12px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'pointer',
-              }}
-            >
-              ✕ Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Hero Banner with road/sky background */}
       <div style={{
@@ -1373,9 +1150,7 @@ export default function TireFinder() {
             storeId={selectedStore}
             loading={inventoryLoading}
             qtyNeeded={qtyNeeded}
-            selections={selections}
-            onSelectionChange={handleSelectionChange}
-            onContinueToQuote={handleContinueToQuote}
+            onQuote={handleQuote}
           />
         </div>
       </div>
