@@ -673,6 +673,22 @@ export default function TireFinder() {
         if (data.quantity) {
           setQtyNeeded(data.quantity);
         }
+        // Parse tire size from vehicle OE specs or original quote tire size
+        const tireSize = data.vehicle?.oe_tire_size || data.tire_size || null;
+        if (tireSize) {
+          // Parse formats like "285/45R21", "LT275/65R20", "P225/60R18"
+          const sizeMatch = tireSize.match(/(\d{3})\/?(\d{2,3})R(\d{2})/i);
+          if (sizeMatch) {
+            setSelectedWidth(sizeMatch[1]);
+            setSelectedAspect(sizeMatch[2]);
+            setSelectedRim(sizeMatch[3]);
+            // Auto-search after a brief delay to let state settle
+            setTimeout(() => {
+              const parsedSize = `${sizeMatch[1]}/${sizeMatch[2]}R${sizeMatch[3]}`;
+              searchInventory(parsedSize);
+            }, 300);
+          }
+        }
       } catch (e) {
         console.error('Failed to parse re-quote data:', e);
         sessionStorage.removeItem('jl_requote_data');

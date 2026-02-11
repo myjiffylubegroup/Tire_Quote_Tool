@@ -574,6 +574,7 @@ const QuoteView = () => {
         data_source: quote.customer.data_source || 'manual'
       },
       vehicle: quote.vehicle || null,
+      tire_size: quote.tire?.size || null,
       treads: quote.tread_depth || null,
       store_id: quote.store?.id || null,
       quantity: quote.pricing?.quantity || 4

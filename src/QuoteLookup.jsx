@@ -305,6 +305,7 @@ export default function QuoteLookup() {
             data_source: q.customer.data_source || 'manual'
           },
           vehicle: q.vehicle || null,
+          tire_size: q.tire?.size || null,
           treads: q.tread_depth || null,
           store_id: q.store?.id || null,
           quantity: q.pricing?.quantity || 4
