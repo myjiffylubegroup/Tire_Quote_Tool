@@ -307,6 +307,11 @@ const QuoteView = () => {
           setError(data.error || 'Quote not found');
         } else {
           setQuote(data.quote);
+
+          // Auto-open edit mode if navigated from QuoteLookup with ?edit=true
+          if (data.quote.is_editable && window.location.hash.includes('edit=true')) {
+            setEditMode(true);
+          }
         }
       } catch (err) {
         setError('Failed to load quote');

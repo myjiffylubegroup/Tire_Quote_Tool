@@ -1,17 +1,16 @@
 // =============================================================================
-// QUOTE VIEW - Customer-Facing Quote Display v3
+// QUOTE VIEW - Customer-Facing Quote Display v4
 // =============================================================================
 // Route: #/quote/:code
-// Updated: 2026-01-27
-// Features:
-//   - Proper car image (from Supabase storage)
-//   - No emoji car - text only vehicle display
-//   - "Vehicle Not Verified" when no YMM
-//   - Stopping distance visual comparison
-//   - Disposal fee + CA state fee display
-//   - FET if applicable
-//   - Warranty disclaimer
-//   - Email/Text/Pay buttons
+// Updated: 2026-02-11
+// v4 Changes:
+//   - SMS consent modal (replaces Coming Soon text button)
+//   - Pay Now button enabled (replaces Coming Soon)
+//   - Same-day edit mode (quantity, promo, customer info)
+//   - Revise quote button (navigates to QuoteBuilder with pre-fill)
+//   - Revision chain banner (revised from / revised to links)
+//   - Edit tracking display (last edited by/at)
+//   - Good/Better/Best comparison card
 // =============================================================================
 
 import React, { useState, useEffect } from 'react';
@@ -175,7 +174,12 @@ const StoppingDistanceChart = ({ currentDistance, newDistance }) => {
 const CarTreadDiagram = ({ treadData }) => {
   if (!treadData) return null;
 
-  const { lf, rf, lr, rr } = treadData;
+  // Map from stored format (tires.front_left) to component format (lf)
+  const tires = treadData.tires || {};
+  const lf = tires.front_left || treadData.lf;
+  const rf = tires.front_right || treadData.rf;
+  const lr = tires.rear_left || treadData.lr;
+  const rr = tires.rear_right || treadData.rr;
 
   return (
     <div style={{ 
@@ -242,10 +246,10 @@ const CarTreadDiagram = ({ treadData }) => {
       )}
 
       {/* Stopping Distance Chart */}
-      {treadData.stopping_distance_current && (
+      {(treadData.summary?.stopping_distance_current || treadData.stopping_distance_current) && (
         <StoppingDistanceChart 
-          currentDistance={treadData.stopping_distance_current} 
-          newDistance={treadData.stopping_distance_new || 195} 
+          currentDistance={treadData.summary?.stopping_distance_current || treadData.stopping_distance_current} 
+          newDistance={treadData.summary?.stopping_distance_new || treadData.stopping_distance_new || 195} 
         />
       )}
     </div>
@@ -261,6 +265,24 @@ const QuoteView = () => {
   const [sendingSms, setSendingSms] = useState(false);
   const [sendingInvoice, setSendingInvoice] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
+
+  // SMS consent modal
+  const [showSmsModal, setShowSmsModal] = useState(false);
+  const [smsPhone, setSmsPhone] = useState('');
+  const [smsConsent, setSmsConsent] = useState(false);
+
+  // Edit mode (same-day only)
+  const [editMode, setEditMode] = useState(false);
+  const [editQuantity, setEditQuantity] = useState(4);
+  const [editPromo, setEditPromo] = useState('');
+  const [editCustomer, setEditCustomer] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [editTreadDepths, setEditTreadDepths] = useState({
+    lf: { inside: '', middle: '', outside: '' },
+    rf: { inside: '', middle: '', outside: '' },
+    lr: { inside: '', middle: '', outside: '' },
+    rr: { inside: '', middle: '', outside: '' },
+  });
 
   const getShortCode = () => {
     const hash = window.location.hash;
@@ -332,10 +354,22 @@ const QuoteView = () => {
     }
   };
 
+  const openSmsModal = () => {
+    setSmsPhone(quote?.customer?.phone ? formatPhone(quote.customer.phone) : '');
+    setSmsConsent(false);
+    setShowSmsModal(true);
+  };
+
   const handleTextQuote = async () => {
-    const phone = quote?.customer?.phone || prompt('Enter phone number:');
-    if (!phone) return;
-    
+    if (!smsConsent) return;
+    const phone = smsPhone.replace(/\D/g, '');
+    if (phone.length < 10) {
+      setActionMessage({ type: 'error', text: 'Please enter a valid phone number' });
+      setShowSmsModal(false);
+      return;
+    }
+
+    setShowSmsModal(false);
     setSendingSms(true);
     setActionMessage(null);
     try {
@@ -345,7 +379,7 @@ const QuoteView = () => {
         body: JSON.stringify({
           key: API_KEY,
           quote_id: quote.quote_id,
-          phone_override: phone !== quote?.customer?.phone ? phone : null
+          phone_override: phone !== quote?.customer?.phone?.replace(/\D/g, '') ? phone : null
         })
       });
       const data = await response.json();
@@ -412,6 +446,97 @@ const QuoteView = () => {
     } finally {
       setSendingInvoice(false);
     }
+  };
+
+  // Enter edit mode - populate edit fields from current quote
+  const enterEditMode = () => {
+    setEditQuantity(quote.pricing.quantity);
+    setEditPromo(quote.pricing.promo_id || '');
+    setEditCustomer({
+      first_name: quote.customer?.first_name || '',
+      last_name: quote.customer?.last_name || '',
+      phone: quote.customer?.phone || '',
+      email: quote.customer?.email || '',
+      license_plate: quote.customer?.license_plate || '',
+      license_state: quote.customer?.license_state || 'CA',
+    });
+    // Pre-fill tread depths from existing data
+    if (quote.tread_depth?.tires) {
+      const t = quote.tread_depth.tires;
+      setEditTreadDepths({
+        lf: { inside: t.front_left?.inside?.toString() || '', middle: t.front_left?.middle?.toString() || '', outside: t.front_left?.outside?.toString() || '' },
+        rf: { inside: t.front_right?.inside?.toString() || '', middle: t.front_right?.middle?.toString() || '', outside: t.front_right?.outside?.toString() || '' },
+        lr: { inside: t.rear_left?.inside?.toString() || '', middle: t.rear_left?.middle?.toString() || '', outside: t.rear_left?.outside?.toString() || '' },
+        rr: { inside: t.rear_right?.inside?.toString() || '', middle: t.rear_right?.middle?.toString() || '', outside: t.rear_right?.outside?.toString() || '' },
+      });
+    }
+    setEditMode(true);
+  };
+
+  // Save edits via update-quote
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    setActionMessage(null);
+    try {
+      const phoneDigits = editCustomer.phone.replace(/\D/g, '');
+
+      // Build tread depth object if any values filled
+      const allTreadValues = Object.values(editTreadDepths)
+        .flatMap(t => Object.values(t))
+        .filter(v => v !== '' && !isNaN(parseInt(v)));
+      
+      const treadData = allTreadValues.length > 0 ? {
+        lf: { inside: editTreadDepths.lf.inside ? parseInt(editTreadDepths.lf.inside) : null, middle: editTreadDepths.lf.middle ? parseInt(editTreadDepths.lf.middle) : null, outside: editTreadDepths.lf.outside ? parseInt(editTreadDepths.lf.outside) : null },
+        rf: { inside: editTreadDepths.rf.inside ? parseInt(editTreadDepths.rf.inside) : null, middle: editTreadDepths.rf.middle ? parseInt(editTreadDepths.rf.middle) : null, outside: editTreadDepths.rf.outside ? parseInt(editTreadDepths.rf.outside) : null },
+        lr: { inside: editTreadDepths.lr.inside ? parseInt(editTreadDepths.lr.inside) : null, middle: editTreadDepths.lr.middle ? parseInt(editTreadDepths.lr.middle) : null, outside: editTreadDepths.lr.outside ? parseInt(editTreadDepths.lr.outside) : null },
+        rr: { inside: editTreadDepths.rr.inside ? parseInt(editTreadDepths.rr.inside) : null, middle: editTreadDepths.rr.middle ? parseInt(editTreadDepths.rr.middle) : null, outside: editTreadDepths.rr.outside ? parseInt(editTreadDepths.rr.outside) : null },
+      } : undefined;
+
+      const response = await fetch(`${API_BASE}/update-quote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: API_KEY,
+          quote_id: quote.quote_id,
+          quantity: editQuantity,
+          promo_id: editPromo || null,
+          customer: {
+            first_name: editCustomer.first_name,
+            last_name: editCustomer.last_name,
+            phone: phoneDigits || null,
+            email: editCustomer.email || null,
+            license_plate: editCustomer.license_plate || null,
+            license_state: editCustomer.license_state || null,
+          },
+          tread_depths: treadData,
+          employee: { user_name: quote.created_by?.username }
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Show promo warning if one was auto-removed
+        const msg = data.promo_warning 
+          ? `Quote updated! Note: ${data.promo_warning}`
+          : 'Quote updated successfully!';
+        setActionMessage({ type: 'success', text: msg });
+        setEditMode(false);
+        // Reload the quote to get fresh data
+        const refreshResp = await fetch(`${API_BASE}/get-quote?id=${quote.quote_id}&key=${API_KEY}`);
+        const refreshData = await refreshResp.json();
+        if (refreshData.success) setQuote(refreshData.quote);
+      } else {
+        setActionMessage({ type: 'error', text: data.error || 'Failed to update quote' });
+      }
+    } catch (err) {
+      setActionMessage({ type: 'error', text: 'Failed to save changes' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle revise - navigate to QuoteBuilder with revise param
+  const handleRevise = () => {
+    window.location.hash = `#/quote/build?revise=${quote.quote_id}`;
   };
 
   if (loading) {
@@ -553,7 +678,114 @@ const QuoteView = () => {
           </div>
         </div>
 
-        {/* Content */}
+        {/* Revision Chain Banner */}
+        {quote.revision && (
+          <div data-print-hide="true" style={{ 
+            backgroundColor: '#eff6ff', 
+            borderBottom: '1px solid #bfdbfe', 
+            padding: '10px 30px', 
+            display: 'flex', 
+            justifyContent: 'center', 
+            gap: '20px', 
+            fontSize: '12px',
+            flexWrap: 'wrap'
+          }}>
+            {quote.revision.revised_from && (
+              <span style={{ color: '#1d4ed8' }}>
+                ← Revised from{' '}
+                <a href={`#/quote/${quote.revision.revised_from.short_code}`} style={{ color: '#1d4ed8', fontWeight: '600' }}>
+                  {quote.revision.revised_from.quote_number}
+                </a>
+              </span>
+            )}
+            {quote.revision.revised_to && (
+              <span style={{ color: '#7c3aed' }}>
+                Newer revision:{' '}
+                <a href={`#/quote/${quote.revision.revised_to.short_code}`} style={{ color: '#7c3aed', fontWeight: '600' }}>
+                  {quote.revision.revised_to.quote_number} →
+                </a>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Edit Tracking */}
+        {quote.edit_history && (
+          <div data-print-hide="true" style={{ 
+            backgroundColor: '#fefce8', 
+            borderBottom: '1px solid #fde68a', 
+            padding: '8px 30px', 
+            textAlign: 'center', 
+            fontSize: '11px', 
+            color: '#854d0e' 
+          }}>
+            Last edited by {quote.edit_history.last_edited_by} on {formatDate(quote.edit_history.last_edited_at)}
+          </div>
+        )}
+
+        {/* SMS Consent Modal */}
+        {showSmsModal && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: '20px'
+          }}>
+            <div style={{
+              backgroundColor: 'white', borderRadius: '15px', padding: '30px',
+              width: '100%', maxWidth: '420px', boxShadow: '0 10px 40px rgba(0,0,0,0.2)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ margin: 0, color: '#16a34a', fontSize: '18px', fontWeight: '700' }}>Text This Quote</h3>
+                <button onClick={() => setShowSmsModal(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#999' }}>×</button>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ fontSize: '11px', color: '#666', fontWeight: '600', display: 'block', marginBottom: '6px' }}>PHONE NUMBER</label>
+                <input
+                  type="tel"
+                  value={smsPhone}
+                  onChange={(e) => setSmsPhone(e.target.value)}
+                  placeholder="(805) 555-1234"
+                  style={{
+                    width: '100%', padding: '12px 15px', border: '2px solid #e2e8f0',
+                    borderRadius: '8px', fontSize: '16px', outline: 'none', boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={smsConsent}
+                    onChange={(e) => setSmsConsent(e.target.checked)}
+                    style={{ marginTop: '3px', width: '18px', height: '18px', accentColor: '#16a34a' }}
+                  />
+                  <span style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>
+                    I consent to receive this tire quote and related service messages from Jiffy Lube via SMS. 
+                    Msg & data rates may apply. Reply STOP to opt out.{' '}
+                    <a href="#/sms-consent" target="_blank" style={{ color: '#16a34a' }}>SMS Terms</a>
+                  </span>
+                </label>
+              </div>
+
+              <button
+                onClick={handleTextQuote}
+                disabled={!smsConsent || !smsPhone.replace(/\D/g, '').length}
+                style={{
+                  width: '100%', padding: '14px',
+                  backgroundColor: smsConsent && smsPhone.replace(/\D/g, '').length >= 10 ? '#16a34a' : '#ccc',
+                  color: 'white', border: 'none', borderRadius: '8px',
+                  fontSize: '14px', fontWeight: '700', letterSpacing: '1px',
+                  cursor: smsConsent && smsPhone.replace(/\D/g, '').length >= 10 ? 'pointer' : 'not-allowed'
+                }}
+              >
+                SEND TEXT
+              </button>
+            </div>
+          </div>
+        )}
         <div className="quote-content" style={{ padding: '30px' }}>
           
           {/* Print Left Column - Customer, Vehicle, Tread, Stopping Distance */}
@@ -943,73 +1175,313 @@ const QuoteView = () => {
               <span>{sendingEmail ? '...' : '✉️ Email'}</span>
               <span>Quote</span>
             </button>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              <span style={{ fontSize: '9px', color: '#94a3b8', fontStyle: 'italic' }}>Coming Soon</span>
-              <button
-                disabled={true}
-                style={{
-                  backgroundColor: '#9ca3af',
-                  color: 'white',
-                  padding: '12px 18px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontWeight: '600',
-                  fontSize: '13px',
-                  cursor: 'not-allowed',
-                  opacity: 0.6,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '2px',
-                  minWidth: '90px',
-                  textAlign: 'center',
-                  lineHeight: '1.3'
-                }}
-              >
-                <span>💬 Text</span>
-                <span>Quote</span>
-              </button>
-            </div>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              <span style={{ fontSize: '9px', color: '#94a3b8', fontStyle: 'italic' }}>Coming Soon</span>
-              <button
-                disabled={true}
-                style={{
-                  backgroundColor: '#9ca3af',
-                  color: 'white',
-                  padding: '12px 18px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontWeight: '600',
-                  fontSize: '13px',
-                  cursor: 'not-allowed',
-                  opacity: 0.6,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '2px',
-                  minWidth: '90px',
-                  textAlign: 'center',
-                  lineHeight: '1.3'
-                }}
-              >
-                <span>💳 Pay</span>
-                <span>Now</span>
-              </button>
-            </div>
+            <button
+              onClick={openSmsModal}
+              disabled={sendingSms}
+              style={{
+                backgroundColor: '#16a34a',
+                color: 'white',
+                padding: '12px 18px',
+                borderRadius: '8px',
+                border: 'none',
+                fontWeight: '600',
+                fontSize: '13px',
+                cursor: sendingSms ? 'not-allowed' : 'pointer',
+                opacity: sendingSms ? 0.7 : 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '2px',
+                minWidth: '90px',
+                textAlign: 'center',
+                lineHeight: '1.3'
+              }}
+            >
+              <span>{sendingSms ? '...' : '💬 Text'}</span>
+              <span>Quote</span>
+            </button>
+            <button
+              onClick={handlePayOnline}
+              disabled={sendingInvoice}
+              style={{
+                backgroundColor: '#f59e0b',
+                color: 'white',
+                padding: '12px 18px',
+                borderRadius: '8px',
+                border: 'none',
+                fontWeight: '600',
+                fontSize: '13px',
+                cursor: sendingInvoice ? 'not-allowed' : 'pointer',
+                opacity: sendingInvoice ? 0.7 : 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '2px',
+                minWidth: '90px',
+                textAlign: 'center',
+                lineHeight: '1.3'
+              }}
+            >
+              <span>{sendingInvoice ? '...' : '💳 Pay'}</span>
+              <span>Now</span>
+            </button>
           </div>
 
-          {/* Warranty Disclaimer */}
+          {/* Edit / Revise Buttons - Staff Only */}
+          <div 
+            data-print-hide="true"
+            style={{ 
+              display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '25px', flexWrap: 'wrap'
+            }}
+          >
+            {quote.is_editable && !editMode && (
+              <button
+                onClick={enterEditMode}
+                style={{
+                  backgroundColor: 'white', color: '#9b59b6', border: '2px solid #9b59b6',
+                  padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '600',
+                  cursor: 'pointer', letterSpacing: '1px'
+                }}
+              >
+                ✏️ Edit Quote
+              </button>
+            )}
+            {editMode && (
+              <>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={saving}
+                  style={{
+                    backgroundColor: '#16a34a', color: 'white', border: 'none',
+                    padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '600',
+                    cursor: saving ? 'not-allowed' : 'pointer', letterSpacing: '1px'
+                  }}
+                >
+                  {saving ? 'SAVING...' : '✓ SAVE CHANGES'}
+                </button>
+                <button
+                  onClick={() => setEditMode(false)}
+                  style={{
+                    backgroundColor: 'white', color: '#dc2626', border: '2px solid #dc2626',
+                    padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '600',
+                    cursor: 'pointer', letterSpacing: '1px'
+                  }}
+                >
+                  CANCEL
+                </button>
+              </>
+            )}
+            <button
+              onClick={handleRevise}
+              style={{
+                backgroundColor: 'white', color: '#1d4ed8', border: '2px solid #1d4ed8',
+                padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '600',
+                cursor: 'pointer', letterSpacing: '1px'
+              }}
+            >
+              🔄 Revise Quote
+            </button>
+          </div>
+
+          {/* Edit Mode Inline Fields */}
+          {editMode && (
+            <div data-print-hide="true" style={{
+              backgroundColor: '#faf5ff', border: '2px solid #9b59b6', borderRadius: '10px',
+              padding: '20px', marginBottom: '25px'
+            }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#9b59b6', fontSize: '13px', fontWeight: '700', textAlign: 'center', letterSpacing: '1px' }}>
+                EDITING QUOTE
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
+                <div>
+                  <label style={{ fontSize: '9px', color: '#666', fontWeight: '600', display: 'block', marginBottom: '4px' }}>FIRST NAME</label>
+                  <input value={editCustomer.first_name || ''} onChange={(e) => setEditCustomer({...editCustomer, first_name: e.target.value})}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '9px', color: '#666', fontWeight: '600', display: 'block', marginBottom: '4px' }}>LAST NAME</label>
+                  <input value={editCustomer.last_name || ''} onChange={(e) => setEditCustomer({...editCustomer, last_name: e.target.value})}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '9px', color: '#666', fontWeight: '600', display: 'block', marginBottom: '4px' }}>PHONE</label>
+                  <input value={editCustomer.phone || ''} onChange={(e) => setEditCustomer({...editCustomer, phone: e.target.value})}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '9px', color: '#666', fontWeight: '600', display: 'block', marginBottom: '4px' }}>EMAIL</label>
+                  <input value={editCustomer.email || ''} onChange={(e) => setEditCustomer({...editCustomer, email: e.target.value})}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                <div style={{ width: '80px' }}>
+                  <label style={{ fontSize: '9px', color: '#666', fontWeight: '600', display: 'block', marginBottom: '4px' }}>QTY</label>
+                  <select value={editQuantity} onChange={(e) => setEditQuantity(parseInt(e.target.value))}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px' }}>
+                    {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '9px', color: '#666', fontWeight: '600', display: 'block', marginBottom: '4px' }}>PROMOTION</label>
+                  <select value={editPromo} onChange={(e) => setEditPromo(e.target.value)}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px' }}>
+                    <option value="">None</option>
+                    <option value="FREE_INSTALL">Free Installation</option>
+                    <option value="10PCT_TIRES">10% Off Tires</option>
+                    <option value="NEXEN_B3G1">Buy 3 Nexen Get 1 Free</option>
+                    <option value="MILITARY_15">Military Discount (15%)</option>
+                    <option value="FIRST_RESP_12">First Responder (12%)</option>
+                    <option value="SENIOR_12">Senior 55+ (12%)</option>
+                  </select>
+                </div>
+              </div>
+              <p style={{ fontSize: '10px', color: '#9b59b6', margin: '0', textAlign: 'center', fontStyle: 'italic' }}>
+                Tire, vehicle, and store cannot be changed. Use "Revise Quote" to change those.
+              </p>
+
+              {/* Tread Depth Editing */}
+              <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #e9d5f5' }}>
+                <label style={{ fontSize: '9px', color: '#666', fontWeight: '600', display: 'block', marginBottom: '8px', textAlign: 'center' }}>TREAD DEPTHS (32nds)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {[
+                    { key: 'lf', label: 'Driver Front' },
+                    { key: 'rf', label: 'Pass Front' },
+                    { key: 'lr', label: 'Driver Rear' },
+                    { key: 'rr', label: 'Pass Rear' },
+                  ].map(({ key, label }) => (
+                    <div key={key} style={{ backgroundColor: '#f3e8ff', borderRadius: '6px', padding: '6px 8px' }}>
+                      <div style={{ fontSize: '9px', color: '#9b59b6', fontWeight: '600', marginBottom: '4px' }}>{label}</div>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {['inside', 'middle', 'outside'].map(pos => (
+                          <input
+                            key={pos}
+                            value={editTreadDepths[key][pos]}
+                            onChange={(e) => {
+                              const v = e.target.value.replace(/\D/g, '').slice(0, 2);
+                              setEditTreadDepths(prev => ({
+                                ...prev,
+                                [key]: { ...prev[key], [pos]: v }
+                              }));
+                            }}
+                            placeholder={pos[0].toUpperCase()}
+                            style={{
+                              width: '100%', padding: '4px', border: '1px solid #d1d5db',
+                              borderRadius: '4px', fontSize: '13px', textAlign: 'center', boxSizing: 'border-box'
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                        <span style={{ fontSize: '7px', color: '#999' }}>IN</span>
+                        <span style={{ fontSize: '7px', color: '#999' }}>MID</span>
+                        <span style={{ fontSize: '7px', color: '#999' }}>OUT</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Good / Better / Best Comparison Card */}
+          {quote.alternatives && (
+            <div className="comparison-card" style={{ marginBottom: '25px' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', textAlign: 'center' }}>
+                COMPARE YOUR OPTIONS
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: quote.alternatives.good && quote.alternatives.best ? '1fr 1fr 1fr' : '1fr 1fr', gap: '12px' }}>
+                {/* Good Option */}
+                {quote.alternatives.good && (
+                  <div style={{ 
+                    border: '2px solid #86efac', borderRadius: '10px', padding: '15px', textAlign: 'center',
+                    backgroundColor: '#f0fdf4'
+                  }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#16a34a', letterSpacing: '1px', marginBottom: '8px' }}>GOOD</div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#333', marginBottom: '4px' }}>
+                      {quote.alternatives.good.brand}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>{quote.alternatives.good.name}</div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#16a34a', marginBottom: '4px' }}>
+                      {formatCurrency(quote.alternatives.good.price_per_tire)}<span style={{ fontSize: '10px', fontWeight: '400' }}>/tire</span>
+                    </div>
+                    {quote.alternatives.good.warranty_miles && (
+                      <div style={{ fontSize: '10px', color: '#666' }}>
+                        {parseInt(quote.alternatives.good.warranty_miles).toLocaleString()} mi warranty
+                      </div>
+                    )}
+                    <div style={{ 
+                      marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #bbf7d0',
+                      fontSize: '16px', fontWeight: '700', color: '#333'
+                    }}>
+                      {formatCurrency(quote.alternatives.good.total_installed)}
+                    </div>
+                    <div style={{ fontSize: '9px', color: '#666' }}>total installed</div>
+                  </div>
+                )}
+
+                {/* Recommended (Primary Tire) - Always shown */}
+                <div style={{ 
+                  border: '3px solid #8b1538', borderRadius: '10px', padding: '15px', textAlign: 'center',
+                  backgroundColor: '#fdf2f4', position: 'relative'
+                }}>
+                  <div style={{ 
+                    position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)',
+                    backgroundColor: '#8b1538', color: 'white', padding: '2px 12px', borderRadius: '10px',
+                    fontSize: '9px', fontWeight: '700', letterSpacing: '1px'
+                  }}>⭐ RECOMMENDED</div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#333', marginBottom: '4px', marginTop: '5px' }}>
+                    {tire?.brand}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>{tire?.name}</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#8b1538', marginBottom: '4px' }}>
+                    {formatCurrency(p?.price_per_tire)}<span style={{ fontSize: '10px', fontWeight: '400' }}>/tire</span>
+                  </div>
+                  {tire?.warranty_miles && (
+                    <div style={{ fontSize: '10px', color: '#666' }}>
+                      {parseInt(tire.warranty_miles).toLocaleString()} mi warranty
+                    </div>
+                  )}
+                  <div style={{ 
+                    marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #f9a8b8',
+                    fontSize: '16px', fontWeight: '700', color: '#8b1538'
+                  }}>
+                    {formatCurrency(p?.total_amount)}
+                  </div>
+                  <div style={{ fontSize: '9px', color: '#666' }}>total installed</div>
+                </div>
+
+                {/* Best Option */}
+                {quote.alternatives.best && (
+                  <div style={{ 
+                    border: '2px solid #fca5a5', borderRadius: '10px', padding: '15px', textAlign: 'center',
+                    backgroundColor: '#fef2f2'
+                  }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#dc2626', letterSpacing: '1px', marginBottom: '8px' }}>BEST</div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#333', marginBottom: '4px' }}>
+                      {quote.alternatives.best.brand}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>{quote.alternatives.best.name}</div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#dc2626', marginBottom: '4px' }}>
+                      {formatCurrency(quote.alternatives.best.price_per_tire)}<span style={{ fontSize: '10px', fontWeight: '400' }}>/tire</span>
+                    </div>
+                    {quote.alternatives.best.warranty_miles && (
+                      <div style={{ fontSize: '10px', color: '#666' }}>
+                        {parseInt(quote.alternatives.best.warranty_miles).toLocaleString()} mi warranty
+                      </div>
+                    )}
+                    <div style={{ 
+                      marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #fecaca',
+                      fontSize: '16px', fontWeight: '700', color: '#333'
+                    }}>
+                      {formatCurrency(quote.alternatives.best.total_installed)}
+                    </div>
+                    <div style={{ fontSize: '9px', color: '#666' }}>total installed</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {tire?.warranty_miles && (
             <div 
               className="warranty-disclaimer"
@@ -1201,7 +1673,30 @@ const QuoteView = () => {
             margin-bottom: 4px !important;
           }
           
-          /* Footer - compact */
+          /* Comparison card - very compact for print */
+          .comparison-card {
+            margin-bottom: 4px !important;
+            page-break-inside: avoid !important;
+          }
+          
+          .comparison-card h4 {
+            font-size: 7px !important;
+            margin-bottom: 4px !important;
+          }
+          
+          .comparison-card > div {
+            gap: 4px !important;
+          }
+          
+          .comparison-card [style*="padding"] {
+            padding: 4px !important;
+          }
+          
+          .comparison-card [style*="fontSize"] {
+            font-size: 7px !important;
+          }
+          
+          /* Footer - compact, prevent page break */
           .quote-footer {
             padding-top: 4px !important;
             font-size: 7px !important;

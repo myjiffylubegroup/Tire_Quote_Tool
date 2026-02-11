@@ -267,25 +267,6 @@ export default function QuoteLookup() {
     window.location.hash = `#/quote/${shortCode}`;
   };
 
-  // Check if quote was created today (Pacific time) — matches get-quote is_editable logic
-  const isSameDay = (createdAt) => {
-    if (!createdAt) return false;
-    const now = new Date();
-    const pacific = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-    const created = new Date(new Date(createdAt).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-    return pacific.getFullYear() === created.getFullYear() &&
-           pacific.getMonth() === created.getMonth() &&
-           pacific.getDate() === created.getDate();
-  };
-
-  const editQuote = (shortCode) => {
-    window.location.hash = `#/quote/${shortCode}?edit=true`;
-  };
-
-  const reviseQuote = (quoteId) => {
-    window.location.hash = `#/quote/build?revise=${quoteId}`;
-  };
-
   return (
     <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
@@ -514,7 +495,7 @@ export default function QuoteLookup() {
                     <th style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#666' }}>Total</th>
                     <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Purchased</th>
                     <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Status</th>
-                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666', minWidth: '170px' }}>Actions</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -651,65 +632,25 @@ export default function QuoteLookup() {
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openQuote(quote.short_code);
-                            }}
-                            style={{
-                              backgroundColor: '#9b59b6',
-                              color: 'white',
-                              border: 'none',
-                              padding: '5px 10px',
-                              borderRadius: '12px',
-                              fontSize: '10px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            VIEW
-                          </button>
-                          {isSameDay(quote.created_at) && !quote.is_expired && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                editQuote(quote.short_code);
-                              }}
-                              style={{
-                                backgroundColor: 'transparent',
-                                color: '#9b59b6',
-                                border: '1.5px solid #9b59b6',
-                                padding: '5px 10px',
-                                borderRadius: '12px',
-                                fontSize: '10px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              EDIT
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              reviseQuote(quote.quote_id);
-                            }}
-                            style={{
-                              backgroundColor: 'transparent',
-                              color: '#3b82f6',
-                              border: '1.5px solid #3b82f6',
-                              padding: '5px 10px',
-                              borderRadius: '12px',
-                              fontSize: '10px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            REVISE
-                          </button>
-                        </div>
+                      <td style={{ padding: '12px 15px', textAlign: 'center' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openQuote(quote.short_code);
+                          }}
+                          style={{
+                            backgroundColor: '#9b59b6',
+                            color: 'white',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '15px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          VIEW
+                        </button>
                       </td>
                     </tr>
                   ))}
