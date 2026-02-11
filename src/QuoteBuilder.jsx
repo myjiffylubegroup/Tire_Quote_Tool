@@ -624,15 +624,9 @@ export default function QuoteBuilder() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
 
-  // Alternative tire options (good/best)
+  // Alternative tire options (good/best) - loaded from sessionStorage (set by TireFinder)
   const [altGoodTire, setAltGoodTire] = useState(null);
   const [altBestTire, setAltBestTire] = useState(null);
-  const [altGoodSearch, setAltGoodSearch] = useState('');
-  const [altBestSearch, setAltBestSearch] = useState('');
-  const [altGoodResults, setAltGoodResults] = useState([]);
-  const [altBestResults, setAltBestResults] = useState([]);
-  const [altGoodSearching, setAltGoodSearching] = useState(false);
-  const [altBestSearching, setAltBestSearching] = useState(false);
 
   // Revision tracking
   const [revisedFromQuoteId, setRevisedFromQuoteId] = useState(null);
@@ -660,6 +654,12 @@ export default function QuoteBuilder() {
     if (savedTire) setTireData(JSON.parse(savedTire));
     if (savedVehicle) setVehicleData(JSON.parse(savedVehicle));
     if (savedQty) setQuantity(parseInt(savedQty));
+
+    // Load alt tires from TireFinder selection
+    const savedGood = sessionStorage.getItem('jl_quote_alt_good');
+    const savedBest = sessionStorage.getItem('jl_quote_alt_best');
+    if (savedGood) setAltGoodTire(JSON.parse(savedGood));
+    if (savedBest) setAltBestTire(JSON.parse(savedBest));
   }, []);
 
   useEffect(() => { localStorage.setItem('jl_tire_store', selectedStore); }, [selectedStore]);
@@ -785,42 +785,7 @@ export default function QuoteBuilder() {
     fetchReviseQuote();
   }, []);
 
-  // Alt tire search function
-  const searchAltTires = async (query, type) => {
-    if (!query.trim() || !tireData) return;
-    
-    const tireSize = tireData.tire_size || tireData.size;
-    if (!tireSize) return;
-
-    if (type === 'good') {
-      setAltGoodSearching(true);
-      setAltGoodResults([]);
-    } else {
-      setAltBestSearching(true);
-      setAltBestResults([]);
-    }
-
-    try {
-      const response = await fetch(
-        `${API_BASE}/tire-inventory-search?size=${encodeURIComponent(tireSize)}&brand=${encodeURIComponent(query)}&store_id=${selectedStore}&key=${API_KEY}`
-      );
-      const data = await response.json();
-      if (data.success && data.tires) {
-        // Filter out the primary tire
-        const filtered = data.tires.filter(t => t.part_number !== tireData.part_number);
-        if (type === 'good') {
-          setAltGoodResults(filtered.slice(0, 8));
-        } else {
-          setAltBestResults(filtered.slice(0, 8));
-        }
-      }
-    } catch (e) {
-      console.error(`Alt tire search failed (${type}):`, e);
-    } finally {
-      if (type === 'good') setAltGoodSearching(false);
-      else setAltBestSearching(false);
-    }
-  };
+  // Alt tire search function removed - alt tires now selected in TireFinder
 
   const handleCustomerLookup = async () => {
     if (!licensePlate.trim()) return;
@@ -967,6 +932,8 @@ export default function QuoteBuilder() {
         sessionStorage.removeItem('jl_quote_tire');
         sessionStorage.removeItem('jl_quote_vehicle');
         sessionStorage.removeItem('jl_quote_qty');
+        sessionStorage.removeItem('jl_quote_alt_good');
+        sessionStorage.removeItem('jl_quote_alt_best');
         window.location.hash = `#/quote/${data.quote.short_code}`;
       } else { 
         setError(data.error || 'Failed to generate quote'); 
@@ -1198,164 +1165,55 @@ export default function QuoteBuilder() {
                 </div>
               </div>
 
-              {/* Alternative Tire Options (Good / Best) */}
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-                  <div style={{ flex: 1, height: '1px', backgroundColor: '#9b59b6', marginRight: '8px', position: 'relative' }}>
-                    <div style={{ position: 'absolute', left: 0, top: '-3px', width: '7px', height: '7px', backgroundColor: '#9b59b6', borderRadius: '50%' }} />
-                  </div>
-                  <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>COMPARE OPTIONS</span>
-                </div>
-                <p style={{ fontSize: '10px', color: '#888', margin: '0 0 10px 0', textAlign: 'center' }}>
-                  Add budget & premium alternatives. Search by brand name within the same tire size.
-                </p>
-
-                {/* Good (Budget) Option */}
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ fontSize: '9px', color: '#27ae60', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                    GOOD (BUDGET OPTION)
-                  </label>
-                  {altGoodTire ? (
-                    <div style={{ 
-                      backgroundColor: '#f0fdf4', 
-                      border: '1px solid #86efac', 
-                      borderRadius: '8px', 
-                      padding: '8px 12px',
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center'
-                    }}>
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>
-                          {altGoodTire.brand || altGoodTire.brand_code} {altGoodTire.name || altGoodTire.sales_class}
-                        </div>
-                        <div style={{ fontSize: '10px', color: '#666' }}>
-                          {formatCurrency(altGoodTire.consumer_price || altGoodTire.price || altGoodTire.price_per_tire)}/tire
-                          {altGoodTire.warranty || altGoodTire.warranty_miles ? ` • ${parseInt(altGoodTire.warranty || altGoodTire.warranty_miles).toLocaleString()} mi warranty` : ''}
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => { setAltGoodTire(null); setAltGoodSearch(''); setAltGoodResults([]); }}
-                        style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}
-                      >×</button>
-                    </div>
-                  ) : (
-                    <div>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <StyledInput 
-                          value={altGoodSearch} 
-                          onChange={setAltGoodSearch} 
-                          placeholder="Search brand..." 
-                          style={{ flex: 1, fontSize: '11px', padding: '8px 12px' }}
-                          onKeyPress={(e) => e.key === 'Enter' && searchAltTires(altGoodSearch, 'good')}
-                        />
-                        <button 
-                          onClick={() => searchAltTires(altGoodSearch, 'good')}
-                          disabled={!altGoodSearch.trim() || altGoodSearching}
-                          style={{ 
-                            backgroundColor: altGoodSearch.trim() ? '#27ae60' : '#ccc',
-                            color: 'white', border: 'none', borderRadius: '20px',
-                            padding: '8px 12px', fontSize: '10px', fontWeight: '700', cursor: altGoodSearch.trim() ? 'pointer' : 'not-allowed'
-                          }}
-                        >{altGoodSearching ? '...' : '🔍'}</button>
-                      </div>
-                      {altGoodResults.length > 0 && (
-                        <div style={{ maxHeight: '120px', overflowY: 'auto', marginTop: '6px', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                          {altGoodResults.map((t, i) => (
-                            <button
-                              key={t.part_number || i}
-                              onClick={() => { setAltGoodTire(t); setAltGoodResults([]); setAltGoodSearch(''); }}
-                              style={{ 
-                                display: 'block', width: '100%', padding: '6px 10px', border: 'none',
-                                borderBottom: i < altGoodResults.length - 1 ? '1px solid #f1f5f9' : 'none',
-                                backgroundColor: 'white', cursor: 'pointer', textAlign: 'left', fontSize: '11px'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0fdf4'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                            >
-                              <span style={{ fontWeight: '700' }}>{t.brand_code || t.brand}</span> {t.name || t.sales_class}
-                              <span style={{ float: 'right', color: '#27ae60', fontWeight: '600' }}>{formatCurrency(t.consumer_price || t.price)}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Best (Premium) Option */}
+              {/* Alternative Tire Options (from TireFinder) */}
+              {(altGoodTire || altBestTire) && (
                 <div>
-                  <label style={{ fontSize: '9px', color: '#8b1538', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                    BEST (PREMIUM OPTION)
-                  </label>
-                  {altBestTire ? (
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+                    <div style={{ flex: 1, height: '1px', backgroundColor: '#9b59b6', marginRight: '8px', position: 'relative' }}>
+                      <div style={{ position: 'absolute', left: 0, top: '-3px', width: '7px', height: '7px', backgroundColor: '#9b59b6', borderRadius: '50%' }} />
+                    </div>
+                    <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>COMPARE OPTIONS</span>
+                  </div>
+
+                  {altGoodTire && (
                     <div style={{ 
-                      backgroundColor: '#fef2f2', 
-                      border: '1px solid #fca5a5', 
-                      borderRadius: '8px', 
-                      padding: '8px 12px',
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center'
+                      backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', 
+                      padding: '8px 12px', marginBottom: '8px',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                     }}>
                       <div>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>
-                          {altBestTire.brand || altBestTire.brand_code} {altBestTire.name || altBestTire.sales_class}
-                        </div>
-                        <div style={{ fontSize: '10px', color: '#666' }}>
-                          {formatCurrency(altBestTire.consumer_price || altBestTire.price || altBestTire.price_per_tire)}/tire
-                          {altBestTire.warranty || altBestTire.warranty_miles ? ` • ${parseInt(altBestTire.warranty || altBestTire.warranty_miles).toLocaleString()} mi warranty` : ''}
-                        </div>
+                        <span style={{ fontSize: '9px', color: '#16a34a', fontWeight: '700' }}>GOOD </span>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>
+                          {altGoodTire.brand_code || altGoodTire.brand} {altGoodTire.sales_class || altGoodTire.name}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#666', marginLeft: '8px' }}>
+                          {formatCurrency(altGoodTire.consumer_price || altGoodTire.price || altGoodTire.price_per_tire)}/tire
+                        </span>
                       </div>
-                      <button 
-                        onClick={() => { setAltBestTire(null); setAltBestSearch(''); setAltBestResults([]); }}
-                        style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}
-                      >×</button>
+                      <button onClick={() => setAltGoodTire(null)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}>×</button>
                     </div>
-                  ) : (
-                    <div>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <StyledInput 
-                          value={altBestSearch} 
-                          onChange={setAltBestSearch} 
-                          placeholder="Search brand..." 
-                          style={{ flex: 1, fontSize: '11px', padding: '8px 12px' }}
-                          onKeyPress={(e) => e.key === 'Enter' && searchAltTires(altBestSearch, 'best')}
-                        />
-                        <button 
-                          onClick={() => searchAltTires(altBestSearch, 'best')}
-                          disabled={!altBestSearch.trim() || altBestSearching}
-                          style={{ 
-                            backgroundColor: altBestSearch.trim() ? '#8b1538' : '#ccc',
-                            color: 'white', border: 'none', borderRadius: '20px',
-                            padding: '8px 12px', fontSize: '10px', fontWeight: '700', cursor: altBestSearch.trim() ? 'pointer' : 'not-allowed'
-                          }}
-                        >{altBestSearching ? '...' : '🔍'}</button>
+                  )}
+
+                  {altBestTire && (
+                    <div style={{ 
+                      backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', 
+                      padding: '8px 12px',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                    }}>
+                      <div>
+                        <span style={{ fontSize: '9px', color: '#dc2626', fontWeight: '700' }}>BEST </span>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>
+                          {altBestTire.brand_code || altBestTire.brand} {altBestTire.sales_class || altBestTire.name}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#666', marginLeft: '8px' }}>
+                          {formatCurrency(altBestTire.consumer_price || altBestTire.price || altBestTire.price_per_tire)}/tire
+                        </span>
                       </div>
-                      {altBestResults.length > 0 && (
-                        <div style={{ maxHeight: '120px', overflowY: 'auto', marginTop: '6px', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                          {altBestResults.map((t, i) => (
-                            <button
-                              key={t.part_number || i}
-                              onClick={() => { setAltBestTire(t); setAltBestResults([]); setAltBestSearch(''); }}
-                              style={{ 
-                                display: 'block', width: '100%', padding: '6px 10px', border: 'none',
-                                borderBottom: i < altBestResults.length - 1 ? '1px solid #f1f5f9' : 'none',
-                                backgroundColor: 'white', cursor: 'pointer', textAlign: 'left', fontSize: '11px'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fef2f2'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                            >
-                              <span style={{ fontWeight: '700' }}>{t.brand_code || t.brand}</span> {t.name || t.sales_class}
-                              <span style={{ float: 'right', color: '#8b1538', fontWeight: '600' }}>{formatCurrency(t.consumer_price || t.price)}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <button onClick={() => setAltBestTire(null)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}>×</button>
                     </div>
                   )}
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Right Column - Tread Depth with Car Image */}
