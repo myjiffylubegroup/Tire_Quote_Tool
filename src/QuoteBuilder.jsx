@@ -591,7 +591,7 @@ export default function QuoteBuilder() {
   const [tireData, setTireData] = useState(null);
   const [vehicleData, setVehicleData] = useState(null);
   const [selectedStore, setSelectedStore] = useState(() => {
-    // Re-quote store takes priority
+    // Re-quote store takes priority (only if data hasn't been consumed yet)
     try {
       const rqData = sessionStorage.getItem('jl_requote_data');
       if (rqData) {
@@ -898,6 +898,7 @@ export default function QuoteBuilder() {
         sessionStorage.removeItem('jl_quote_alt_good');
         sessionStorage.removeItem('jl_quote_alt_best');
         sessionStorage.removeItem('jl_requote_data');
+        sessionStorage.removeItem('jl_requote_pending');
         window.location.hash = `#/quote/${data.quote.short_code}`;
       } else { 
         setError(data.error || 'Failed to generate quote'); 

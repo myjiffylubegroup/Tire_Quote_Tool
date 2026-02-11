@@ -580,6 +580,7 @@ const QuoteView = () => {
       quantity: quote.pricing?.quantity || 4
     };
     sessionStorage.setItem('jl_requote_data', JSON.stringify(reQuoteData));
+    sessionStorage.setItem('jl_requote_pending', 'true');
     window.location.hash = '#/';
   };
 
@@ -669,11 +670,13 @@ const QuoteView = () => {
           gap: '20px'
         }}>
           <div>
-            <img 
-              src={JL_LOGO} 
-              alt="Jiffy Lube Multicare" 
-              style={{ height: '50px', marginBottom: '15px', filter: 'brightness(0) invert(1)' }} 
-            />
+            <a href="#/" style={{ textDecoration: 'none' }}>
+              <img 
+                src={JL_LOGO} 
+                alt="Jiffy Lube Multicare" 
+                style={{ height: '50px', marginBottom: '15px', filter: 'brightness(0) invert(1)', cursor: 'pointer' }} 
+              />
+            </a>
             <div style={{ fontSize: '13px', opacity: 0.9 }}>
               <div style={{ fontWeight: '600', marginBottom: '3px' }}>{store?.name}</div>
               <div>{store?.full_address}</div>
@@ -1324,6 +1327,16 @@ const QuoteView = () => {
               }}
             >
               🔄 Re-Quote
+            </button>
+            <button
+              onClick={() => { window.location.hash = '#/'; }}
+              style={{
+                backgroundColor: 'white', color: '#16a34a', border: '2px solid #16a34a',
+                padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '600',
+                cursor: 'pointer', letterSpacing: '1px'
+              }}
+            >
+              ➕ New Quote
             </button>
           </div>
 

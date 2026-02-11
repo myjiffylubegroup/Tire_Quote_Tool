@@ -311,6 +311,7 @@ export default function QuoteLookup() {
           quantity: q.pricing?.quantity || 4
         };
         sessionStorage.setItem('jl_requote_data', JSON.stringify(reQuoteData));
+        sessionStorage.setItem('jl_requote_pending', 'true');
         window.location.hash = '#/';
       } else {
         setError('Failed to load quote for re-quoting');

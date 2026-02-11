@@ -571,12 +571,15 @@ export default function TireFinder() {
   // Store & Qty selection - re-quote store takes priority, then localStorage
   const [selectedStore, setSelectedStore] = useState(() => {
     if (typeof window !== 'undefined') {
-      // Check for re-quote store override first
+      // Check for re-quote store override first (only if pending flag set)
       try {
-        const rqData = sessionStorage.getItem('jl_requote_data');
-        if (rqData) {
-          const parsed = JSON.parse(rqData);
-          if (parsed.store_id) return parsed.store_id.toString();
+        const pending = sessionStorage.getItem('jl_requote_pending');
+        if (pending) {
+          const rqData = sessionStorage.getItem('jl_requote_data');
+          if (rqData) {
+            const parsed = JSON.parse(rqData);
+            if (parsed.store_id) return parsed.store_id.toString();
+          }
         }
       } catch (e) { /* fall through */ }
       return localStorage.getItem('jl_tire_store') || '609';
@@ -586,10 +589,13 @@ export default function TireFinder() {
   const [qtyNeeded, setQtyNeeded] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
-        const rqData = sessionStorage.getItem('jl_requote_data');
-        if (rqData) {
-          const parsed = JSON.parse(rqData);
-          if (parsed.quantity) return parsed.quantity;
+        const pending = sessionStorage.getItem('jl_requote_pending');
+        if (pending) {
+          const rqData = sessionStorage.getItem('jl_requote_data');
+          if (rqData) {
+            const parsed = JSON.parse(rqData);
+            if (parsed.quantity) return parsed.quantity;
+          }
         }
       } catch (e) { /* fall through */ }
     }
@@ -660,8 +666,12 @@ export default function TireFinder() {
 
   // Check for re-quote data on mount
   useEffect(() => {
+    const pending = sessionStorage.getItem('jl_requote_pending');
     const saved = sessionStorage.getItem('jl_requote_data');
-    if (saved) {
+    
+    if (saved && pending) {
+      // Real re-quote navigation — consume the flag
+      sessionStorage.removeItem('jl_requote_pending');
       try {
         const data = JSON.parse(saved);
         setReQuoteData(data);
@@ -693,11 +703,15 @@ export default function TireFinder() {
         console.error('Failed to parse re-quote data:', e);
         sessionStorage.removeItem('jl_requote_data');
       }
+    } else if (saved && !pending) {
+      // Stale re-quote data from a previous session — clear it
+      sessionStorage.removeItem('jl_requote_data');
     }
   }, []);
 
   const cancelReQuote = () => {
     sessionStorage.removeItem('jl_requote_data');
+    sessionStorage.removeItem('jl_requote_pending');
     setReQuoteData(null);
   };
 
