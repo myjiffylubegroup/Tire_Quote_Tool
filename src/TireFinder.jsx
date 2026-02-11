@@ -568,14 +568,33 @@ const Badge = ({ label, color }) => (
 );
 
 export default function TireFinder() {
-  // Store & Qty selection - load from localStorage if available
+  // Store & Qty selection - re-quote store takes priority, then localStorage
   const [selectedStore, setSelectedStore] = useState(() => {
     if (typeof window !== 'undefined') {
+      // Check for re-quote store override first
+      try {
+        const rqData = sessionStorage.getItem('jl_requote_data');
+        if (rqData) {
+          const parsed = JSON.parse(rqData);
+          if (parsed.store_id) return parsed.store_id.toString();
+        }
+      } catch (e) { /* fall through */ }
       return localStorage.getItem('jl_tire_store') || '609';
     }
     return '609';
   });
-  const [qtyNeeded, setQtyNeeded] = useState(4);
+  const [qtyNeeded, setQtyNeeded] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const rqData = sessionStorage.getItem('jl_requote_data');
+        if (rqData) {
+          const parsed = JSON.parse(rqData);
+          if (parsed.quantity) return parsed.quantity;
+        }
+      } catch (e) { /* fall through */ }
+    }
+    return 4;
+  });
 
   // Save store to localStorage when it changes
   useEffect(() => {

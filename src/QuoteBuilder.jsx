@@ -590,7 +590,17 @@ const Footer = () => (
 export default function QuoteBuilder() {
   const [tireData, setTireData] = useState(null);
   const [vehicleData, setVehicleData] = useState(null);
-  const [selectedStore, setSelectedStore] = useState(() => localStorage.getItem('jl_tire_store') || '609');
+  const [selectedStore, setSelectedStore] = useState(() => {
+    // Re-quote store takes priority
+    try {
+      const rqData = sessionStorage.getItem('jl_requote_data');
+      if (rqData) {
+        const parsed = JSON.parse(rqData);
+        if (parsed.store_id) return parsed.store_id.toString();
+      }
+    } catch (e) { /* fall through */ }
+    return localStorage.getItem('jl_tire_store') || '609';
+  });
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(() => {
     const saved = localStorage.getItem('jl_quote_employee');

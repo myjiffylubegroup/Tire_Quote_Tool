@@ -307,6 +307,30 @@ const QuoteView = () => {
           setError(data.error || 'Quote not found');
         } else {
           setQuote(data.quote);
+
+          // Auto-open edit mode if ?edit=true is in the URL and quote is editable
+          if (window.location.hash.includes('edit=true') && data.quote.is_editable) {
+            // Populate edit fields directly from data (quote state not yet updated)
+            const q = data.quote;
+            setEditQuantity(q.pricing.quantity);
+            setEditPromo(q.pricing.promo_id || '');
+            setEditCustomer({
+              first_name: q.customer.first_name || '',
+              last_name: q.customer.last_name || '',
+              phone: q.customer.phone || '',
+              email: q.customer.email || '',
+            });
+            if (q.tread_depth?.tires) {
+              const t = q.tread_depth.tires;
+              setEditTreadDepths({
+                lf: { inside: t.front_left?.inside?.toString() || '', middle: t.front_left?.middle?.toString() || '', outside: t.front_left?.outside?.toString() || '' },
+                rf: { inside: t.front_right?.inside?.toString() || '', middle: t.front_right?.middle?.toString() || '', outside: t.front_right?.outside?.toString() || '' },
+                lr: { inside: t.rear_left?.inside?.toString() || '', middle: t.rear_left?.middle?.toString() || '', outside: t.rear_left?.outside?.toString() || '' },
+                rr: { inside: t.rear_right?.inside?.toString() || '', middle: t.rear_right?.middle?.toString() || '', outside: t.rear_right?.outside?.toString() || '' },
+              });
+            }
+            setEditMode(true);
+          }
         }
       } catch (err) {
         setError('Failed to load quote');
