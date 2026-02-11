@@ -617,6 +617,9 @@ export default function TireFinder() {
   // Tire selection state: Good / Chosen / Best
   const [selections, setSelections] = useState({ good: null, chosen: null, best: null });
 
+  // Re-Quote mode: data carried forward from a previous quote
+  const [reQuoteData, setReQuoteData] = useState(null);
+
   const handleSelectionChange = (role, tire) => {
     setSelections(prev => ({ ...prev, [role]: tire }));
   };
@@ -634,6 +637,33 @@ export default function TireFinder() {
     setTireSpecs([spec]);
     // Automatically search inventory for this size
     searchInventory(spec.tire_size);
+  };
+
+  // Check for re-quote data on mount
+  useEffect(() => {
+    const saved = sessionStorage.getItem('jl_requote_data');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        setReQuoteData(data);
+        // Lock store to match original quote
+        if (data.store_id) {
+          setSelectedStore(data.store_id.toString());
+        }
+        // Pre-set quantity
+        if (data.quantity) {
+          setQtyNeeded(data.quantity);
+        }
+      } catch (e) {
+        console.error('Failed to parse re-quote data:', e);
+        sessionStorage.removeItem('jl_requote_data');
+      }
+    }
+  }, []);
+
+  const cancelReQuote = () => {
+    sessionStorage.removeItem('jl_requote_data');
+    setReQuoteData(null);
   };
 
   // Handle continue to quote - save chosen tire + alternatives to sessionStorage
@@ -671,9 +701,14 @@ export default function TireFinder() {
         oe_speed_rating: selectedSpec?.speed_index || null,
       };
       sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
+    } else if (reQuoteData?.vehicle) {
+      // Carry forward vehicle from original quote if no new YMM search
+      sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(reQuoteData.vehicle));
     } else {
       sessionStorage.removeItem('jl_quote_vehicle');
     }
+    
+    // jl_requote_data stays in sessionStorage — QuoteBuilder will read it for customer/treads/linkage
     
     // Navigate to quote builder
     window.location.hash = '#/quote/build';
@@ -972,6 +1007,51 @@ export default function TireFinder() {
           ))}
         </div>
       </nav>
+
+      {/* Re-Quote Banner */}
+      {reQuoteData && (
+        <div style={{
+          backgroundColor: '#eff6ff',
+          borderBottom: '2px solid #3b82f6',
+          padding: '12px 20px',
+        }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                padding: '3px 10px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: '700',
+                letterSpacing: '1px',
+              }}>
+                RE-QUOTE
+              </span>
+              <span style={{ fontSize: '13px', color: '#1e40af', fontWeight: '500' }}>
+                <strong>{reQuoteData.from_quote_number}</strong> for <strong>{reQuoteData.customer?.full_name || 'Customer'}</strong>
+                {reQuoteData.vehicle?.display ? ` · ${reQuoteData.vehicle.display}` : ''}
+                {' — select new tires below'}
+              </span>
+            </div>
+            <button
+              onClick={cancelReQuote}
+              style={{
+                backgroundColor: 'transparent',
+                color: '#6b7280',
+                border: '1px solid #d1d5db',
+                padding: '4px 12px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+              }}
+            >
+              ✕ Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Hero Banner with road/sky background */}
       <div style={{

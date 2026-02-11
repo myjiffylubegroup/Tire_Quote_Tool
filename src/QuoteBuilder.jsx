@@ -683,106 +683,51 @@ export default function QuoteBuilder() {
     fetchEmployees();
   }, [selectedStore]);
 
-  // Revise pre-fill: detect ?revise=QUOTE_ID in URL hash
+  // Re-Quote pre-fill: detect jl_requote_data in sessionStorage (set by QuoteLookup or QuoteView)
   useEffect(() => {
-    const hash = window.location.hash;
-    const reviseMatch = hash.match(/[?&]revise=([a-f0-9-]+)/i);
-    if (!reviseMatch) return;
+    const saved = sessionStorage.getItem('jl_requote_data');
+    if (!saved) return;
 
-    const quoteId = reviseMatch[1];
-    setReviseLoading(true);
+    try {
+      const rq = JSON.parse(saved);
+      setRevisedFromQuoteId(rq.from_quote_id);
 
-    const fetchReviseQuote = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/get-quote?id=${quoteId}&key=${API_KEY}`);
-        const data = await response.json();
-        if (data.success && data.quote) {
-          const q = data.quote;
-          setRevisedFromQuoteId(q.quote_id);
-
-          // Pre-fill tire data
-          if (q.tire) {
-            const tData = {
-              part_number: q.tire.part_number,
-              brand: q.tire.brand,
-              brand_code: q.tire.brand,
-              name: q.tire.name,
-              sales_class: q.tire.name,
-              tire_size: q.tire.size,
-              size: q.tire.size,
-              tire_type: q.tire.type,
-              warranty: q.tire.warranty_miles,
-              load_rating: q.tire.load_rating,
-              speed_rating: q.tire.speed_rating,
-              load_range: q.tire.load_range,
-              snowflake: q.tire.snowflake,
-              run_flat: q.tire.run_flat,
-              consumer_price: q.pricing.price_per_tire,
-              price: q.pricing.price_per_tire,
-              cost: null,
-              fet: q.pricing.fet_per_tire
-            };
-            setTireData(tData);
-          }
-
-          // Pre-fill vehicle
-          if (q.vehicle?.display) {
-            setVehicleData(q.vehicle);
-          }
-
-          // Pre-fill customer
-          if (q.customer) {
-            setCustomerData({
-              first_name: q.customer.first_name || '',
-              last_name: q.customer.last_name || '',
-              full_name: q.customer.full_name || '',
-              phone: q.customer.phone ? formatPhoneNumber(q.customer.phone) : '',
-              email: q.customer.email || '',
-              vehicle_ymm: '',
-              data_source: q.customer.data_source || 'manual'
-            });
-            if (q.customer.license_plate) {
-              setLicensePlate(q.customer.license_plate);
-              setLicenseState(q.customer.license_state || 'CA');
-            }
-          }
-
-          // Pre-fill quantity, promo
-          if (q.pricing?.quantity) setQuantity(q.pricing.quantity);
-          if (q.pricing?.promo_id) setSelectedPromo(q.pricing.promo_id);
-
-          // Pre-fill tread depths
-          if (q.tread_depth?.tires) {
-            const t = q.tread_depth.tires;
-            setTreadDepths({
-              lf: { inside: t.front_left?.inside?.toString() || '', middle: t.front_left?.middle?.toString() || '', outside: t.front_left?.outside?.toString() || '' },
-              rf: { inside: t.front_right?.inside?.toString() || '', middle: t.front_right?.middle?.toString() || '', outside: t.front_right?.outside?.toString() || '' },
-              lr: { inside: t.rear_left?.inside?.toString() || '', middle: t.rear_left?.middle?.toString() || '', outside: t.rear_left?.outside?.toString() || '' },
-              rr: { inside: t.rear_right?.inside?.toString() || '', middle: t.rear_right?.middle?.toString() || '', outside: t.rear_right?.outside?.toString() || '' },
-            });
-          }
-
-          // Pre-fill alt tires
-          if (q.alternatives?.good) {
-            setAltGoodTire(q.alternatives.good);
-          }
-          if (q.alternatives?.best) {
-            setAltBestTire(q.alternatives.best);
-          }
-
-          // Set store
-          if (q.store?.id) {
-            setSelectedStore(q.store.id.toString());
-          }
+      // Pre-fill customer
+      if (rq.customer) {
+        setCustomerData({
+          first_name: rq.customer.first_name || '',
+          last_name: rq.customer.last_name || '',
+          full_name: rq.customer.full_name || '',
+          phone: rq.customer.phone ? formatPhoneNumber(rq.customer.phone) : '',
+          email: rq.customer.email || '',
+          vehicle_ymm: '',
+          data_source: rq.customer.data_source || 'manual'
+        });
+        if (rq.customer.license_plate) {
+          setLicensePlate(rq.customer.license_plate);
+          setLicenseState(rq.customer.license_state || 'CA');
         }
-      } catch (e) {
-        console.error('Failed to load revise quote:', e);
-      } finally {
-        setReviseLoading(false);
+        setCustomerFound(true);
       }
-    };
 
-    fetchReviseQuote();
+      // Pre-fill tread depths
+      if (rq.treads?.tires) {
+        const t = rq.treads.tires;
+        setTreadDepths({
+          lf: { inside: t.front_left?.inside?.toString() || '', middle: t.front_left?.middle?.toString() || '', outside: t.front_left?.outside?.toString() || '' },
+          rf: { inside: t.front_right?.inside?.toString() || '', middle: t.front_right?.middle?.toString() || '', outside: t.front_right?.outside?.toString() || '' },
+          lr: { inside: t.rear_left?.inside?.toString() || '', middle: t.rear_left?.middle?.toString() || '', outside: t.rear_left?.outside?.toString() || '' },
+          rr: { inside: t.rear_right?.inside?.toString() || '', middle: t.rear_right?.middle?.toString() || '', outside: t.rear_right?.outside?.toString() || '' },
+        });
+      }
+
+      // Set store
+      if (rq.store_id) {
+        setSelectedStore(rq.store_id.toString());
+      }
+    } catch (e) {
+      console.error('Failed to parse re-quote data:', e);
+    }
   }, []);
 
   // Alt tire search function removed - alt tires now selected in TireFinder
@@ -934,6 +879,7 @@ export default function QuoteBuilder() {
         sessionStorage.removeItem('jl_quote_qty');
         sessionStorage.removeItem('jl_quote_alt_good');
         sessionStorage.removeItem('jl_quote_alt_best');
+        sessionStorage.removeItem('jl_requote_data');
         window.location.hash = `#/quote/${data.quote.short_code}`;
       } else { 
         setError(data.error || 'Failed to generate quote'); 
@@ -987,7 +933,7 @@ export default function QuoteBuilder() {
         }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '40px', marginBottom: '15px' }}>🔄</div>
-            <div style={{ fontSize: '16px', color: '#9b59b6', fontWeight: '600' }}>Loading quote for revision...</div>
+            <div style={{ fontSize: '16px', color: '#9b59b6', fontWeight: '600' }}>Loading quote for re-quote...</div>
           </div>
         </div>
       )}
@@ -996,10 +942,10 @@ export default function QuoteBuilder() {
         <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '40px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           
           <h2 style={{ color: '#9b59b6', fontSize: '28px', fontWeight: '700', textAlign: 'center', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '3px' }}>
-            {revisedFromQuoteId ? 'REVISE QUOTE' : 'CREATE QUOTE'}
+            {revisedFromQuoteId ? 'RE-QUOTE' : 'CREATE QUOTE'}
           </h2>
           <p style={{ color: '#888', textAlign: 'center', fontSize: '13px', marginBottom: '30px', letterSpacing: '2px' }}>
-            {revisedFromQuoteId ? 'CREATING NEW QUOTE FROM PREVIOUS' : 'TIRE QUOTE BUILDER'}
+            {revisedFromQuoteId ? 'NEW QUOTE FROM PREVIOUS — NEW TIRES SELECTED' : 'TIRE QUOTE BUILDER'}
           </p>
 
           {/* Selected Tire Banner */}

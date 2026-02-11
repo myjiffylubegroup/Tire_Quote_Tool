@@ -282,8 +282,43 @@ export default function QuoteLookup() {
     window.location.hash = `#/quote/${shortCode}?edit=true`;
   };
 
-  const reviseQuote = (quoteId) => {
-    window.location.hash = `#/quote/build?revise=${quoteId}`;
+  // Re-Quote: fetch full quote data, stash to sessionStorage, navigate to TireFinder
+  const [reQuoting, setReQuoting] = useState(null);
+  const reQuote = async (quoteId) => {
+    setReQuoting(quoteId);
+    try {
+      const response = await fetch(`${API_BASE}/get-quote?id=${quoteId}&key=${API_KEY}`);
+      const data = await response.json();
+      if (data.success && data.quote) {
+        const q = data.quote;
+        const reQuoteData = {
+          from_quote_id: q.quote_id,
+          from_quote_number: q.quote_number,
+          customer: {
+            first_name: q.customer.first_name || '',
+            last_name: q.customer.last_name || '',
+            full_name: q.customer.full_name || '',
+            phone: q.customer.phone || '',
+            email: q.customer.email || '',
+            license_plate: q.customer.license_plate || '',
+            license_state: q.customer.license_state || 'CA',
+            data_source: q.customer.data_source || 'manual'
+          },
+          vehicle: q.vehicle || null,
+          treads: q.tread_depth || null,
+          store_id: q.store?.id || null,
+          quantity: q.pricing?.quantity || 4
+        };
+        sessionStorage.setItem('jl_requote_data', JSON.stringify(reQuoteData));
+        window.location.hash = '#/';
+      } else {
+        setError('Failed to load quote for re-quoting');
+      }
+    } catch (e) {
+      setError('Failed to connect to server');
+    } finally {
+      setReQuoting(null);
+    }
   };
 
   return (
@@ -514,7 +549,7 @@ export default function QuoteLookup() {
                     <th style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#666' }}>Total</th>
                     <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Purchased</th>
                     <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Status</th>
-                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666', minWidth: '170px' }}>Actions</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666', minWidth: '180px' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -694,8 +729,9 @@ export default function QuoteLookup() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              reviseQuote(quote.quote_id);
+                              reQuote(quote.quote_id);
                             }}
+                            disabled={reQuoting === quote.quote_id}
                             style={{
                               backgroundColor: 'transparent',
                               color: '#3b82f6',
@@ -704,10 +740,11 @@ export default function QuoteLookup() {
                               borderRadius: '12px',
                               fontSize: '10px',
                               fontWeight: '600',
-                              cursor: 'pointer',
+                              cursor: reQuoting === quote.quote_id ? 'wait' : 'pointer',
+                              opacity: reQuoting === quote.quote_id ? 0.5 : 1,
                             }}
                           >
-                            REVISE
+                            {reQuoting === quote.quote_id ? '...' : 'RE-QUOTE'}
                           </button>
                         </div>
                       </td>
