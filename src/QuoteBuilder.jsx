@@ -683,53 +683,6 @@ export default function QuoteBuilder() {
     fetchEmployees();
   }, [selectedStore]);
 
-<<<<<<< HEAD
-  // Re-Quote pre-fill: detect jl_requote_data in sessionStorage (set by QuoteLookup or QuoteView)
-  useEffect(() => {
-    const saved = sessionStorage.getItem('jl_requote_data');
-    if (!saved) return;
-
-    try {
-      const rq = JSON.parse(saved);
-      setRevisedFromQuoteId(rq.from_quote_id);
-
-      // Pre-fill customer
-      if (rq.customer) {
-        setCustomerData({
-          first_name: rq.customer.first_name || '',
-          last_name: rq.customer.last_name || '',
-          full_name: rq.customer.full_name || '',
-          phone: rq.customer.phone ? formatPhoneNumber(rq.customer.phone) : '',
-          email: rq.customer.email || '',
-          vehicle_ymm: '',
-          data_source: rq.customer.data_source || 'manual'
-        });
-        if (rq.customer.license_plate) {
-          setLicensePlate(rq.customer.license_plate);
-          setLicenseState(rq.customer.license_state || 'CA');
-        }
-        setCustomerFound(true);
-      }
-
-      // Pre-fill tread depths
-      if (rq.treads?.tires) {
-        const t = rq.treads.tires;
-        setTreadDepths({
-          lf: { inside: t.front_left?.inside?.toString() || '', middle: t.front_left?.middle?.toString() || '', outside: t.front_left?.outside?.toString() || '' },
-          rf: { inside: t.front_right?.inside?.toString() || '', middle: t.front_right?.middle?.toString() || '', outside: t.front_right?.outside?.toString() || '' },
-          lr: { inside: t.rear_left?.inside?.toString() || '', middle: t.rear_left?.middle?.toString() || '', outside: t.rear_left?.outside?.toString() || '' },
-          rr: { inside: t.rear_right?.inside?.toString() || '', middle: t.rear_right?.middle?.toString() || '', outside: t.rear_right?.outside?.toString() || '' },
-        });
-      }
-
-      // Set store
-      if (rq.store_id) {
-        setSelectedStore(rq.store_id.toString());
-      }
-    } catch (e) {
-      console.error('Failed to parse re-quote data:', e);
-    }
-=======
   // Revise pre-fill: detect ?revise=QUOTE_ID in URL hash
   useEffect(() => {
     const hash = window.location.hash;
@@ -830,7 +783,6 @@ export default function QuoteBuilder() {
     };
 
     fetchReviseQuote();
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
   }, []);
 
   // Alt tire search function removed - alt tires now selected in TireFinder
@@ -982,10 +934,6 @@ export default function QuoteBuilder() {
         sessionStorage.removeItem('jl_quote_qty');
         sessionStorage.removeItem('jl_quote_alt_good');
         sessionStorage.removeItem('jl_quote_alt_best');
-<<<<<<< HEAD
-        sessionStorage.removeItem('jl_requote_data');
-=======
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
         window.location.hash = `#/quote/${data.quote.short_code}`;
       } else { 
         setError(data.error || 'Failed to generate quote'); 
@@ -1039,11 +987,7 @@ export default function QuoteBuilder() {
         }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '40px', marginBottom: '15px' }}>🔄</div>
-<<<<<<< HEAD
-            <div style={{ fontSize: '16px', color: '#9b59b6', fontWeight: '600' }}>Loading quote for re-quote...</div>
-=======
             <div style={{ fontSize: '16px', color: '#9b59b6', fontWeight: '600' }}>Loading quote for revision...</div>
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
           </div>
         </div>
       )}
@@ -1052,17 +996,10 @@ export default function QuoteBuilder() {
         <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '40px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           
           <h2 style={{ color: '#9b59b6', fontSize: '28px', fontWeight: '700', textAlign: 'center', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '3px' }}>
-<<<<<<< HEAD
-            {revisedFromQuoteId ? 'RE-QUOTE' : 'CREATE QUOTE'}
-          </h2>
-          <p style={{ color: '#888', textAlign: 'center', fontSize: '13px', marginBottom: '30px', letterSpacing: '2px' }}>
-            {revisedFromQuoteId ? 'NEW QUOTE FROM PREVIOUS — NEW TIRES SELECTED' : 'TIRE QUOTE BUILDER'}
-=======
             {revisedFromQuoteId ? 'REVISE QUOTE' : 'CREATE QUOTE'}
           </h2>
           <p style={{ color: '#888', textAlign: 'center', fontSize: '13px', marginBottom: '30px', letterSpacing: '2px' }}>
             {revisedFromQuoteId ? 'CREATING NEW QUOTE FROM PREVIOUS' : 'TIRE QUOTE BUILDER'}
->>>>>>> dd4d23b62ba8e2514fa4ff2518de35762742811e
           </p>
 
           {/* Selected Tire Banner */}
