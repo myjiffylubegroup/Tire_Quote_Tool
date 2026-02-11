@@ -847,8 +847,8 @@ export default function QuoteBuilder() {
         } : null,
         tire: {
           part_number: tireData.part_number, 
-          brand: tireData.sales_class?.split(' ')[0] || tireData.brand || tireData.brand_code, 
-          name: tireData.sales_class || tireData.name,
+          brand: tireData.brand || tireData.brand_code, 
+          name: tireData.name || tireData.sales_class,
           size: tireData.tire_size || tireData.size, 
           type: tireData.tire_type, 
           warranty_miles: tireData.warranty ? parseInt(tireData.warranty) : null,
@@ -868,15 +868,15 @@ export default function QuoteBuilder() {
         // Alternative tire options
         alt_good: altGoodTire ? {
           part_number: altGoodTire.part_number,
-          brand: altGoodTire.sales_class?.split(' ')[0] || altGoodTire.brand || altGoodTire.brand_code,
-          name: altGoodTire.sales_class || altGoodTire.name,
+          brand: altGoodTire.brand || altGoodTire.brand_code,
+          name: altGoodTire.name || altGoodTire.sales_class,
           price_per_tire: altGoodTire.consumer_price || altGoodTire.price || altGoodTire.price_per_tire,
           warranty_miles: altGoodTire.warranty ? parseInt(altGoodTire.warranty) : (altGoodTire.warranty_miles || null)
         } : null,
         alt_best: altBestTire ? {
           part_number: altBestTire.part_number,
-          brand: altBestTire.sales_class?.split(' ')[0] || altBestTire.brand || altBestTire.brand_code,
-          name: altBestTire.sales_class || altBestTire.name,
+          brand: altBestTire.brand || altBestTire.brand_code,
+          name: altBestTire.name || altBestTire.sales_class,
           price_per_tire: altBestTire.consumer_price || altBestTire.price || altBestTire.price_per_tire,
           warranty_miles: altBestTire.warranty ? parseInt(altBestTire.warranty) : (altBestTire.warranty_miles || null)
         } : null,
