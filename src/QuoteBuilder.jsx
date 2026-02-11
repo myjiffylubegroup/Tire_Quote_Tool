@@ -696,10 +696,12 @@ export default function QuoteBuilder() {
   // Re-Quote pre-fill: detect jl_requote_data in sessionStorage (set by QuoteLookup or QuoteView)
   useEffect(() => {
     const saved = sessionStorage.getItem('jl_requote_data');
+    console.log('[RE-QUOTE] sessionStorage jl_requote_data:', saved ? 'FOUND' : 'NOT FOUND');
     if (!saved) return;
 
     try {
       const rq = JSON.parse(saved);
+      console.log('[RE-QUOTE] Parsed data:', JSON.stringify({ from_quote_id: rq.from_quote_id, hasCustomer: !!rq.customer, hasTreads: !!rq.treads, store_id: rq.store_id }));
       setRevisedFromQuoteId(rq.from_quote_id);
 
       // Pre-fill customer
@@ -720,14 +722,20 @@ export default function QuoteBuilder() {
         setCustomerFound(true);
       }
 
-      // Pre-fill tread depths
-      if (rq.treads?.tires) {
-        const t = rq.treads.tires;
+      // Pre-fill tread depths - handle both formats
+      // Format 1: { tires: { front_left: {...}, ... } } (from get-quote tread_depth)
+      // Format 2: { lf: { inside: 6, ... }, rf: {...}, ... } (from tread_depth_json directly)
+      const t = rq.treads?.tires || rq.treads;
+      if (t) {
+        const lf = t.front_left || t.lf;
+        const rf = t.front_right || t.rf;
+        const lr = t.rear_left || t.lr;
+        const rr = t.rear_right || t.rr;
         setTreadDepths({
-          lf: { inside: t.front_left?.inside?.toString() || '', middle: t.front_left?.middle?.toString() || '', outside: t.front_left?.outside?.toString() || '' },
-          rf: { inside: t.front_right?.inside?.toString() || '', middle: t.front_right?.middle?.toString() || '', outside: t.front_right?.outside?.toString() || '' },
-          lr: { inside: t.rear_left?.inside?.toString() || '', middle: t.rear_left?.middle?.toString() || '', outside: t.rear_left?.outside?.toString() || '' },
-          rr: { inside: t.rear_right?.inside?.toString() || '', middle: t.rear_right?.middle?.toString() || '', outside: t.rear_right?.outside?.toString() || '' },
+          lf: { inside: lf?.inside?.toString() || '', middle: lf?.middle?.toString() || '', outside: lf?.outside?.toString() || '' },
+          rf: { inside: rf?.inside?.toString() || '', middle: rf?.middle?.toString() || '', outside: rf?.outside?.toString() || '' },
+          lr: { inside: lr?.inside?.toString() || '', middle: lr?.middle?.toString() || '', outside: lr?.outside?.toString() || '' },
+          rr: { inside: rr?.inside?.toString() || '', middle: rr?.middle?.toString() || '', outside: rr?.outside?.toString() || '' },
         });
       }
 
