@@ -1089,7 +1089,7 @@ const QuoteView = () => {
         @media print {
           @page {
             size: portrait;
-            margin: 0.3in;
+            margin: 0.25in;
           }
           
           * {
@@ -1104,12 +1104,11 @@ const QuoteView = () => {
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
+            font-size: 9px !important;
           }
           
-          div, table, tr, td, p, h1, h2, h3, h4 {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
+          /* CRITICAL: Allow content to flow — do NOT blanket prevent breaks on all divs.
+             Only prevent breaks on specific elements that should stay together. */
           
           [data-print-hide="true"] { display: none !important; }
           .no-print { display: none !important; }
@@ -1117,10 +1116,12 @@ const QuoteView = () => {
           div { box-shadow: none !important; }
           a[href]:after { content: none !important; }
           
+          /* ── Outer container ── */
           .quote-outer-container {
             padding: 0 !important;
             background: white !important;
             min-height: auto !important;
+            overflow: visible !important;
           }
           
           .quote-main-container {
@@ -1128,41 +1129,199 @@ const QuoteView = () => {
             width: 100% !important;
             margin: 0 !important;
             border-radius: 0 !important;
+            overflow: visible !important;
           }
           
+          /* ── Header — compact, NO page break after ── */
           .quote-header {
-            padding: 10px 18px !important;
+            padding: 8px 14px !important;
             border-top-width: 4px !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
           
-          .quote-header img { height: 30px !important; }
+          .quote-header img { height: 26px !important; }
           
-          .quote-content { padding: 14px 18px !important; }
+          /* ── Content — NO page break before ── */
+          .quote-content {
+            padding: 10px 14px !important;
+            page-break-before: avoid !important;
+            break-before: avoid !important;
+          }
           
+          /* ── Customer/Vehicle row ── */
           .info-row {
-            margin-bottom: 12px !important;
-            padding-bottom: 10px !important;
+            margin-bottom: 8px !important;
+            padding-bottom: 6px !important;
+            gap: 12px !important;
           }
           
+          /* ── Tread + Pricing side by side ── */
           .tread-pricing-row {
-            gap: 16px !important;
-            margin-bottom: 12px !important;
-          }
-          
-          .comparison-card {
-            margin-bottom: 10px !important;
-            page-break-inside: avoid !important;
-          }
-          
-          .warranty-disclaimer {
-            padding: 6px 10px !important;
-            font-size: 8.5px !important;
+            gap: 12px !important;
             margin-bottom: 8px !important;
           }
           
+          /* ── Comparison card — keep together ── */
+          .comparison-card {
+            margin-bottom: 6px !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          
+          /* ── Warranty disclaimer ── */
+          .warranty-disclaimer {
+            padding: 4px 8px !important;
+            font-size: 7.5px !important;
+            margin-bottom: 4px !important;
+            line-height: 1.3 !important;
+          }
+          
+          /* ── Footer ── */
           .quote-footer {
-            padding-top: 8px !important;
+            padding-top: 4px !important;
+            font-size: 8px !important;
+            page-break-before: avoid !important;
+          }
+          
+          .quote-footer p {
+            margin: 1px 0 !important;
+          }
+          
+          /* ══════════════════════════════════════
+             GLOBAL TEXT SIZE COMPACTION FOR PRINT
+             ══════════════════════════════════════ */
+          
+          /* Section labels */
+          .info-row [style*="letterSpacing"],
+          .tread-column [style*="letterSpacing"],
+          .pricing-column [style*="letterSpacing"],
+          .comparison-card [style*="letterSpacing"] {
+            font-size: 8px !important;
+            margin-bottom: 4px !important;
+          }
+          
+          /* Customer name */
+          .info-row [style*="fontSize: '17px'"],
+          .info-row [style*="font-size: 17px"] {
+            font-size: 13px !important;
+          }
+          
+          /* Customer details, vehicle */
+          .info-row [style*="fontSize: '13px'"],
+          .info-row [style*="fontSize: '16px'"],
+          .info-row [style*="fontSize: '11.5px'"] {
+            font-size: 10px !important;
+          }
+          
+          /* Tire card */
+          .quote-content > div:nth-child(2) {
+            padding: 10px 14px !important;
+            margin-bottom: 6px !important;
+          }
+          
+          /* Tire card name */
+          h3 {
+            font-size: 14px !important;
+            margin-bottom: 4px !important;
+          }
+          
+          /* Tire card price */
+          [style*="fontSize: '32px'"],
+          [style*="font-size: 32px"] {
+            font-size: 22px !important;
+          }
+          
+          /* Spec badges */
+          [style*="borderRadius: '20px'"],
+          [style*="border-radius: 20px"] {
+            font-size: 8.5px !important;
+            padding: 1px 6px !important;
+          }
+          
+          /* Warranty + Promo row */
+          .quote-content > div:nth-child(3) {
+            margin-bottom: 8px !important;
+            gap: 6px !important;
+          }
+          
+          /* Promo amount */
+          [style*="fontSize: '20px'"][style*="color: '#16a34a'"] {
+            font-size: 14px !important;
+          }
+          
+          /* Tread tiles */
+          [style*="fontSize: '22px'"][style*="fontWeight: '700'"][style*="lineHeight"] {
+            font-size: 16px !important;
+          }
+          
+          /* Stopping distance bars */
+          [style*="height: '14px'"] {
+            height: 10px !important;
+          }
+          
+          /* Stopping distance callout */
+          [style*="fontSize: '11.5px'"][style*="backgroundColor: '#fef3c7'"] {
             font-size: 9px !important;
+            padding: 4px 8px !important;
+          }
+          
+          /* Pricing table */
+          table td {
+            padding: 3px 0 !important;
+            font-size: 10px !important;
+          }
+          
+          /* Pricing total row */
+          [style*="backgroundColor: '#f8fafc'"] td {
+            padding: 5px 3px !important;
+          }
+          
+          [style*="fontSize: '16px'"][style*="fontWeight: '700'"][style*="color: '#1e293b'"] {
+            font-size: 12px !important;
+          }
+          
+          [style*="fontSize: '22px'"][style*="color: '#8b1538'"] {
+            font-size: 16px !important;
+          }
+          
+          /* Per tire callout */
+          [style*="fontSize: '17px'"][style*="color: '#8b1538'"] {
+            font-size: 13px !important;
+          }
+          
+          /* Compare cards */
+          .comparison-card [style*="fontSize: '14px'"][style*="fontWeight: '700'"] {
+            font-size: 10px !important;
+          }
+          
+          .comparison-card [style*="fontSize: '20px'"] {
+            font-size: 14px !important;
+          }
+          
+          .comparison-card [style*="fontSize: '18px'"] {
+            font-size: 13px !important;
+          }
+          
+          .comparison-card [style*="fontSize: '11px'"],
+          .comparison-card [style*="fontSize: '10.5px'"],
+          .comparison-card [style*="fontSize: '9px'"] {
+            font-size: 8px !important;
+          }
+          
+          .comparison-card [style*="padding: '16px"] {
+            padding: 8px 6px !important;
+          }
+          
+          .comparison-card [style*="gap: '12px'"] {
+            gap: 6px !important;
+          }
+          
+          /* Recommended badge */
+          .comparison-card [style*="position: 'absolute'"] {
+            font-size: 7px !important;
+            padding: 1px 8px !important;
+            top: -7px !important;
           }
         }
       `}</style>
