@@ -174,7 +174,12 @@ const StoppingDistanceChart = ({ currentDistance, newDistance }) => {
 const CarTreadDiagram = ({ treadData }) => {
   if (!treadData) return null;
 
-  const { lf, rf, lr, rr } = treadData;
+  // Map from stored format (tires.front_left) to component format (lf)
+  const tires = treadData.tires || {};
+  const lf = tires.front_left || treadData.lf;
+  const rf = tires.front_right || treadData.rf;
+  const lr = tires.rear_left || treadData.lr;
+  const rr = tires.rear_right || treadData.rr;
 
   return (
     <div style={{ 
@@ -241,10 +246,10 @@ const CarTreadDiagram = ({ treadData }) => {
       )}
 
       {/* Stopping Distance Chart */}
-      {treadData.stopping_distance_current && (
+      {(treadData.summary?.stopping_distance_current || treadData.stopping_distance_current) && (
         <StoppingDistanceChart 
-          currentDistance={treadData.stopping_distance_current} 
-          newDistance={treadData.stopping_distance_new || 195} 
+          currentDistance={treadData.summary?.stopping_distance_current || treadData.stopping_distance_current} 
+          newDistance={treadData.summary?.stopping_distance_new || treadData.stopping_distance_new || 195} 
         />
       )}
     </div>
@@ -1334,12 +1339,54 @@ const QuoteView = () => {
               <p style={{ fontSize: '10px', color: '#9b59b6', margin: '0', textAlign: 'center', fontStyle: 'italic' }}>
                 Tire, vehicle, and store cannot be changed. Use "Revise Quote" to change those.
               </p>
+
+              {/* Tread Depth Editing */}
+              <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #e9d5f5' }}>
+                <label style={{ fontSize: '9px', color: '#666', fontWeight: '600', display: 'block', marginBottom: '8px', textAlign: 'center' }}>TREAD DEPTHS (32nds)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {[
+                    { key: 'lf', label: 'Driver Front' },
+                    { key: 'rf', label: 'Pass Front' },
+                    { key: 'lr', label: 'Driver Rear' },
+                    { key: 'rr', label: 'Pass Rear' },
+                  ].map(({ key, label }) => (
+                    <div key={key} style={{ backgroundColor: '#f3e8ff', borderRadius: '6px', padding: '6px 8px' }}>
+                      <div style={{ fontSize: '9px', color: '#9b59b6', fontWeight: '600', marginBottom: '4px' }}>{label}</div>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {['inside', 'middle', 'outside'].map(pos => (
+                          <input
+                            key={pos}
+                            value={editTreadDepths[key][pos]}
+                            onChange={(e) => {
+                              const v = e.target.value.replace(/\D/g, '').slice(0, 2);
+                              setEditTreadDepths(prev => ({
+                                ...prev,
+                                [key]: { ...prev[key], [pos]: v }
+                              }));
+                            }}
+                            placeholder={pos[0].toUpperCase()}
+                            style={{
+                              width: '100%', padding: '4px', border: '1px solid #d1d5db',
+                              borderRadius: '4px', fontSize: '13px', textAlign: 'center', boxSizing: 'border-box'
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                        <span style={{ fontSize: '7px', color: '#999' }}>IN</span>
+                        <span style={{ fontSize: '7px', color: '#999' }}>MID</span>
+                        <span style={{ fontSize: '7px', color: '#999' }}>OUT</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
           {/* Good / Better / Best Comparison Card */}
           {quote.alternatives && (
-            <div style={{ marginBottom: '25px' }}>
+            <div className="comparison-card" style={{ marginBottom: '25px' }}>
               <h4 style={{ margin: '0 0 15px 0', color: '#64748b', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', textAlign: 'center' }}>
                 COMPARE YOUR OPTIONS
               </h4>
@@ -1626,7 +1673,30 @@ const QuoteView = () => {
             margin-bottom: 4px !important;
           }
           
-          /* Footer - compact */
+          /* Comparison card - very compact for print */
+          .comparison-card {
+            margin-bottom: 4px !important;
+            page-break-inside: avoid !important;
+          }
+          
+          .comparison-card h4 {
+            font-size: 7px !important;
+            margin-bottom: 4px !important;
+          }
+          
+          .comparison-card > div {
+            gap: 4px !important;
+          }
+          
+          .comparison-card [style*="padding"] {
+            padding: 4px !important;
+          }
+          
+          .comparison-card [style*="fontSize"] {
+            font-size: 7px !important;
+          }
+          
+          /* Footer - compact, prevent page break */
           .quote-footer {
             padding-top: 4px !important;
             font-size: 7px !important;
