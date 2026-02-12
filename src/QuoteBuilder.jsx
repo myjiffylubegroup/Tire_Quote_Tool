@@ -638,6 +638,12 @@ export default function QuoteBuilder() {
   const [altGoodTire, setAltGoodTire] = useState(null);
   const [altBestTire, setAltBestTire] = useState(null);
 
+  // Custom quote mode - for manual tire entry
+  const [isCustomMode, setIsCustomMode] = useState(false);
+  const [customTire, setCustomTire] = useState({
+    brand: '', name: '', size: '', load_rating: '', speed_rating: '', price: '', fet: ''
+  });
+
   // Revision tracking
   const [revisedFromQuoteId, setRevisedFromQuoteId] = useState(null);
   const [reviseLoading, setReviseLoading] = useState(false);
@@ -658,18 +664,25 @@ export default function QuoteBuilder() {
   };
 
   useEffect(() => {
-    const savedTire = sessionStorage.getItem('jl_quote_tire');
-    const savedVehicle = sessionStorage.getItem('jl_quote_vehicle');
-    const savedQty = sessionStorage.getItem('jl_quote_qty');
-    if (savedTire) setTireData(JSON.parse(savedTire));
-    if (savedVehicle) setVehicleData(JSON.parse(savedVehicle));
-    if (savedQty) setQuantity(parseInt(savedQty));
+    // Detect custom quote mode from URL hash
+    const hash = window.location.hash || '';
+    const isCustom = hash.includes('mode=custom');
+    setIsCustomMode(isCustom);
 
-    // Load alt tires from TireFinder selection
-    const savedGood = sessionStorage.getItem('jl_quote_alt_good');
-    const savedBest = sessionStorage.getItem('jl_quote_alt_best');
-    if (savedGood) setAltGoodTire(JSON.parse(savedGood));
-    if (savedBest) setAltBestTire(JSON.parse(savedBest));
+    if (!isCustom) {
+      const savedTire = sessionStorage.getItem('jl_quote_tire');
+      const savedVehicle = sessionStorage.getItem('jl_quote_vehicle');
+      const savedQty = sessionStorage.getItem('jl_quote_qty');
+      if (savedTire) setTireData(JSON.parse(savedTire));
+      if (savedVehicle) setVehicleData(JSON.parse(savedVehicle));
+      if (savedQty) setQuantity(parseInt(savedQty));
+
+      // Load alt tires from TireFinder selection
+      const savedGood = sessionStorage.getItem('jl_quote_alt_good');
+      const savedBest = sessionStorage.getItem('jl_quote_alt_best');
+      if (savedGood) setAltGoodTire(JSON.parse(savedGood));
+      if (savedBest) setAltBestTire(JSON.parse(savedBest));
+    }
   }, []);
 
   useEffect(() => { localStorage.setItem('jl_tire_store', selectedStore); }, [selectedStore]);
@@ -806,6 +819,41 @@ export default function QuoteBuilder() {
     }
   };
 
+  // Set custom tire data from manual entry form
+  const handleSetCustomTire = () => {
+    if (!customTire.brand.trim() || !customTire.size.trim() || !customTire.price) {
+      setError('Please enter at least Brand, Tire Size, and Price');
+      return;
+    }
+    const price = parseFloat(customTire.price);
+    if (isNaN(price) || price <= 0) {
+      setError('Please enter a valid price');
+      return;
+    }
+    setError(null);
+    setTireData({
+      part_number: `WC-${Date.now()}`,
+      brand: customTire.brand.trim().toUpperCase(),
+      brand_code: customTire.brand.trim().toUpperCase(),
+      name: customTire.name.trim() || 'Custom Tire',
+      sales_class: customTire.name.trim() || 'Custom Tire',
+      tire_size: customTire.size.trim().toUpperCase(),
+      size: customTire.size.trim().toUpperCase(),
+      load_rating: customTire.load_rating.trim() || null,
+      speed_rating: customTire.speed_rating.trim().toUpperCase() || null,
+      consumer_price: price,
+      price: price,
+      cost: null,
+      fet: customTire.fet ? parseFloat(customTire.fet) : 0,
+      warranty: null,
+      tire_type: null,
+      load_range: null,
+      snowflake: false,
+      run_flat: false,
+      _isCustom: true
+    });
+  };
+
   const handleGenerateQuote = async () => {
     if (!tireData || !selectedEmployee) { setError('Please select a tire and employee'); return; }
     setGenerating(true);
@@ -915,6 +963,164 @@ export default function QuoteBuilder() {
 
   // No tire selected state
   if (!tireData) {
+    // Custom mode: show manual tire entry form
+    if (isCustomMode) {
+      return (
+        <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+          <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
+          <div style={{ maxWidth: '650px', margin: '0 auto', padding: '40px 20px' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '40px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+              <h2 style={{ color: '#9b59b6', fontSize: '24px', fontWeight: '700', textAlign: 'center', marginBottom: '5px', letterSpacing: '2px' }}>
+                CUSTOM QUOTE
+              </h2>
+              <p style={{ color: '#888', textAlign: 'center', fontSize: '12px', marginBottom: '30px', letterSpacing: '1px' }}>
+                ENTER TIRE DETAILS MANUALLY
+              </p>
+
+              {/* Brand & Model */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '15px' }}>
+                <div>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
+                    BRAND *
+                  </label>
+                  <StyledInput 
+                    value={customTire.brand} 
+                    onChange={(v) => setCustomTire({...customTire, brand: v})} 
+                    placeholder="e.g., MICHELIN" 
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
+                    TIRE MODEL / NAME
+                  </label>
+                  <StyledInput 
+                    value={customTire.name} 
+                    onChange={(v) => setCustomTire({...customTire, name: v})} 
+                    placeholder="e.g., Defender LTX M/S" 
+                  />
+                </div>
+              </div>
+
+              {/* Size, Load, Speed */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '12px', marginBottom: '15px' }}>
+                <div>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
+                    TIRE SIZE *
+                  </label>
+                  <StyledInput 
+                    value={customTire.size} 
+                    onChange={(v) => setCustomTire({...customTire, size: v})} 
+                    placeholder="e.g., 245/60R18" 
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
+                    LOAD RATING
+                  </label>
+                  <StyledInput 
+                    value={customTire.load_rating} 
+                    onChange={(v) => setCustomTire({...customTire, load_rating: v})} 
+                    placeholder="e.g., 99" 
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
+                    SPEED RATING
+                  </label>
+                  <StyledInput 
+                    value={customTire.speed_rating} 
+                    onChange={(v) => setCustomTire({...customTire, speed_rating: v})} 
+                    placeholder="e.g., H" 
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                </div>
+              </div>
+
+              {/* Price, FET, Quantity */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '12px', marginBottom: '25px' }}>
+                <div>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
+                    PRICE PER TIRE *
+                  </label>
+                  <StyledInput 
+                    type="number"
+                    value={customTire.price} 
+                    onChange={(v) => setCustomTire({...customTire, price: v})} 
+                    placeholder="0.00" 
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
+                    FET PER TIRE
+                  </label>
+                  <StyledInput 
+                    type="number"
+                    value={customTire.fet} 
+                    onChange={(v) => setCustomTire({...customTire, fet: v})} 
+                    placeholder="0.00" 
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', letterSpacing: '1px', display: 'block', marginBottom: '4px', textAlign: 'center' }}>
+                    QUANTITY
+                  </label>
+                  <SelectDropdown value={quantity} onChange={(v) => setQuantity(parseInt(v))} options={QTY_OPTIONS} placeholder="4" />
+                </div>
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div style={{ backgroundColor: '#fee', border: '1px solid #e74c3c', borderRadius: '10px', padding: '12px', marginBottom: '20px', color: '#c0392b', fontSize: '12px', textAlign: 'center' }}>
+                  {error}
+                </div>
+              )}
+
+              {/* Set Tire Button */}
+              <div style={{ textAlign: 'center' }}>
+                <button 
+                  onClick={handleSetCustomTire} 
+                  style={{ 
+                    backgroundColor: '#9b59b6', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '14px 50px', 
+                    borderRadius: '25px', 
+                    fontSize: '13px', 
+                    fontWeight: '700', 
+                    letterSpacing: '2px', 
+                    cursor: 'pointer', 
+                    boxShadow: '0 4px 15px rgba(155, 89, 182, 0.3)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  CONTINUE TO QUOTE →
+                </button>
+              </div>
+
+              {/* Back Link */}
+              <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                <a href="#/" style={{ color: '#999', fontSize: '12px', textDecoration: 'none' }}>
+                  ← Back to Tire Finder
+                </a>
+              </div>
+
+              <p style={{ textAlign: 'center', fontSize: '9px', color: '#bbb', marginTop: '20px' }}>
+                * Required fields. Part number will be auto-generated.
+              </p>
+            </div>
+          </div>
+          <Footer />
+        </div>
+      );
+    }
+
+    // Normal mode: no tire selected
     return (
       <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
         <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
@@ -961,16 +1167,30 @@ export default function QuoteBuilder() {
         <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '40px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           
           <h2 style={{ color: '#9b59b6', fontSize: '28px', fontWeight: '700', textAlign: 'center', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '3px' }}>
-            {revisedFromQuoteId ? 'RE-QUOTE' : 'CREATE QUOTE'}
+            {revisedFromQuoteId ? 'RE-QUOTE' : (tireData?._isCustom ? 'CUSTOM QUOTE' : 'CREATE QUOTE')}
           </h2>
           <p style={{ color: '#888', textAlign: 'center', fontSize: '13px', marginBottom: '30px', letterSpacing: '2px' }}>
-            {revisedFromQuoteId ? 'NEW QUOTE FROM PREVIOUS — NEW TIRES SELECTED' : 'TIRE QUOTE BUILDER'}
+            {revisedFromQuoteId ? 'NEW QUOTE FROM PREVIOUS — NEW TIRES SELECTED' : (tireData?._isCustom ? 'MANUAL TIRE ENTRY' : 'TIRE QUOTE BUILDER')}
           </p>
 
           {/* Selected Tire Banner */}
           <div style={{ backgroundColor: '#9b59b6', borderRadius: '10px', padding: '20px 25px', color: 'white', marginBottom: '30px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
               <div>
+                {tireData._isCustom && (
+                  <span style={{ 
+                    backgroundColor: 'rgba(255,255,255,0.25)', 
+                    padding: '3px 10px', 
+                    borderRadius: '12px', 
+                    fontSize: '9px', 
+                    fontWeight: '700', 
+                    letterSpacing: '1px',
+                    marginBottom: '8px',
+                    display: 'inline-block'
+                  }}>
+                    ✏️ CUSTOM ENTRY
+                  </span>
+                )}
                 <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: '700' }}>{tireData.brand_code || tireData.brand} {tireData.tire_size || tireData.size} {tireData.name || tireData.sales_class}</h3>
                 <p style={{ margin: '0', opacity: 0.9, fontSize: '13px' }}>Part#: {tireData.part_number}</p>
                 {tireData.warranty && <p style={{ margin: '5px 0 0 0', opacity: 0.8, fontSize: '12px' }}>✓ {parseInt(tireData.warranty).toLocaleString()} Mile Warranty</p>}

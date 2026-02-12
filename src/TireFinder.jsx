@@ -1292,6 +1292,33 @@ export default function TireFinder() {
                 </div>
               </div>
 
+              {/* Custom Quote Button */}
+              <div style={{ marginTop: '15px', width: '100%', maxWidth: '320px', textAlign: 'center' }}>
+                <button
+                  onClick={() => { window.location.hash = '#/quote/build?mode=custom'; }}
+                  style={{
+                    background: 'none',
+                    border: '2px dashed #9b59b6',
+                    borderRadius: '25px',
+                    padding: '10px 20px',
+                    color: '#9b59b6',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    letterSpacing: '1px',
+                    cursor: 'pointer',
+                    width: '100%',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f3e8ff'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  ✏️ CUSTOM QUOTE
+                </button>
+                <p style={{ fontSize: '9px', color: '#999', marginTop: '5px', letterSpacing: '0.5px' }}>
+                  Tire not in inventory? Enter details manually.
+                </p>
+              </div>
+
               {loading && (
                 <p style={{ color: '#9b59b6', marginTop: '10px', fontSize: '13px' }}>Loading...</p>
               )}
