@@ -193,7 +193,7 @@ const PrivacyPolicy = () => {
             <h3 style={pageStyles.subsectionTitle}>Authorized Service Providers</h3>
             <p style={pageStyles.paragraph}>
               We may share your personal information with authorized service providers that perform services 
-              on our behalf, including email delivery (SendGrid), SMS messaging (Twilio), payment processing 
+              on our behalf, including email delivery (SendGrid), SMS messaging (Telnyx), payment processing 
               (PayPal), and data hosting (Supabase). These providers may have access to personal information 
               needed to perform their functions but are not permitted to use it for any other purposes.
             </p>
@@ -231,6 +231,15 @@ const PrivacyPolicy = () => {
               <strong>SMS/Text Messages:</strong> You may opt out of receiving text messages at any time by 
               replying STOP to any message. For details, see our{' '}
               <a href="#/sms-consent" style={{ color: '#8b1538' }}>SMS Consent & Terms</a> page.
+            </p>
+            <p style={pageStyles.paragraph}>
+              <strong>SMS Privacy:</strong> We will not share your opt-in to our SMS campaign with any third 
+              party for purposes unrelated to providing you with the services of that campaign. We may share 
+              your personal data, including your SMS opt-in or consent status, with third parties that help us 
+              provide our messaging services, including but not limited to platform providers, phone companies, 
+              and any other vendors who assist us in the delivery of text messages. We do not sell, rent, or 
+              otherwise share your mobile phone number or SMS consent information with third parties for 
+              promotional or marketing purposes.
             </p>
             <p style={pageStyles.paragraph}>
               <strong>Do Not Call:</strong> You may instruct us not to call you for marketing purposes by 
@@ -331,9 +340,7 @@ const PrivacyPolicy = () => {
           <p style={{ margin: '0 0 8px 0' }}>
             <a href="#/privacy-policy" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Privacy Policy</a>
             <a href="#/terms" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Terms & Conditions</a>
-            <a href="#/sms-consent" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>SMS Terms</a>
-            <a href="#/do-not-sell" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Do Not Sell My Info</a>
-            <a href="#/contact" style={{ color: '#64748b', textDecoration: 'none' }}>Contact Us</a>
+            <a href="#/sms-consent" style={{ color: '#64748b', textDecoration: 'none' }}>SMS Terms</a>
           </p>
           <p style={{ margin: '0' }}>
             © 2026 P.C.J.L., Inc. Operating Jiffy Lube MultiCare locations in California

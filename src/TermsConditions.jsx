@@ -201,7 +201,7 @@ const TermsConditions = () => {
             <h2 style={pageStyles.sectionTitle}>5. Third-Party Services</h2>
             <p style={pageStyles.paragraph}>
               Our website may utilize or link to third-party services including payment processing (PayPal), 
-              email delivery, SMS messaging, and appointment scheduling. We are not responsible for the 
+              email delivery, and SMS messaging. We are not responsible for the 
               content, privacy policies, or practices of any third-party services.
             </p>
             <p style={pageStyles.paragraph}>
@@ -253,10 +253,11 @@ const TermsConditions = () => {
 
             <h3 style={pageStyles.subsectionTitle}>Program Description</h3>
             <p style={pageStyles.paragraph}>
-              Our SMS program sends customers transactional messages related to tire quote services, including 
-              tire quote delivery, service updates, and appointment reminders. This is not a marketing or 
-              promotional messaging program. Messages are sent only when you request a tire quote to be 
-              texted to you or when relevant to a service you have requested.
+              Our SMS program sends customers transactional messages related to their tire quote, including 
+              tire quote delivery, tire safety follow-ups based on tread depth inspection results, 
+              re-engagement messages, and quote expiration reminders. This is not a marketing or 
+              promotional messaging program. All messages relate solely to the customer's tire quote 
+              and vehicle tire safety.
             </p>
 
             <h3 style={pageStyles.subsectionTitle}>Consent</h3>
@@ -269,8 +270,10 @@ const TermsConditions = () => {
 
             <h3 style={pageStyles.subsectionTitle}>Message Frequency</h3>
             <p style={pageStyles.paragraph}>
-              Message frequency varies. Typically 1–3 messages per tire quote or service request. We do not 
-              send recurring marketing messages.
+              Message frequency varies. Up to 5 messages per tire quote over a 14-day period. Messages include 
+              quote delivery, tire safety follow-ups, and expiration reminders. If you purchase tires before all 
+              messages are sent, remaining follow-ups stop and you receive a purchase confirmation instead. We 
+              do not send recurring marketing messages.
             </p>
 
             <h3 style={pageStyles.subsectionTitle}>Opting Out</h3>
@@ -300,9 +303,15 @@ const TermsConditions = () => {
 
             <h3 style={pageStyles.subsectionTitle}>Privacy</h3>
             <p style={pageStyles.paragraph}>
-              Phone numbers collected for SMS communications are used solely for the purposes described above. 
-              We do not sell, rent, or share your phone number with third parties for marketing purposes. 
-              For full details, see our <a href="#/privacy-policy" style={{ color: '#8b1538' }}>Privacy Policy</a> and{' '}
+              Phone numbers and SMS opt-in consent data collected for this program are used solely for the 
+              purpose of delivering tire quote messages as described above. We will not share your opt-in to 
+              this SMS campaign with any third party for purposes unrelated to providing you with the services 
+              of this campaign. We may share your personal data, including your SMS opt-in or consent status, 
+              with third parties that help us provide our messaging services, including but not limited to 
+              platform providers, phone companies, and any other vendors who assist us in the delivery of text 
+              messages. We do not sell, rent, or otherwise share your mobile phone number or SMS consent 
+              information with third parties for promotional or marketing purposes. For full details, see 
+              our <a href="#/privacy-policy" style={{ color: '#8b1538' }}>Privacy Policy</a> and{' '}
               <a href="#/sms-consent" style={{ color: '#8b1538' }}>SMS Consent & Terms</a> page.
             </p>
           </section>
@@ -358,9 +367,7 @@ const TermsConditions = () => {
           <p style={{ margin: '0 0 8px 0' }}>
             <a href="#/privacy-policy" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Privacy Policy</a>
             <a href="#/terms" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Terms & Conditions</a>
-            <a href="#/sms-consent" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>SMS Terms</a>
-            <a href="#/do-not-sell" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Do Not Sell My Info</a>
-            <a href="#/contact" style={{ color: '#64748b', textDecoration: 'none' }}>Contact Us</a>
+            <a href="#/sms-consent" style={{ color: '#64748b', textDecoration: 'none' }}>SMS Terms</a>
           </p>
           <p style={{ margin: '0' }}>
             © 2026 P.C.J.L., Inc. Operating Jiffy Lube MultiCare locations in California

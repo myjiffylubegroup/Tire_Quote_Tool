@@ -1,9 +1,9 @@
 // =============================================================================
-// SMS CONSENT PAGE - Updated for Telnyx 10DLC Compliance
+// SMS CONSENT PAGE - Telnyx 10DLC Compliance
 // =============================================================================
 // Route: #/sms-consent
-// Purpose: Documents SMS opt-in process + provides direct opt-in form
-// Updated: February 2026 - Added phone opt-in form for 10DLC compliance
+// Purpose: SMS opt-in form + terms + privacy for tire quote messaging
+// Updated: February 2026 - Aligned to tire quote SMS journey for Telnyx 10DLC
 // =============================================================================
 
 import React, { useState } from 'react';
@@ -29,8 +29,8 @@ const SmsConsent = () => {
   const handleOptIn = (e) => {
     e.preventDefault();
     if (!consent || phone.replace(/\D/g, '').length < 10) return;
-    // For now, just show confirmation. When SMS is live, this could
-    // call an API to register the opt-in and send the confirmation text.
+    // When SMS is live, this will call an API to register the opt-in
+    // and send the confirmation text message
     setSubmitted(true);
   };
 
@@ -57,13 +57,15 @@ const SmsConsent = () => {
           padding: '30px',
           textAlign: 'center'
         }}>
-          <img 
-            src={JL_LOGO} 
-            alt="Jiffy Lube Multicare" 
-            style={{ height: '50px', marginBottom: '15px', filter: 'brightness(0) invert(1)' }} 
-          />
+          <a href="#/">
+            <img 
+              src={JL_LOGO} 
+              alt="Jiffy Lube Multicare" 
+              style={{ height: '50px', marginBottom: '15px', filter: 'brightness(0) invert(1)' }} 
+            />
+          </a>
           <h1 style={{ margin: '0', fontSize: '24px', fontWeight: '700' }}>
-            SMS Messaging Consent & Terms
+            SMS Tire Quote Messaging — Consent & Terms
           </h1>
         </div>
 
@@ -80,10 +82,10 @@ const SmsConsent = () => {
             textAlign: 'center'
           }}>
             <h2 style={{ color: '#166534', fontSize: '20px', marginBottom: '8px', marginTop: '0' }}>
-              📱 Opt In to Receive Text Messages
+              📱 Opt In to Receive Your Tire Quote via Text
             </h2>
             <p style={{ color: '#475569', fontSize: '14px', marginBottom: '20px', lineHeight: '1.6' }}>
-              Enter your phone number below to receive tire quotes, service reminders, and appointment updates from your local Jiffy Lube.
+              Enter your phone number below to receive tire quote messages from your local Jiffy Lube Multicare.
             </p>
 
             {!submitted ? (
@@ -136,9 +138,12 @@ const SmsConsent = () => {
                     }}
                   />
                   <span style={{ fontSize: '13px', color: '#475569', lineHeight: '1.6' }}>
-                    I agree to receive text messages about my tire quotes and vehicle service from Jiffy Lube (P.C.J.L., Inc.). 
-                    Message frequency varies, typically 1-3 messages per service interaction. 
-                    Message and data rates may apply. Reply STOP to cancel at any time. Reply HELP for help.
+                    By providing your phone number and clicking "Subscribe," you agree to receive SMS tire quote 
+                    messages from Jiffy Lube Multicare (P.C.J.L., Inc.). You will receive up to 5 messages related 
+                    to your tire quote, including quote delivery, tire safety follow-ups, and expiration reminders. 
+                    Message frequency may vary. Standard message and data rates may apply. Reply STOP to opt out 
+                    at any time. Reply HELP for help. Consent is not a condition of purchase. Your mobile information 
+                    will not be sold or shared with third parties for promotional or marketing purposes.
                   </span>
                 </label>
 
@@ -180,9 +185,10 @@ const SmsConsent = () => {
               Overview
             </h2>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
-              P.C.J.L., Inc. DBA My Jiffy Lube Group ("we", "us", "our") operates Jiffy Lube Multicare locations in California. 
-              We offer an optional SMS messaging service to provide customers with tire quotes, service reminders, 
-              and appointment confirmations. This page describes how we collect consent and manage SMS communications.
+              P.C.J.L., Inc. DBA My Jiffy Lube Group ("we", "us", "our") operates Jiffy Lube Multicare locations 
+              in California. We offer an optional SMS messaging service to deliver tire quotes and related 
+              follow-up messages to our customers. This page describes how we collect consent, what messages 
+              you will receive, and how to manage your SMS preferences.
             </p>
           </section>
 
@@ -192,15 +198,22 @@ const SmsConsent = () => {
               How We Collect Consent
             </h2>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
-              Customers provide explicit consent to receive SMS messages through the following methods:
+              Customers provide explicit consent to receive SMS messages through the following method:
             </p>
-            <ul style={{ color: '#475569', lineHeight: '2', fontSize: '15px', paddingLeft: '25px' }}>
-              <li><strong>Online Opt-In Form:</strong> Customers can subscribe using the form above on this page (tires.myjiffylube.ai/#/sms-consent) by entering their phone number and checking the consent box.</li>
-              <li><strong>Online Quote Delivery:</strong> When viewing a tire quote at tires.myjiffylube.ai, customers can choose to receive the quote via text by entering their phone number and confirming consent in the SMS dialog.</li>
-              <li><strong>In-Store Verbal Authorization:</strong> During an in-store visit, a service advisor enters the customer's phone number into the tire quote system with the customer's verbal consent. SMS consent language is displayed on the screen at the time of entry.</li>
-            </ul>
-            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginTop: '15px' }}>
-              In all cases, customers must actively provide their phone number and acknowledge consent before any messages are sent. Consent is not assumed or pre-checked.
+            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
+              <strong>In-Store Verbal Consent:</strong> When a customer visits one of our 8 Jiffy Lube Multicare 
+              locations in California for a tire inspection, the service advisor asks: "Would you like to receive 
+              your tire quote via text message?" If the customer says "yes," the advisor reads the following consent 
+              disclosure: "By providing your phone number, you agree to receive SMS tire quote messages from 
+              Jiffy Lube Multicare. You will receive up to 5 messages related to your tire quote. Message frequency 
+              may vary. Standard message and data rates may apply. Reply STOP to opt out at any time. Reply HELP 
+              for help. Consent is not a condition of purchase. Your mobile information will not be sold or shared 
+              with third parties for promotional or marketing purposes." The customer then provides their phone 
+              number, which is entered into the tire quote system.
+            </p>
+            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
+              In all cases, customers must actively provide their phone number and acknowledge consent before any 
+              messages are sent. Consent is not assumed or pre-checked.
             </p>
           </section>
 
@@ -210,16 +223,23 @@ const SmsConsent = () => {
               Types of Messages
             </h2>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
-              Customers who opt-in may receive the following types of SMS messages:
+              Customers who opt in will receive up to 5 SMS messages per tire quote, all related to their tire 
+              quote and vehicle tire safety:
             </p>
             <ul style={{ color: '#475569', lineHeight: '2', fontSize: '15px', paddingLeft: '25px' }}>
-              <li><strong>Tire Quotes:</strong> A link to view their personalized tire quote with pricing and vehicle information</li>
-              <li><strong>Quote Reminders:</strong> A reminder when a tire quote is about to expire</li>
-              <li><strong>Service Updates:</strong> Notifications when their vehicle service is complete</li>
-              <li><strong>Appointment Reminders:</strong> Reminders about upcoming scheduled appointments</li>
+              <li><strong>Opt-In Confirmation:</strong> A confirmation message verifying your subscription to tire quote messages</li>
+              <li><strong>Tire Quote Delivery:</strong> A link to view your personalized tire quote with pricing and vehicle information</li>
+              <li><strong>Tire Safety Follow-Up:</strong> A message referencing your tire inspection results and the importance of tire replacement based on your tread depth readings</li>
+              <li><strong>Re-Engagement:</strong> A follow-up offering to answer questions or provide alternative tire options if you have not yet returned for service</li>
+              <li><strong>Quote Expiration Reminder:</strong> A final reminder that your tire quote is about to expire, which may include a special offer</li>
             </ul>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginTop: '15px' }}>
-              <strong>Message Frequency:</strong> Typically 1-3 messages per service interaction. We do not send unsolicited marketing or promotional messages.
+              If you purchase tires before all messages are sent, the remaining follow-up messages will stop and 
+              you will receive a purchase confirmation with warranty registration information instead.
+            </p>
+            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginTop: '10px' }}>
+              <strong>Message Frequency:</strong> Up to 5 messages per tire quote over a 14-day period. We do not 
+              send unsolicited marketing or promotional messages unrelated to your tire quote.
             </p>
           </section>
 
@@ -238,7 +258,7 @@ const SmsConsent = () => {
               color: '#334155',
               marginBottom: '15px'
             }}>
-              Jiffy Lube Tire Quote: Your tire quote for your 2022 Toyota Camry is ready! View it here: tires.myjiffylube.ai/q/Ab3kX9 - Quote valid for 7 days. Reply STOP to opt out.
+              Jiffy Lube Multicare: Your tire quote for your 2022 Toyota Camry is ready. View your quote here: tires.myjiffylube.ai/#/quote/Ab3kX9 - Reply STOP to opt out.
             </div>
             <div style={{ 
               backgroundColor: '#f8fafc', 
@@ -249,26 +269,27 @@ const SmsConsent = () => {
               fontSize: '14px',
               color: '#334155'
             }}>
-              Jiffy Lube Reminder: Your tire quote JL-609-20260209-001 expires in 2 days. View your quote: tires.myjiffylube.ai/q/Ab3kX9 - Reply STOP to opt out.
+              Jiffy Lube Multicare: During your inspection we measured 2 tires in the red zone (under 3/32). Safe stopping distance is significantly reduced. View your tire quote: tires.myjiffylube.ai/#/quote/Ab3kX9 - Your quote expires in 7 days. Reply STOP to opt out.
             </div>
           </section>
 
           {/* Opt-Out */}
           <section style={{ marginBottom: '35px' }}>
             <h2 style={{ color: '#8b1538', fontSize: '20px', marginBottom: '15px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
-              How to Opt-Out
+              How to Opt Out
             </h2>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
-              Customers can opt-out of SMS messages at any time by:
+              You can opt out of SMS messages at any time by:
             </p>
             <ul style={{ color: '#475569', lineHeight: '2', fontSize: '15px', paddingLeft: '25px' }}>
               <li>Replying <strong>STOP</strong> to any message</li>
               <li>Contacting us at any of our store locations</li>
               <li>Calling (805) 354-7077</li>
-              <li>Emailing us at support@myjiffylube.com</li>
+              <li>Emailing support@myjiffylube.com</li>
             </ul>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginTop: '15px' }}>
-              Once opted out, customers will receive a confirmation message and no further SMS messages will be sent.
+              Once opted out, you will receive a final confirmation message and no further SMS messages will be sent 
+              unless you opt in again by texting START.
             </p>
           </section>
 
@@ -278,7 +299,7 @@ const SmsConsent = () => {
               Help & Support
             </h2>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
-              For help or questions about our SMS service, customers can:
+              For help or questions about our SMS service:
             </p>
             <ul style={{ color: '#475569', lineHeight: '2', fontSize: '15px', paddingLeft: '25px' }}>
               <li>Reply <strong>HELP</strong> to any message</li>
@@ -294,20 +315,32 @@ const SmsConsent = () => {
               Message & Data Rates
             </h2>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
-              Message and data rates may apply depending on your mobile carrier and plan. 
-              We do not charge for SMS messages, but your carrier's standard messaging rates may apply.
+              Standard message and data rates may apply depending on your mobile carrier and plan. 
+              We do not charge for SMS messages, but your carrier's standard messaging rates may apply. 
+              Consent is not a condition of purchase.
             </p>
           </section>
 
           {/* Privacy */}
           <section style={{ marginBottom: '35px' }}>
             <h2 style={{ color: '#8b1538', fontSize: '20px', marginBottom: '15px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
-              Privacy
+              SMS Privacy Policy
             </h2>
+            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
+              We respect your privacy. Phone numbers and SMS opt-in consent data collected for this program are 
+              used solely for the purpose of delivering tire quote messages as described on this page.
+            </p>
+            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
+              We will not share your opt-in to this SMS campaign with any third party for purposes unrelated to 
+              providing you with the services of this campaign. We may share your personal data, including your 
+              SMS opt-in or consent status, with third parties that help us provide our messaging services, 
+              including but not limited to platform providers, phone companies, and any other vendors who assist 
+              us in the delivery of text messages.
+            </p>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
-              We respect your privacy. Phone numbers collected for SMS communications are used solely for 
-              the purposes described above. We do not sell, rent, or share your phone number with third parties 
-              for marketing purposes. For more information, please review our <a href="#/privacy-policy" style={{ color: '#8b1538', textDecoration: 'underline' }}>Privacy Policy</a>.
+              We do not sell, rent, or otherwise share your mobile phone number or SMS consent information with 
+              third parties for promotional or marketing purposes. For our full privacy policy, please 
+              visit our <a href="#/privacy-policy" style={{ color: '#8b1538', textDecoration: 'underline' }}>Privacy Policy</a> page.
             </p>
           </section>
 
@@ -341,6 +374,11 @@ const SmsConsent = () => {
           color: '#94a3b8',
           fontSize: '12px'
         }}>
+          <p style={{ margin: '0 0 8px 0' }}>
+            <a href="#/privacy-policy" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Privacy Policy</a>
+            <a href="#/terms" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Terms & Conditions</a>
+            <a href="#/sms-consent" style={{ color: '#64748b', textDecoration: 'none' }}>SMS Terms</a>
+          </p>
           <p style={{ margin: '0' }}>
             Last Updated: February 2026 | © 2026 P.C.J.L., Inc. DBA My Jiffy Lube Group
           </p>
