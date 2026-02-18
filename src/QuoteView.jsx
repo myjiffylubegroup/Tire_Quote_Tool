@@ -198,6 +198,9 @@ const QuoteView = () => {
 
   // Edit mode (same-day only)
   const [editMode, setEditMode] = useState(false);
+
+  // Staff detection - hide staff-only buttons for customers
+  const isStaff = typeof window !== 'undefined' && !!localStorage.getItem('jl_staff_auth');
   const [editQuantity, setEditQuantity] = useState(4);
   const [editPromo, setEditPromo] = useState('');
   const [editCustomer, setEditCustomer] = useState({});
@@ -869,7 +872,8 @@ const QuoteView = () => {
             </button>
           </div>
 
-          {/* ─── Staff Buttons ─── */}
+          {/* ─── Staff Buttons (hidden for customers) ─── */}
+          {isStaff && (
           <div data-print-hide="true" style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
             {quote.is_editable && !editMode && (
               <button onClick={enterEditMode} style={{ backgroundColor: 'white', color: '#9b59b6', border: '2px solid #9b59b6', padding: '6px 16px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', letterSpacing: '0.5px' }}>
@@ -895,6 +899,7 @@ const QuoteView = () => {
               ➕ New Quote
             </button>
           </div>
+          )}
 
           {/* ─── Edit Mode Fields ─── */}
           {editMode && (
