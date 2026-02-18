@@ -682,6 +682,34 @@ export default function QuoteBuilder() {
       const savedBest = sessionStorage.getItem('jl_quote_alt_best');
       if (savedGood) setAltGoodTire(JSON.parse(savedGood));
       if (savedBest) setAltBestTire(JSON.parse(savedBest));
+
+      // Auto-populate customer fields if passed from TireFinder plate lookup
+      const savedCustomer = sessionStorage.getItem('jl_quote_customer');
+      if (savedCustomer) {
+        try {
+          const customer = JSON.parse(savedCustomer);
+          setCustomerFound(true);
+          setCustomerData({
+            first_name: customer.first_name || '',
+            last_name: customer.last_name || '',
+            full_name: customer.full_name || '',
+            phone: customer.phone || '',
+            email: customer.email || '',
+            vehicle_ymm: '',
+            data_source: 'lookup'
+          });
+          if (customer.license_plate) {
+            setLicensePlate(customer.license_plate);
+            if (customer.license_state) {
+              setLicenseState(customer.license_state);
+            }
+          }
+          // Clean up so it doesn't persist to next quote
+          sessionStorage.removeItem('jl_quote_customer');
+        } catch (e) {
+          console.error('Failed to parse saved customer data:', e);
+        }
+      }
     }
   }, []);
 

@@ -632,6 +632,22 @@ export default function TireFinder() {
   // Part number search
   const [partNumber, setPartNumber] = useState('');
 
+  // Customer Vehicle Lookup (plate search)
+  const [plateLookupPlate, setPlateLookupPlate] = useState('');
+  const [plateLookupState, setPlateLookupState] = useState('CA');
+  const [plateLookupLoading, setPlateLookupLoading] = useState(false);
+  const [plateLookupResult, setPlateLookupResult] = useState(null);
+  const [plateLookupError, setPlateLookupError] = useState(null);
+  const [isAuthenticated] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const auth = localStorage.getItem('jl_staff_auth');
+      return !!auth;
+    }
+    return false;
+  });
+
+  const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
+
   // Results
   const [tireSpecs, setTireSpecs] = useState(null); // Now an array of specs
   const [inventoryResults, setInventoryResults] = useState(null);
@@ -715,6 +731,94 @@ export default function TireFinder() {
     setReQuoteData(null);
   };
 
+  // Plate lookup handler
+  const handlePlateLookup = async () => {
+    if (!plateLookupPlate.trim()) return;
+    
+    setPlateLookupLoading(true);
+    setPlateLookupError(null);
+    setPlateLookupResult(null);
+    setTireSpecs(null);
+    setInventoryResults(null);
+    
+    // Clear YMM selections since we're using plate lookup
+    setSelectedYear('');
+    setSelectedMake('');
+    setSelectedModel('');
+    setSelectedSubmodel('');
+    
+    try {
+      // Step 1: Look up customer/vehicle by plate
+      const lookupRes = await fetch(
+        `${API_BASE}/customer-lookup?plate=${encodeURIComponent(plateLookupPlate)}&state=${plateLookupState}&key=${API_KEY}`
+      );
+      const lookupData = await lookupRes.json();
+      
+      if (!lookupData.success || !lookupData.found) {
+        setPlateLookupError('No vehicle found for this plate. Try searching by vehicle or tire size below.');
+        setPlateLookupLoading(false);
+        return;
+      }
+      
+      const customer = lookupData.customer;
+      
+      // Store the full result for display and sessionStorage
+      setPlateLookupResult({
+        vehicle: {
+          year: customer.vehicle_year,
+          make: customer.vehicle_make,
+          model: customer.vehicle_model,
+          display: customer.vehicle_ymm || `${customer.vehicle_year} ${customer.vehicle_make} ${customer.vehicle_model}`
+        },
+        customer: {
+          first_name: customer.first_name,
+          last_name: customer.last_name,
+          full_name: customer.full_name,
+          phone: customer.phone,
+          phone_raw: customer.phone_raw,
+          email: customer.email,
+          license_plate: customer.license_plate,
+          license_state: customer.license_state
+        }
+      });
+      
+      // Step 2: Get all tire sizes for this Y/M/M (no submodel)
+      if (customer.vehicle_year && customer.vehicle_make && customer.vehicle_model) {
+        const tiresRes = await fetch(
+          `${API_BASE}/vehicle-tires?year=${customer.vehicle_year}&make=${encodeURIComponent(customer.vehicle_make)}&model=${encodeURIComponent(customer.vehicle_model)}&key=${API_KEY}`
+        );
+        const tiresData = await tiresRes.json();
+        
+        if (tiresData.success && tiresData.data && tiresData.data.length > 0) {
+          setTireSpecs(tiresData.data);
+          
+          // If only one tire size, auto-search inventory
+          if (tiresData.data.length === 1) {
+            searchInventory(tiresData.data[0].tire_size);
+          }
+        } else {
+          setPlateLookupError(
+            `Found ${customer.vehicle_ymm || 'vehicle'} but no tire specs in our database. Select a tire size below.`
+          );
+        }
+      }
+      
+    } catch (e) {
+      console.error('Plate lookup failed:', e);
+      setPlateLookupError('Lookup failed. Please try again or search manually.');
+    }
+    
+    setPlateLookupLoading(false);
+  };
+
+  const handleClearPlateLookup = () => {
+    setPlateLookupPlate('');
+    setPlateLookupResult(null);
+    setPlateLookupError(null);
+    setTireSpecs(null);
+    setInventoryResults(null);
+  };
+
   // Handle continue to quote - save chosen tire + alternatives to sessionStorage
   const handleContinueToQuote = () => {
     if (!selections.chosen) return;
@@ -750,6 +854,20 @@ export default function TireFinder() {
         oe_speed_rating: selectedSpec?.speed_index || null,
       };
       sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
+    } else if (plateLookupResult?.vehicle) {
+      // Save vehicle from plate lookup
+      const selectedSpec = tireSpecs && tireSpecs.length > 0 ? tireSpecs[0] : null;
+      const vehicleData = {
+        year: plateLookupResult.vehicle.year,
+        make: plateLookupResult.vehicle.make,
+        model: plateLookupResult.vehicle.model,
+        submodel: null,
+        display: plateLookupResult.vehicle.display,
+        oe_tire_size: selectedSpec?.tire_size || null,
+        oe_load_rating: selectedSpec?.load_index || null,
+        oe_speed_rating: selectedSpec?.speed_index || null,
+      };
+      sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
     } else if (reQuoteData?.vehicle) {
       // Carry forward vehicle from original quote if no new YMM search
       sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(reQuoteData.vehicle));
@@ -758,6 +876,13 @@ export default function TireFinder() {
     }
     
     // jl_requote_data stays in sessionStorage — QuoteBuilder will read it for customer/treads/linkage
+    
+    // Save customer data if from plate lookup (QuoteBuilder will pick this up)
+    if (plateLookupResult?.customer) {
+      sessionStorage.setItem('jl_quote_customer', JSON.stringify(plateLookupResult.customer));
+    } else {
+      sessionStorage.removeItem('jl_quote_customer');
+    }
     
     // Navigate to quote builder
     window.location.hash = '#/quote/build';
@@ -1140,6 +1265,148 @@ export default function TireFinder() {
             TIRE FINDER
           </p>
 
+          {/* Customer Vehicle Lookup - Only visible when authenticated */}
+          {isAuthenticated && (
+            <div style={{
+              backgroundColor: '#f0fdf4',
+              border: '2px solid #22c55e',
+              borderRadius: '12px',
+              padding: '20px',
+              marginBottom: '25px',
+            }}>
+              <h3 style={{
+                color: '#16a34a',
+                fontSize: '13px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '2px',
+                marginBottom: '12px',
+                textAlign: 'center',
+              }}>
+                🚗 Customer Vehicle Lookup
+              </h3>
+              <p style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginBottom: '15px' }}>
+                Enter a license plate to quickly find a returning customer's vehicle
+              </p>
+              
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+                {/* State Dropdown */}
+                <select
+                  value={plateLookupState}
+                  onChange={(e) => setPlateLookupState(e.target.value)}
+                  style={{
+                    padding: '10px 12px',
+                    border: '2px solid #22c55e',
+                    borderRadius: '25px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    width: '80px',
+                    textAlign: 'center',
+                    outline: 'none',
+                  }}
+                >
+                  {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                
+                {/* Plate Input */}
+                <input
+                  type="text"
+                  value={plateLookupPlate}
+                  onChange={(e) => setPlateLookupPlate(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handlePlateLookup(); }}
+                  placeholder="LICENSE PLATE"
+                  style={{
+                    padding: '10px 15px',
+                    border: '2px solid #22c55e',
+                    borderRadius: '25px',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    letterSpacing: '2px',
+                    textTransform: 'uppercase',
+                    textAlign: 'center',
+                    width: '180px',
+                    outline: 'none',
+                  }}
+                />
+                
+                {/* Look Up Button */}
+                <button
+                  onClick={handlePlateLookup}
+                  disabled={!plateLookupPlate.trim() || plateLookupLoading}
+                  style={{
+                    backgroundColor: plateLookupPlate.trim() && !plateLookupLoading ? '#22c55e' : '#ccc',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '25px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    letterSpacing: '1px',
+                    cursor: plateLookupPlate.trim() && !plateLookupLoading ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {plateLookupLoading ? 'SEARCHING...' : 'LOOK UP'}
+                </button>
+                
+                {/* Clear button */}
+                {plateLookupResult && (
+                  <button
+                    onClick={handleClearPlateLookup}
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: '#999',
+                      border: '1px solid #ccc',
+                      padding: '10px 15px',
+                      borderRadius: '25px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    CLEAR
+                  </button>
+                )}
+              </div>
+              
+              {/* Error Message */}
+              {plateLookupError && (
+                <p style={{ color: '#d97706', textAlign: 'center', marginTop: '12px', fontSize: '12px', fontWeight: '500' }}>
+                  {plateLookupError}
+                </p>
+              )}
+              
+              {/* Success Result */}
+              {plateLookupResult && (
+                <div style={{
+                  backgroundColor: 'white',
+                  border: '1px solid #22c55e',
+                  borderRadius: '10px',
+                  padding: '15px',
+                  marginTop: '15px',
+                  textAlign: 'center',
+                }}>
+                  <div style={{ color: '#16a34a', fontWeight: '700', fontSize: '11px', letterSpacing: '1px', marginBottom: '5px' }}>
+                    ✓ VEHICLE FOUND
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
+                    {plateLookupResult.vehicle.display}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '5px' }}>
+                    Plate: {plateLookupResult.customer.license_plate} ({plateLookupResult.customer.license_state})
+                    {plateLookupResult.customer.full_name && (
+                      <span> • {plateLookupResult.customer.full_name}</span>
+                    )}
+                  </div>
+                  {tireSpecs && tireSpecs.length > 1 && (
+                    <div style={{ fontSize: '11px', color: '#9b59b6', marginTop: '8px', fontWeight: '600' }}>
+                      ↓ Select a tire size below
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Three Column Layout */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flexWrap: 'wrap' }}>
             
@@ -1431,7 +1698,7 @@ export default function TireFinder() {
           {tireSpecs && (
             <TireSpecsResults 
               specs={tireSpecs} 
-              vehicle={`${selectedYear} ${selectedMake} ${selectedModel} ${selectedSubmodel}`}
+              vehicle={plateLookupResult ? plateLookupResult.vehicle.display : `${selectedYear} ${selectedMake} ${selectedModel} ${selectedSubmodel}`}
               onSearchInventory={searchInventory}
               onSelectSize={handleSelectTireSize}
             />
