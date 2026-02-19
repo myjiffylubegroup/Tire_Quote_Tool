@@ -724,8 +724,26 @@ export default function QuoteBuilder() {
         const data = await response.json();
         if (data.success) {
           setEmployees(data.employees || []);
+          
+          // If current selection is not in the new store's list, clear it
           if (selectedEmployee && !data.employees?.some(e => e.employee_id === selectedEmployee.employee_id)) {
             setSelectedEmployee(null);
+          }
+          
+          // Auto-select logged-in employee if no employee is currently selected
+          if (!selectedEmployee && data.employees?.length > 0) {
+            try {
+              const authData = localStorage.getItem('jl_staff_auth');
+              if (authData) {
+                const auth = JSON.parse(authData);
+                if (auth.employee_id) {
+                  const loggedInEmp = data.employees.find(e => e.employee_id === auth.employee_id);
+                  if (loggedInEmp) {
+                    setSelectedEmployee(loggedInEmp);
+                  }
+                }
+              }
+            } catch (e) { /* ignore auth parse errors */ }
           }
         }
       } catch (e) { console.error('Failed to fetch employees:', e); }

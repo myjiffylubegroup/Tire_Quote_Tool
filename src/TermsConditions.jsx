@@ -253,27 +253,29 @@ const TermsConditions = () => {
 
             <h3 style={pageStyles.subsectionTitle}>Program Description</h3>
             <p style={pageStyles.paragraph}>
-              Our SMS program sends customers transactional messages related to their tire quote, including 
+              Our SMS program sends customers messages related to their tire quote, including 
               tire quote delivery, tire safety follow-ups based on tread depth inspection results, 
-              re-engagement messages, and quote expiration reminders. This is not a marketing or 
-              promotional messaging program. All messages relate solely to the customer's tire quote 
-              and vehicle tire safety.
+              re-engagement messages, and quote expiration reminders. Marketing messages may include 
+              promotional offers to encourage customers to return for tire replacement. Customers who 
+              do not confirm marketing opt-in will only receive informational messages. All messages 
+              relate solely to the customer's tire quote and vehicle tire safety.
             </p>
 
             <h3 style={pageStyles.subsectionTitle}>Consent</h3>
             <p style={pageStyles.paragraph}>
               By providing your mobile phone number and requesting a tire quote via SMS, you expressly consent 
-              to receive text messages from P.C.J.L., Inc. at the phone number provided. You also agree to 
-              pay any charges to your wireless bill or have them deducted from your prepaid balance for 
-              receiving text messages. Consent is not required as a condition of purchasing any goods or services.
+              to receive text messages from P.C.J.L., Inc. at the phone number provided, including marketing 
+              messages with promotional offers related to your tire quote if you confirm by replying YES. You 
+              also agree to pay any charges to your wireless bill or have them deducted from your prepaid 
+              balance for receiving text messages. Consent is not a condition of purchase.
             </p>
 
             <h3 style={pageStyles.subsectionTitle}>Message Frequency</h3>
             <p style={pageStyles.paragraph}>
               Message frequency varies. Up to 5 messages per tire quote over a 14-day period. Messages include 
-              quote delivery, tire safety follow-ups, and expiration reminders. If you purchase tires before all 
-              messages are sent, remaining follow-ups stop and you receive a purchase confirmation instead. We 
-              do not send recurring marketing messages.
+              quote delivery, tire safety follow-ups, and expiration reminders. Marketing messages may include 
+              promotional offers. If you purchase tires before all messages are sent, remaining follow-ups stop 
+              and you receive a purchase confirmation instead.
             </p>
 
             <h3 style={pageStyles.subsectionTitle}>Opting Out</h3>
@@ -310,7 +312,9 @@ const TermsConditions = () => {
               with third parties that help us provide our messaging services, including but not limited to 
               platform providers, phone companies, and any other vendors who assist us in the delivery of text 
               messages. We do not sell, rent, or otherwise share your mobile phone number or SMS consent 
-              information with third parties for promotional or marketing purposes. For full details, see 
+              information with third parties for promotional or marketing purposes. All of the above categories 
+              exclude text messaging originator opt-in data and consent; this information will not be shared 
+              with any third parties. For full details, see 
               our <a href="#/privacy-policy" style={{ color: '#8b1538' }}>Privacy Policy</a> and{' '}
               <a href="#/sms-consent" style={{ color: '#8b1538' }}>SMS Consent & Terms</a> page.
             </p>

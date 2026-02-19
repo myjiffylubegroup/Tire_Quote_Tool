@@ -239,7 +239,8 @@ const PrivacyPolicy = () => {
               provide our messaging services, including but not limited to platform providers, phone companies, 
               and any other vendors who assist us in the delivery of text messages. We do not sell, rent, or 
               otherwise share your mobile phone number or SMS consent information with third parties for 
-              promotional or marketing purposes.
+              promotional or marketing purposes. All of the above categories exclude text messaging originator 
+              opt-in data and consent; this information will not be shared with any third parties.
             </p>
             <p style={pageStyles.paragraph}>
               <strong>Do Not Call:</strong> You may instruct us not to call you for marketing purposes by 

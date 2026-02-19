@@ -139,11 +139,12 @@ const SmsConsent = () => {
                   />
                   <span style={{ fontSize: '13px', color: '#475569', lineHeight: '1.6' }}>
                     By providing your phone number and clicking "Subscribe," you agree to receive SMS tire quote 
-                    messages from Jiffy Lube Multicare (P.C.J.L., Inc.). You will receive up to 5 messages related 
-                    to your tire quote, including quote delivery, tire safety follow-ups, and expiration reminders. 
-                    Message frequency may vary. Standard message and data rates may apply. Reply STOP to opt out 
-                    at any time. Reply HELP for help. Consent is not a condition of purchase. Your mobile information 
-                    will not be sold or shared with third parties for promotional or marketing purposes.
+                    messages from Jiffy Lube Multicare (P.C.J.L., Inc.), including tire quote delivery, tire safety 
+                    follow-ups, and marketing messages with promotional offers related to your tire quote. You will 
+                    receive up to 5 messages per tire quote. Message frequency may vary. Standard message and data 
+                    rates may apply. Reply STOP to opt out at any time. Reply HELP for help. Consent is not a 
+                    condition of purchase. Your mobile information will not be sold or shared with third parties 
+                    for promotional or marketing purposes.
                   </span>
                 </label>
 
@@ -339,7 +340,9 @@ const SmsConsent = () => {
             </p>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
               We do not sell, rent, or otherwise share your mobile phone number or SMS consent information with 
-              third parties for promotional or marketing purposes. For our full privacy policy, please 
+              third parties for promotional or marketing purposes. All of the above categories exclude text 
+              messaging originator opt-in data and consent; this information will not be shared with any third 
+              parties. For our full privacy policy, please 
               visit our <a href="#/privacy-policy" style={{ color: '#8b1538', textDecoration: 'underline' }}>Privacy Policy</a> page.
             </p>
           </section>
