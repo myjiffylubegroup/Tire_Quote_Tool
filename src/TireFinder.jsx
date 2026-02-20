@@ -762,13 +762,20 @@ export default function TireFinder() {
       
       const customer = lookupData.customer;
       
+      // Use MOTOR-mapped names for tire spec lookup (fall back to Turbo names for display)
+      const motorMake = customer.motor_make || null;
+      const motorModel = customer.motor_model || null;
+      
       // Store the full result for display and sessionStorage
+      // Display uses Turbo names (what's on record), but include MOTOR names for lookups
       setPlateLookupResult({
         vehicle: {
           year: customer.vehicle_year,
           make: customer.vehicle_make,
           model: customer.vehicle_model,
-          display: customer.vehicle_ymm || `${customer.vehicle_year} ${customer.vehicle_make} ${customer.vehicle_model}`
+          display: customer.vehicle_ymm || `${customer.vehicle_year} ${customer.vehicle_make} ${customer.vehicle_model}`,
+          motor_make: motorMake,
+          motor_model: motorModel,
         },
         customer: {
           first_name: customer.first_name,
@@ -782,10 +789,14 @@ export default function TireFinder() {
         }
       });
       
-      // Step 2: Get all tire sizes for this Y/M/M (no submodel)
-      if (customer.vehicle_year && customer.vehicle_make && customer.vehicle_model) {
+      // Step 2: Get all tire sizes for this Y/M/M
+      // Use MOTOR names if available (they match tt_smart_vehicles), fall back to Turbo names
+      const lookupMake = motorMake || customer.vehicle_make;
+      const lookupModel = motorModel || customer.vehicle_model;
+      
+      if (customer.vehicle_year && lookupMake && lookupModel) {
         const tiresRes = await fetch(
-          `${API_BASE}/vehicle-tires?year=${customer.vehicle_year}&make=${encodeURIComponent(customer.vehicle_make)}&model=${encodeURIComponent(customer.vehicle_model)}&key=${API_KEY}`
+          `${API_BASE}/vehicle-tires?year=${customer.vehicle_year}&make=${encodeURIComponent(lookupMake)}&model=${encodeURIComponent(lookupModel)}&key=${API_KEY}`
         );
         const tiresData = await tiresRes.json();
         
@@ -855,14 +866,15 @@ export default function TireFinder() {
       };
       sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
     } else if (plateLookupResult?.vehicle) {
-      // Save vehicle from plate lookup
+      // Save vehicle from plate lookup — use MOTOR names if available for consistency
       const selectedSpec = tireSpecs && tireSpecs.length > 0 ? tireSpecs[0] : null;
+      const v = plateLookupResult.vehicle;
       const vehicleData = {
-        year: plateLookupResult.vehicle.year,
-        make: plateLookupResult.vehicle.make,
-        model: plateLookupResult.vehicle.model,
+        year: v.year,
+        make: v.motor_make || v.make,
+        model: v.motor_model || v.model,
         submodel: null,
-        display: plateLookupResult.vehicle.display,
+        display: v.display,
         oe_tire_size: selectedSpec?.tire_size || null,
         oe_load_rating: selectedSpec?.load_index || null,
         oe_speed_rating: selectedSpec?.speed_index || null,
