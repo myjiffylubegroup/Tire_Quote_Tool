@@ -928,9 +928,9 @@ export default function QuoteBuilder() {
           model: vehicleData.model, 
           submodel: vehicleData.submodel, 
           display: vehicleData.display,
-          oe_tire_size: vehicleData.oe_tire_size || tireData?.tire_size || tireData?.size,
-          oe_load_rating: vehicleData.oe_load_rating || tireData?.load_rating,
-          oe_speed_rating: vehicleData.oe_speed_rating || tireData?.speed_rating
+          oe_tire_size: vehicleData.oe_tire_size || null,
+          oe_load_rating: vehicleData.oe_load_rating || null,
+          oe_speed_rating: vehicleData.oe_speed_rating || null
         } : null,
         tread_depth: lowestTread !== null ? {
           lf: { inside: treadDepths.lf.inside ? parseInt(treadDepths.lf.inside) : null, middle: treadDepths.lf.middle ? parseInt(treadDepths.lf.middle) : null, outside: treadDepths.lf.outside ? parseInt(treadDepths.lf.outside) : null },
