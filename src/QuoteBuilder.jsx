@@ -49,6 +49,21 @@ const getTreadColor = (val) => {
   return '#e74c3c';                   // Red: 0-4
 };
 
+// Tire replacement reasons beyond tread depth
+const REPLACEMENT_REASON_OPTIONS = [
+  { code: 'sidewall_damage', label: 'Sidewall Damage / Cracking' },
+  { code: 'dry_rot', label: 'Dry Rot / Weather Cracking' },
+  { code: 'uneven_wear', label: 'Uneven Wear (Cupping, Feathering)' },
+  { code: 'unrepairable_puncture', label: 'Puncture in Non-Repairable Zone' },
+  { code: 'belt_separation', label: 'Belt Separation' },
+  { code: 'bead_damage', label: 'Bead Damage' },
+  { code: 'age', label: 'Age (8+ Years)' },
+  { code: 'mismatched', label: 'Mismatched Tires on Same Axle' },
+  { code: 'improper_repair', label: 'Prior Improper Repair' },
+  { code: 'axle_match', label: 'Axle Match — Other Tire Being Replaced' },
+  { code: 'awd_match', label: 'AWD/4WD — All Four Must Match' },
+];
+
 const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
 // Phone number formatting helper
@@ -182,26 +197,91 @@ const MiniTreadInput = ({ value, onChange }) => {
   );
 };
 
-// Tire tread block - 3 inputs (IN/MID/OUT) for one tire
-const TireTreadBlock = ({ label, values, onChange }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-    <span style={{ fontSize: '10px', fontWeight: '700', color: '#666', letterSpacing: '1px' }}>{label}</span>
-    <div style={{ display: 'flex', gap: '4px' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '8px', color: '#999', marginBottom: '2px' }}>IN</div>
-        <MiniTreadInput value={values.inside} onChange={(v) => onChange('inside', v)} />
+// Tire tread block - 3 inputs (IN/MID/OUT) for one tire + replacement reasons
+const TireTreadBlock = ({ label, values, onChange, reasons, onReasonsChange }) => {
+  const [showReasons, setShowReasons] = useState(reasons && reasons.length > 0);
+  
+  // Sync showReasons with incoming reasons prop (e.g. re-quote pre-fill)
+  React.useEffect(() => {
+    if (reasons && reasons.length > 0) setShowReasons(true);
+  }, [reasons]);
+
+  const toggleReason = (code) => {
+    const current = reasons || [];
+    const updated = current.includes(code) 
+      ? current.filter(r => r !== code) 
+      : [...current, code];
+    onReasonsChange(updated);
+  };
+
+  const handleCheckboxChange = (checked) => {
+    setShowReasons(checked);
+    if (!checked) onReasonsChange([]);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', position: 'relative' }}>
+      <span style={{ fontSize: '10px', fontWeight: '700', color: '#666', letterSpacing: '1px' }}>{label}</span>
+      <div style={{ display: 'flex', gap: '4px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '8px', color: '#999', marginBottom: '2px' }}>IN</div>
+          <MiniTreadInput value={values.inside} onChange={(v) => onChange('inside', v)} />
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '8px', color: '#999', marginBottom: '2px' }}>MID</div>
+          <MiniTreadInput value={values.middle} onChange={(v) => onChange('middle', v)} />
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '8px', color: '#999', marginBottom: '2px' }}>OUT</div>
+          <MiniTreadInput value={values.outside} onChange={(v) => onChange('outside', v)} />
+        </div>
       </div>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '8px', color: '#999', marginBottom: '2px' }}>MID</div>
-        <MiniTreadInput value={values.middle} onChange={(v) => onChange('middle', v)} />
-      </div>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '8px', color: '#999', marginBottom: '2px' }}>OUT</div>
-        <MiniTreadInput value={values.outside} onChange={(v) => onChange('outside', v)} />
-      </div>
+      {/* Replacement reason checkbox */}
+      <label style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', marginTop: '2px' }}>
+        <input 
+          type="checkbox" 
+          checked={showReasons} 
+          onChange={(e) => handleCheckboxChange(e.target.checked)}
+          style={{ width: '12px', height: '12px', cursor: 'pointer', accentColor: '#e74c3c' }} 
+        />
+        <span style={{ fontSize: '8px', color: '#e74c3c', fontWeight: '600' }}>⚠️ Issue</span>
+      </label>
+      {/* Multi-select dropdown */}
+      {showReasons && (
+        <div style={{ 
+          position: 'absolute', 
+          zIndex: 20, 
+          marginTop: '88px',
+          background: 'white', 
+          border: '1px solid #e74c3c', 
+          borderRadius: '6px', 
+          padding: '6px', 
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          width: '200px',
+          maxHeight: '180px',
+          overflowY: 'auto'
+        }}>
+          {REPLACEMENT_REASON_OPTIONS.map(opt => (
+            <label key={opt.code} style={{ 
+              display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 4px', 
+              cursor: 'pointer', fontSize: '10px', color: '#333',
+              borderRadius: '3px',
+              backgroundColor: (reasons || []).includes(opt.code) ? '#fef2f2' : 'transparent'
+            }}>
+              <input 
+                type="checkbox" 
+                checked={(reasons || []).includes(opt.code)} 
+                onChange={() => toggleReason(opt.code)}
+                style={{ width: '11px', height: '11px', cursor: 'pointer', accentColor: '#e74c3c' }}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 // ============================================
 // CUSTOMER SEARCH MODAL
@@ -626,6 +706,19 @@ export default function QuoteBuilder() {
     rr: { inside: '', middle: '', outside: '' },
   });
 
+  // Per-tire replacement reasons beyond tread depth
+  const [replacementReasons, setReplacementReasons] = useState({
+    lf: [], rf: [], lr: [], rr: []
+  });
+
+  const updateReasons = (tire, reasons) => {
+    setReplacementReasons(prev => ({ ...prev, [tire]: reasons }));
+  };
+
+  const hasAnyReasons = () => {
+    return Object.values(replacementReasons).some(r => r.length > 0);
+  };
+
   const [quantity, setQuantity] = useState(4);
   const [selectedPromo, setSelectedPromo] = useState('');
   const [selectedRebate, setSelectedRebate] = useState('');
@@ -798,6 +891,16 @@ export default function QuoteBuilder() {
         });
       }
 
+      // Pre-fill replacement reasons if present
+      if (rq.tire_replacement_reasons) {
+        setReplacementReasons({
+          lf: rq.tire_replacement_reasons.lf || [],
+          rf: rq.tire_replacement_reasons.rf || [],
+          lr: rq.tire_replacement_reasons.lr || [],
+          rr: rq.tire_replacement_reasons.rr || [],
+        });
+      }
+
       // Set store
       if (rq.store_id) {
         setSelectedStore(rq.store_id.toString());
@@ -939,6 +1042,7 @@ export default function QuoteBuilder() {
           rr: { inside: treadDepths.rr.inside ? parseInt(treadDepths.rr.inside) : null, middle: treadDepths.rr.middle ? parseInt(treadDepths.rr.middle) : null, outside: treadDepths.rr.outside ? parseInt(treadDepths.rr.outside) : null },
           lowest: lowestTread
         } : null,
+        tire_replacement_reasons: hasAnyReasons() ? replacementReasons : null,
         tire: {
           part_number: tireData.part_number, 
           brand: tireData.sales_class?.split(' ')[0] || tireData.brand || tireData.brand_code, 
@@ -1468,8 +1572,8 @@ export default function QuoteBuilder() {
                   
                   {/* LEFT SIDE: Front tires (RF top, LF bottom) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '50px' }}>
-                    <TireTreadBlock label="PASS FRONT" values={treadDepths.rf} onChange={(pos, val) => updateTread('rf', pos, val)} />
-                    <TireTreadBlock label="DRIVER FRONT" values={treadDepths.lf} onChange={(pos, val) => updateTread('lf', pos, val)} />
+                    <TireTreadBlock label="PASS FRONT" values={treadDepths.rf} onChange={(pos, val) => updateTread('rf', pos, val)} reasons={replacementReasons.rf} onReasonsChange={(r) => updateReasons('rf', r)} />
+                    <TireTreadBlock label="DRIVER FRONT" values={treadDepths.lf} onChange={(pos, val) => updateTread('lf', pos, val)} reasons={replacementReasons.lf} onReasonsChange={(r) => updateReasons('lf', r)} />
                   </div>
 
                   {/* Center - Car Image */}
@@ -1483,8 +1587,8 @@ export default function QuoteBuilder() {
 
                   {/* RIGHT SIDE: Rear tires (RR top, LR bottom) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '50px' }}>
-                    <TireTreadBlock label="PASS REAR" values={treadDepths.rr} onChange={(pos, val) => updateTread('rr', pos, val)} />
-                    <TireTreadBlock label="DRIVER REAR" values={treadDepths.lr} onChange={(pos, val) => updateTread('lr', pos, val)} />
+                    <TireTreadBlock label="PASS REAR" values={treadDepths.rr} onChange={(pos, val) => updateTread('rr', pos, val)} reasons={replacementReasons.rr} onReasonsChange={(r) => updateReasons('rr', r)} />
+                    <TireTreadBlock label="DRIVER REAR" values={treadDepths.lr} onChange={(pos, val) => updateTread('lr', pos, val)} reasons={replacementReasons.lr} onReasonsChange={(r) => updateReasons('lr', r)} />
                   </div>
                 </div>
 
