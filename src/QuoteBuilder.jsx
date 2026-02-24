@@ -140,7 +140,7 @@ const StyledInput = ({ value, onChange, placeholder, type = 'text', style, ...pr
 );
 
 // Phone Input with mask
-const PhoneInput = ({ value, onChange, placeholder, style }) => {
+const PhoneInput = ({ value, onChange, onBlur, placeholder, style }) => {
   const handleChange = (e) => {
     const formatted = formatPhoneNumber(e.target.value);
     onChange(formatted);
@@ -151,6 +151,7 @@ const PhoneInput = ({ value, onChange, placeholder, style }) => {
       type="tel"
       value={value}
       onChange={handleChange}
+      onBlur={onBlur}
       placeholder={placeholder || "(805) 555-1234"}
       style={{
         width: '100%',
@@ -757,6 +758,9 @@ export default function QuoteBuilder() {
     first_name: '', last_name: '', full_name: '', phone: '', email: '', vehicle_ymm: '', data_source: 'manual'
   });
 
+  // SMS opt-out warning
+  const [smsOptedOut, setSmsOptedOut] = useState(null); // null = unchecked, { opted_out, store_number } if opted out
+
   // Advanced search modal state
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
 
@@ -1063,6 +1067,30 @@ export default function QuoteBuilder() {
       run_flat: false,
       _isCustom: true
     });
+  };
+
+  // Check SMS consent status when phone number is entered
+  const checkSmsConsent = async (phone) => {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 10) {
+      setSmsOptedOut(null);
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/sms-quote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: API_KEY, check_only: true, phone: digits })
+      });
+      const data = await response.json();
+      if (data.opted_out) {
+        setSmsOptedOut({ store_number: data.store_number });
+      } else {
+        setSmsOptedOut(null);
+      }
+    } catch (err) {
+      setSmsOptedOut(null);
+    }
   };
 
   const handleGenerateQuote = async () => {
@@ -1518,9 +1546,15 @@ export default function QuoteBuilder() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <StyledInput value={customerData.first_name} onChange={(v) => setCustomerData({...customerData, first_name: v})} placeholder="FIRST NAME" />
                   <StyledInput value={customerData.last_name} onChange={(v) => setCustomerData({...customerData, last_name: v})} placeholder="LAST NAME" />
-                  <PhoneInput value={customerData.phone} onChange={(v) => setCustomerData({...customerData, phone: v})} placeholder="(805) 555-1234" />
+                  <PhoneInput value={customerData.phone} onChange={(v) => { setCustomerData({...customerData, phone: v}); setSmsOptedOut(null); }} onBlur={() => checkSmsConsent(customerData.phone)} placeholder="(805) 555-1234" />
                   <StyledInput value={customerData.email} onChange={(v) => setCustomerData({...customerData, email: v})} placeholder="EMAIL" />
                 </div>
+                {/* SMS Opted-Out Warning */}
+                {smsOptedOut && (
+                  <div style={{ marginTop: '8px', padding: '8px 12px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', fontSize: '11px', color: '#92400e', textAlign: 'center', fontWeight: '600' }}>
+                    ⚠️ Customer previously opted out of SMS. Ask them to text <strong>START</strong> to <strong>{smsOptedOut.store_number || 'the store number'}</strong> to re-subscribe.
+                  </div>
+                )}
                 {/* SMS Consent Notice */}
                 <div style={{ marginTop: '8px', fontSize: '9px', color: '#94a3b8', lineHeight: '1.4', textAlign: 'center' }}>
                   📱 By providing a phone number, customer consents to receive tire quote & service messages via SMS. Msg & data rates may apply. Reply STOP to opt out. <a href="#/sms-consent" style={{ color: '#9b59b6', textDecoration: 'underline' }}>SMS Terms</a>
