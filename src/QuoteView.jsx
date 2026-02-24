@@ -348,6 +348,13 @@ const QuoteView = () => {
       const data = await response.json();
       if (data.success) {
         setActionMessage({ type: 'success', text: `Quote texted to ${formatPhone(phone)}` });
+      } else if (data.opted_out) {
+        // Customer previously replied STOP — show re-subscribe instructions
+        const storeNumber = data.store_number ? formatPhone(data.store_number) : 'the store number';
+        setActionMessage({ 
+          type: 'warning', 
+          text: `⚠️ This customer previously opted out of SMS. Ask them to text START to ${storeNumber} to re-subscribe, then try again.` 
+        });
       } else {
         setActionMessage({ type: 'error', text: data.error || 'Failed to send text' });
       }
@@ -853,9 +860,9 @@ const QuoteView = () => {
           {actionMessage && (
             <div data-print-hide="true" style={{
               padding: '12px 20px', borderRadius: '8px', marginBottom: '16px',
-              backgroundColor: actionMessage.type === 'success' ? '#f0fdf4' : '#fef2f2',
-              border: `1px solid ${actionMessage.type === 'success' ? '#86efac' : '#fecaca'}`,
-              color: actionMessage.type === 'success' ? '#166534' : '#991b1b',
+              backgroundColor: actionMessage.type === 'success' ? '#f0fdf4' : actionMessage.type === 'warning' ? '#fffbeb' : '#fef2f2',
+              border: `1px solid ${actionMessage.type === 'success' ? '#86efac' : actionMessage.type === 'warning' ? '#fde68a' : '#fecaca'}`,
+              color: actionMessage.type === 'success' ? '#166534' : actionMessage.type === 'warning' ? '#92400e' : '#991b1b',
               textAlign: 'center', fontSize: '14px', fontWeight: '500'
             }}>
               {actionMessage.text}
