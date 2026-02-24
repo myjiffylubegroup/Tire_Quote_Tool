@@ -569,6 +569,9 @@ const QuoteView = () => {
               <div style={{ fontWeight: '700', fontSize: '14px' }}>{store?.name} {store?.bar_number && `• BAR ${store.bar_number}`}</div>
               <div>{store?.full_address}</div>
               <div>{store?.phone_formatted || formatPhone(store?.phone)}</div>
+              {quote.created_by?.display_name && (
+                <div style={{ fontWeight: '600', color: '#1e40af', marginTop: '2px' }}>Prepared by: {quote.created_by.display_name}</div>
+              )}
             </div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -1087,13 +1090,10 @@ const QuoteView = () => {
             </div>
           )}
 
-          {/* Prepared By */}
+          {/* Call to Action */}
           {quote.created_by?.display_name && (
-            <div style={{ textAlign: 'center', padding: '14px 16px', margin: '12px 0 0 0', background: '#f0f4ff', borderRadius: '8px', border: '1px solid #dbeafe' }}>
-              <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#1e40af', fontWeight: '600' }}>
-                This quote was prepared for you by {quote.created_by.display_name} at Jiffy Lube Multicare {store?.city || ''}.
-              </p>
-              <p style={{ margin: '0', fontSize: '13px', color: '#1e40af' }}>
+            <div style={{ textAlign: 'center', padding: '12px 16px', margin: '12px 0 0 0', background: '#f0f4ff', borderRadius: '8px', border: '1px solid #dbeafe' }}>
+              <p style={{ margin: '0', fontSize: '13px', color: '#1e40af', fontWeight: '600' }}>
                 When you're ready to get your new tires, ask for {quote.created_by.display_name}
                 {store?.phone_formatted ? ` — call us at ${store.phone_formatted}` : ''} or schedule online!
               </p>
