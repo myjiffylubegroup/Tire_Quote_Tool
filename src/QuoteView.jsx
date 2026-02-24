@@ -1072,6 +1072,19 @@ const QuoteView = () => {
             </div>
           )}
 
+          {/* Prepared By */}
+          {quote.created_by?.display_name && (
+            <div style={{ textAlign: 'center', padding: '14px 16px', margin: '12px 0 0 0', background: '#f0f4ff', borderRadius: '8px', border: '1px solid #dbeafe' }}>
+              <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#1e40af', fontWeight: '600' }}>
+                This quote was prepared for you by {quote.created_by.display_name} at Jiffy Lube Multicare {store?.city || ''}.
+              </p>
+              <p style={{ margin: '0', fontSize: '13px', color: '#1e40af' }}>
+                When you're ready to get your new tires, ask for {quote.created_by.display_name}
+                {store?.phone_formatted ? ` — call us at ${store.phone_formatted}` : ''} or schedule online!
+              </p>
+            </div>
+          )}
+
           {/* Footer */}
           <div className="quote-footer" style={{ textAlign: 'center', borderTop: '1px solid #cbd5e1', paddingTop: '12px', fontSize: '11px', color: '#555', fontWeight: '500', lineHeight: '1.6' }}>
             <p style={{ margin: '0 0 4px 0' }}>This quote is valid for 7 days. Prices subject to change based on availability.</p>
