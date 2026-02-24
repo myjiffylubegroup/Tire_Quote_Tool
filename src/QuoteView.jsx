@@ -84,7 +84,9 @@ const TreadTile = ({ label, data }) => {
       </div>
       <div style={{ fontSize: '8px', fontWeight: '700', letterSpacing: '0.5px', marginTop: '2px', color: info.color }}>{info.label}</div>
       {hasReasons && (
-        <div style={{ fontSize: '7px', color: '#dc2626', fontWeight: '600', marginTop: '3px' }}>⚠️ SEE BELOW</div>
+        <div style={{ fontSize: '7px', color: '#991b1b', fontWeight: '600', marginTop: '3px', lineHeight: '1.3' }}>
+          ⚠️ {data.replacement_reasons.join(', ')}
+        </div>
       )}
     </div>
   );
@@ -146,22 +148,6 @@ const TreadDiagram = ({ treadData, replacementReasons }) => {
   const lr = tires.rear_left || treadData.lr;
   const rr = tires.rear_right || treadData.rr;
 
-  // Build list of tires with replacement reasons for callout display
-  const TIRE_LABELS = { lf: 'Driver Front', rf: 'Passenger Front', lr: 'Driver Rear', rr: 'Passenger Rear' };
-  const tireDataMap = { lf, rf, lr, rr };
-  const reasonCallouts = [];
-  
-  if (replacementReasons) {
-    for (const [key, reasons] of Object.entries(replacementReasons)) {
-      if (Array.isArray(reasons) && reasons.length > 0) {
-        // Use human-readable labels from tread_depth_json if available, otherwise use raw codes
-        const tireObj = tireDataMap[key];
-        const labels = tireObj?.replacement_reasons || reasons;
-        reasonCallouts.push({ tire: TIRE_LABELS[key] || key, reasons: labels });
-      }
-    }
-  }
-
   return (
     <div>
       <div style={{ textAlign: 'center', fontSize: '9px', color: '#1e293b', fontWeight: '600', letterSpacing: '1px', marginBottom: '6px' }}>
@@ -174,25 +160,6 @@ const TreadDiagram = ({ treadData, replacementReasons }) => {
         <TreadTile label="DRIVER FRONT" data={lf} />
         <TreadTile label="DRIVER REAR" data={lr} />
       </div>
-
-      {/* Replacement Reason Callouts */}
-      {reasonCallouts.length > 0 && (
-        <div style={{ marginBottom: '10px' }}>
-          {reasonCallouts.map((item, i) => (
-            <div key={i} style={{
-              display: 'flex', alignItems: 'flex-start', gap: '6px',
-              padding: '8px 10px', marginBottom: '4px',
-              backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px',
-              fontSize: '11px', color: '#991b1b', lineHeight: '1.4'
-            }}>
-              <span style={{ flexShrink: 0, fontWeight: '700' }}>⚠️</span>
-              <span>
-                <strong>{item.tire}:</strong> {item.reasons.join(', ')} — replacement recommended regardless of tread depth
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Summary */}
       {treadData.summary && (
