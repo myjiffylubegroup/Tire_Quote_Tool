@@ -200,11 +200,25 @@ const MiniTreadInput = ({ value, onChange }) => {
 // Tire tread block - 3 inputs (IN/MID/OUT) for one tire + replacement reasons
 const TireTreadBlock = ({ label, values, onChange, reasons, onReasonsChange }) => {
   const [showReasons, setShowReasons] = useState(reasons && reasons.length > 0);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = React.useRef(null);
   
   // Sync showReasons with incoming reasons prop (e.g. re-quote pre-fill)
   React.useEffect(() => {
     if (reasons && reasons.length > 0) setShowReasons(true);
   }, [reasons]);
+
+  // Click outside to close dropdown
+  React.useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [dropdownOpen]);
 
   const toggleReason = (code) => {
     const current = reasons || [];
@@ -216,7 +230,27 @@ const TireTreadBlock = ({ label, values, onChange, reasons, onReasonsChange }) =
 
   const handleCheckboxChange = (checked) => {
     setShowReasons(checked);
-    if (!checked) onReasonsChange([]);
+    if (checked) {
+      setDropdownOpen(true);
+    } else {
+      setDropdownOpen(false);
+      onReasonsChange([]);
+    }
+  };
+
+  // Short labels for the badges
+  const SHORT_LABELS = {
+    sidewall_damage: 'Sidewall',
+    dry_rot: 'Dry Rot',
+    uneven_wear: 'Uneven Wear',
+    unrepairable_puncture: 'Puncture',
+    belt_separation: 'Belt Sep.',
+    bead_damage: 'Bead Dmg',
+    age: 'Age 8+',
+    mismatched: 'Mismatched',
+    improper_repair: 'Bad Repair',
+    axle_match: 'Axle Match',
+    awd_match: 'AWD Match'
   };
 
   return (
@@ -237,46 +271,74 @@ const TireTreadBlock = ({ label, values, onChange, reasons, onReasonsChange }) =
         </div>
       </div>
       {/* Replacement reason checkbox */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', marginTop: '2px' }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', marginTop: '3px' }}>
         <input 
           type="checkbox" 
           checked={showReasons} 
           onChange={(e) => handleCheckboxChange(e.target.checked)}
-          style={{ width: '12px', height: '12px', cursor: 'pointer', accentColor: '#e74c3c' }} 
+          style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: '#e74c3c' }} 
         />
-        <span style={{ fontSize: '8px', color: '#e74c3c', fontWeight: '600' }}>⚠️ Issue</span>
+        <span style={{ fontSize: '10px', color: '#e74c3c', fontWeight: '700' }}>⚠️ Issue</span>
       </label>
+      {/* Selected reason badges */}
+      {showReasons && (reasons || []).length > 0 && !dropdownOpen && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', justifyContent: 'center', maxWidth: '120px', cursor: 'pointer' }} onClick={() => setDropdownOpen(true)}>
+          {(reasons || []).map(code => (
+            <span key={code} style={{
+              fontSize: '8px', fontWeight: '600', color: '#fff', backgroundColor: '#e74c3c',
+              borderRadius: '8px', padding: '1px 6px', whiteSpace: 'nowrap'
+            }}>
+              {SHORT_LABELS[code] || code}
+            </span>
+          ))}
+        </div>
+      )}
       {/* Multi-select dropdown */}
-      {showReasons && (
-        <div style={{ 
+      {dropdownOpen && (
+        <div ref={dropdownRef} style={{ 
           position: 'absolute', 
           zIndex: 20, 
-          marginTop: '88px',
+          top: '100%',
+          marginTop: '4px',
           background: 'white', 
-          border: '1px solid #e74c3c', 
-          borderRadius: '6px', 
-          padding: '6px', 
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          width: '200px',
-          maxHeight: '180px',
+          border: '2px solid #e74c3c', 
+          borderRadius: '8px', 
+          padding: '8px', 
+          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+          width: '220px',
+          maxHeight: '220px',
           overflowY: 'auto'
         }}>
+          <div style={{ fontSize: '10px', fontWeight: '700', color: '#e74c3c', marginBottom: '6px', textAlign: 'center' }}>
+            SELECT REASON(S)
+          </div>
           {REPLACEMENT_REASON_OPTIONS.map(opt => (
             <label key={opt.code} style={{ 
-              display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 4px', 
-              cursor: 'pointer', fontSize: '10px', color: '#333',
-              borderRadius: '3px',
+              display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 5px', 
+              cursor: 'pointer', fontSize: '11px', color: '#333',
+              borderRadius: '4px',
               backgroundColor: (reasons || []).includes(opt.code) ? '#fef2f2' : 'transparent'
             }}>
               <input 
                 type="checkbox" 
                 checked={(reasons || []).includes(opt.code)} 
                 onChange={() => toggleReason(opt.code)}
-                style={{ width: '11px', height: '11px', cursor: 'pointer', accentColor: '#e74c3c' }}
+                style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: '#e74c3c', flexShrink: 0 }}
               />
               {opt.label}
             </label>
           ))}
+          <button 
+            onClick={() => setDropdownOpen(false)}
+            style={{
+              width: '100%', marginTop: '8px', padding: '6px', 
+              backgroundColor: '#e74c3c', color: 'white', border: 'none', 
+              borderRadius: '5px', fontSize: '11px', fontWeight: '700', 
+              cursor: 'pointer', letterSpacing: '0.5px'
+            }}
+          >
+            ✓ DONE
+          </button>
         </div>
       )}
     </div>
