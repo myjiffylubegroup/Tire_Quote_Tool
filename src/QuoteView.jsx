@@ -1,8 +1,12 @@
 // =============================================================================
-// QUOTE VIEW - Customer-Facing Quote Display v5
+// QUOTE VIEW - Customer-Facing Quote Display v6
 // =============================================================================
 // Route: #/quote/:code
-// Updated: 2026-02-11
+// Updated: 2026-02-24
+// v6 Changes:
+//   - "Prepared by" employee name section above footer
+//   - Tire replacement reasons: red override on tread tiles, callout alerts
+//   - Re-quote passes tire_replacement_reasons to QuoteBuilder
 // v5 Changes:
 //   - Complete visual redesign for print readability
 //   - White header with maroon top accent (less toner)
@@ -55,7 +59,12 @@ const formatDate = (dateStr) => {
 // ─── Tread Tile Component ───
 const TreadTile = ({ label, data }) => {
   if (!data) return null;
-  const info = getTreadInfo(data.lowest);
+  
+  // If tire has replacement reasons, override to red/REPLACE regardless of depth
+  const hasReasons = data.replacement_reasons && data.replacement_reasons.length > 0;
+  const info = hasReasons 
+    ? { status: 'replace', color: '#dc2626', bgColor: '#fef2f2', label: 'REPLACE', cssClass: 'replace' }
+    : getTreadInfo(data.lowest);
   if (!info) return null;
 
   const borderColors = { good: '#16a34a', consider: '#d97706', replace: '#dc2626' };
@@ -74,6 +83,9 @@ const TreadTile = ({ label, data }) => {
         {data.lowest}<span style={{ fontSize: '11px', fontWeight: '600' }}>/32</span>
       </div>
       <div style={{ fontSize: '8px', fontWeight: '700', letterSpacing: '0.5px', marginTop: '2px', color: info.color }}>{info.label}</div>
+      {hasReasons && (
+        <div style={{ fontSize: '7px', color: '#dc2626', fontWeight: '600', marginTop: '3px' }}>⚠️ SEE BELOW</div>
+      )}
     </div>
   );
 };
@@ -125,7 +137,7 @@ const StoppingDistanceChart = ({ currentDistance, newDistance }) => {
 };
 
 // ─── Compact Tread Diagram (2x2 grid, no car image) ───
-const TreadDiagram = ({ treadData }) => {
+const TreadDiagram = ({ treadData, replacementReasons }) => {
   if (!treadData) return null;
 
   const tires = treadData.tires || {};
@@ -133,6 +145,22 @@ const TreadDiagram = ({ treadData }) => {
   const rf = tires.front_right || treadData.rf;
   const lr = tires.rear_left || treadData.lr;
   const rr = tires.rear_right || treadData.rr;
+
+  // Build list of tires with replacement reasons for callout display
+  const TIRE_LABELS = { lf: 'Driver Front', rf: 'Passenger Front', lr: 'Driver Rear', rr: 'Passenger Rear' };
+  const tireDataMap = { lf, rf, lr, rr };
+  const reasonCallouts = [];
+  
+  if (replacementReasons) {
+    for (const [key, reasons] of Object.entries(replacementReasons)) {
+      if (Array.isArray(reasons) && reasons.length > 0) {
+        // Use human-readable labels from tread_depth_json if available, otherwise use raw codes
+        const tireObj = tireDataMap[key];
+        const labels = tireObj?.replacement_reasons || reasons;
+        reasonCallouts.push({ tire: TIRE_LABELS[key] || key, reasons: labels });
+      }
+    }
+  }
 
   return (
     <div>
@@ -146,6 +174,25 @@ const TreadDiagram = ({ treadData }) => {
         <TreadTile label="DRIVER FRONT" data={lf} />
         <TreadTile label="DRIVER REAR" data={lr} />
       </div>
+
+      {/* Replacement Reason Callouts */}
+      {reasonCallouts.length > 0 && (
+        <div style={{ marginBottom: '10px' }}>
+          {reasonCallouts.map((item, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: '6px',
+              padding: '8px 10px', marginBottom: '4px',
+              backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px',
+              fontSize: '11px', color: '#991b1b', lineHeight: '1.4'
+            }}>
+              <span style={{ flexShrink: 0, fontWeight: '700' }}>⚠️</span>
+              <span>
+                <strong>{item.tire}:</strong> {item.reasons.join(', ')} — replacement recommended regardless of tread depth
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Summary */}
       {treadData.summary && (
@@ -483,6 +530,7 @@ const QuoteView = () => {
       vehicle: quote.vehicle || null,
       tire_size: quote.tire?.size || null,
       treads: quote.tread_depth || null,
+      tire_replacement_reasons: quote.tire_replacement_reasons || null,
       store_id: quote.store?.id || null,
       quantity: quote.pricing?.quantity || 4
     };
@@ -756,7 +804,7 @@ const QuoteView = () => {
               {treadData && (
                 <>
                   <div style={sectionLabel}>CURRENT TIRE CONDITION</div>
-                  <TreadDiagram treadData={treadData} />
+                  <TreadDiagram treadData={treadData} replacementReasons={quote.tire_replacement_reasons} />
                 </>
               )}
             </div>
