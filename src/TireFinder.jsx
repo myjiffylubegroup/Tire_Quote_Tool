@@ -567,6 +567,144 @@ const Badge = ({ label, color }) => (
   </span>
 );
 
+// Simplified tire card for staggered mode — single "Chosen" button only, no Good/Best
+const StaggeredTireCard = ({ tire, primaryWarehouse, isSelected, consumerPrice, onSelect, axleLabel }) => {
+  const isPriority = tire.brand_code === 'NEX' || tire.brand_code === 'ADV';
+  const primaryQty = primaryWarehouse === 'fresno' ? tire.qty_fresno : tire.qty_santa_clarita;
+  const secondaryQty = primaryWarehouse === 'fresno' ? tire.qty_santa_clarita : tire.qty_fresno;
+  const hasStoreStock = tire.store_qty > 0;
+
+  return (
+    <div style={{
+      border: isSelected ? '3px solid #8b1538' : (hasStoreStock ? '2px solid #27ae60' : (isPriority ? '2px solid #9b59b6' : '1px solid #e0e0e0')),
+      borderRadius: '10px',
+      padding: '15px',
+      backgroundColor: isSelected ? '#fdf2f4' : (hasStoreStock ? '#f0fff4' : (isPriority ? '#faf5ff' : 'white')),
+      position: 'relative',
+      transition: 'all 0.2s ease',
+    }}>
+      {/* Badges */}
+      <div style={{ position: 'absolute', top: '-8px', left: '15px', display: 'flex', gap: '5px' }}>
+        {hasStoreStock && (
+          <span style={{
+            backgroundColor: '#27ae60', color: 'white', padding: '2px 10px',
+            borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px',
+          }}>
+            🏪 IN STORE
+          </span>
+        )}
+        {isPriority && (
+          <span style={{
+            backgroundColor: tire.brand_code === 'NEX' ? '#9b59b6' : '#e67e22',
+            color: 'white', padding: '2px 10px', borderRadius: '10px',
+            fontSize: '10px', fontWeight: '700', letterSpacing: '1px',
+          }}>
+            {tire.brand_code === 'NEX' ? '⭐ NEXEN' : '💰 ADVANTA'}
+          </span>
+        )}
+        {isSelected && (
+          <span style={{ backgroundColor: '#8b1538', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
+            ⭐ {axleLabel} CHOSEN
+          </span>
+        )}
+      </div>
+
+      {/* Main Info Row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginTop: (hasStoreStock || isPriority || isSelected) ? '5px' : '0' }}>
+        {/* Left: Name & Details */}
+        <div style={{ flex: '1', minWidth: '200px' }}>
+          <h4 style={{ margin: '0 0 5px 0', fontSize: '14px', fontWeight: '700', color: '#333' }}>
+            {tire.sales_class || tire.name}
+          </h4>
+          <p style={{ margin: '0', fontSize: '12px', color: '#666' }}>
+            {tire.name}
+          </p>
+          <div style={{ display: 'flex', gap: '15px', marginTop: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '11px', color: '#888' }}>
+              <strong>Speed:</strong> {tire.speed_rating || '-'}
+            </span>
+            <span style={{ fontSize: '11px', color: '#888' }}>
+              <strong>Load:</strong> {tire.load_rating || '-'}
+            </span>
+            <span style={{ fontSize: '11px', color: '#888' }}>
+              <strong>Range:</strong> {tire.load_range || 'SL'}
+            </span>
+            {tire.warranty && (
+              <span style={{ fontSize: '11px', color: '#888' }}>
+                <strong>Warranty:</strong> {parseInt(tire.warranty).toLocaleString()} mi
+              </span>
+            )}
+          </div>
+          {/* Feature Badges */}
+          <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+            {tire.snowflake && <Badge label="❄️ 3PMSF" color="#3498db" />}
+            {tire.run_flat && <Badge label="🛞 Run Flat" color="#e74c3c" />}
+            {tire.ev_compatible && <Badge label="⚡ EV" color="#27ae60" />}
+          </div>
+        </div>
+
+        {/* Right: Pricing & Inventory */}
+        <div style={{ textAlign: 'right', minWidth: '150px' }}>
+          {consumerPrice > 0 ? (
+            <div style={{ fontSize: '22px', fontWeight: '700', color: '#9b59b6' }}>
+              ${consumerPrice.toFixed(2)}
+            </div>
+          ) : (
+            <div style={{ fontSize: '14px', fontWeight: '600', color: '#888' }}>
+              Call for Price
+            </div>
+          )}
+          {tire.fet > 0 && (
+            <div style={{ fontSize: '10px', color: '#888' }}>
+              + ${parseFloat(tire.fet).toFixed(2)} FET
+            </div>
+          )}
+
+          {/* Inventory */}
+          <div style={{ marginTop: '10px', fontSize: '11px' }}>
+            {hasStoreStock && (
+              <div style={{ color: '#27ae60', fontWeight: '700', marginBottom: '4px' }}>
+                Store: {tire.store_qty} 🏪
+              </div>
+            )}
+            <div style={{ color: primaryQty > 0 ? '#27ae60' : '#e74c3c', fontWeight: '600' }}>
+              {primaryWarehouse === 'fresno' ? 'Fresno' : 'Santa Clarita'}: {parseInt(primaryQty) || 0}
+              {primaryQty > 0 && ' ✓'}
+            </div>
+            <div style={{ color: '#888' }}>
+              {primaryWarehouse === 'fresno' ? 'Santa Clarita' : 'Fresno'}: {parseInt(secondaryQty) || 0}
+            </div>
+          </div>
+
+          {/* Single Chosen Button */}
+          {consumerPrice > 0 && (
+            <div style={{ marginTop: '10px' }}>
+              <button
+                onClick={onSelect}
+                style={{
+                  padding: '6px 16px', borderRadius: '15px', fontSize: '11px', fontWeight: '700',
+                  letterSpacing: '0.5px', cursor: 'pointer', transition: 'all 0.2s ease',
+                  border: isSelected ? '2px solid #8b1538' : '2px solid #d1d5db',
+                  backgroundColor: isSelected ? '#fde8ed' : 'white',
+                  color: isSelected ? '#8b1538' : '#666',
+                }}
+              >
+                {isSelected ? '⭐ Chosen' : 'Select'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Part Number & Source */}
+      <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee', fontSize: '10px', color: '#aaa', display: 'flex', justifyContent: 'space-between' }}>
+        <span>Part #: {tire.part_number}</span>
+        <span>{tire.tire_type} | {tire.source === 'store_only' ? 'Store Only' : tire.source === 'both' ? 'Store + Distributor' : 'Distributor'}</span>
+      </div>
+    </div>
+  );
+};
+
 export default function TireFinder() {
   // Store & Qty selection - re-quote store takes priority, then localStorage
   const [selectedStore, setSelectedStore] = useState(() => {
@@ -642,6 +780,13 @@ export default function TireFinder() {
   const [rearWidthOptions, setRearWidthOptions] = useState(FALLBACK_WIDTHS);
   const [rearAspectOptions, setRearAspectOptions] = useState(FALLBACK_ASPECTS);
   const [rearRimOptions, setRearRimOptions] = useState(FALLBACK_RIMS);
+
+  // Staggered inventory results & selection
+  const [rearInventoryResults, setRearInventoryResults] = useState(null);
+  const [rearInventoryLoading, setRearInventoryLoading] = useState(false);
+  const [frontSelection, setFrontSelection] = useState(null);
+  const [rearSelection, setRearSelection] = useState(null);
+  const [frontExpanded, setFrontExpanded] = useState(true);
 
   // Part number search
   const [partNumber, setPartNumber] = useState('');
@@ -846,11 +991,75 @@ export default function TireFinder() {
 
   // Handle continue to quote - save chosen tire + alternatives to sessionStorage
   const handleContinueToQuote = () => {
+    // ===== STAGGERED MODE =====
+    if (isStaggeredMode) {
+      if (!frontSelection || !rearSelection) return;
+      
+      // Save front tire as primary
+      sessionStorage.setItem('jl_quote_tire', JSON.stringify(frontSelection));
+      // Save rear tire
+      sessionStorage.setItem('jl_quote_tire_rear', JSON.stringify(rearSelection));
+      // Save staggered flag
+      sessionStorage.setItem('jl_quote_staggered', 'true');
+      // Save qty
+      sessionStorage.setItem('jl_quote_qty', qtyNeeded.toString());
+      
+      // No alt tires for staggered
+      sessionStorage.removeItem('jl_quote_alt_good');
+      sessionStorage.removeItem('jl_quote_alt_best');
+      
+      // Vehicle data (same logic as standard)
+      if (selectedYear && selectedMake && selectedModel) {
+        const selectedSpec = tireSpecs && tireSpecs.length > 0 ? tireSpecs[0] : null;
+        const vehicleData = {
+          year: parseInt(selectedYear),
+          make: selectedMake,
+          model: selectedModel,
+          submodel: selectedSubmodel || null,
+          display: `${selectedYear} ${selectedMake} ${selectedModel}${selectedSubmodel ? ' ' + selectedSubmodel : ''}`,
+          oe_tire_size: selectedSpec?.tire_size || null,
+          oe_load_rating: selectedSpec?.load_index || null,
+          oe_speed_rating: selectedSpec?.speed_index || null,
+        };
+        sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
+      } else if (plateLookupResult?.vehicle) {
+        const selectedSpec = tireSpecs && tireSpecs.length > 0 ? tireSpecs[0] : null;
+        const v = plateLookupResult.vehicle;
+        const vehicleData = {
+          year: v.year,
+          make: v.motor_make || v.make,
+          model: v.motor_model || v.model,
+          submodel: null,
+          display: v.display,
+          oe_tire_size: selectedSpec?.tire_size || null,
+          oe_load_rating: selectedSpec?.load_index || null,
+          oe_speed_rating: selectedSpec?.speed_index || null,
+        };
+        sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
+      } else {
+        sessionStorage.removeItem('jl_quote_vehicle');
+      }
+      
+      if (plateLookupResult?.customer) {
+        sessionStorage.setItem('jl_quote_customer', JSON.stringify(plateLookupResult.customer));
+      } else {
+        sessionStorage.removeItem('jl_quote_customer');
+      }
+      
+      window.location.hash = '#/quote/build';
+      return;
+    }
+    
+    // ===== STANDARD MODE =====
     if (!selections.chosen) return;
 
     // Save chosen tire as the primary (same key as before for backward compatibility)
     sessionStorage.setItem('jl_quote_tire', JSON.stringify(selections.chosen));
     sessionStorage.setItem('jl_quote_qty', qtyNeeded.toString());
+
+    // Clean up staggered keys (in case they were set previously)
+    sessionStorage.removeItem('jl_quote_tire_rear');
+    sessionStorage.removeItem('jl_quote_staggered');
 
     // Save alt tires if selected
     if (selections.good) {
@@ -1085,6 +1294,11 @@ export default function TireFinder() {
         setRearWidthOptions(FALLBACK_WIDTHS);
         setRearAspectOptions(FALLBACK_ASPECTS);
         setRearRimOptions(FALLBACK_RIMS);
+        setRearInventoryResults(null);
+        setRearInventoryLoading(false);
+        setFrontSelection(null);
+        setRearSelection(null);
+        setFrontExpanded(true);
       }
       return !prev;
     });
@@ -1126,6 +1340,86 @@ export default function TireFinder() {
     }
     
     setInventoryLoading(false);
+  };
+
+  // Search rear inventory (staggered mode)
+  const searchRearInventory = async (tireSize) => {
+    setRearInventoryLoading(true);
+    setRearInventoryResults(null);
+    
+    try {
+      const compressedSize = tireSize.replace(/[^0-9]/g, '');
+      
+      const response = await fetch(`${API_BASE}/tire-inventory-search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tire_size: compressedSize,
+          store_id: parseInt(selectedStore),
+          tire_type: rearTireType || undefined,
+          qty_needed: qtyNeeded,
+          limit: 100,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setRearInventoryResults(data.results);
+        if (data.results.length === 0) {
+          setError(`No rear tires found with ${qtyNeeded}+ in stock for size ${tireSize}`);
+        }
+      } else {
+        setError(data.error || 'Failed to search rear inventory');
+      }
+    } catch (e) {
+      setError('Failed to search rear inventory');
+    }
+    
+    setRearInventoryLoading(false);
+  };
+
+  // Staggered: handle front tire selection
+  const handleFrontSelection = (tire) => {
+    const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
+    const tireWithPrice = { ...tire, consumer_price: consumerPrice };
+    
+    // If clicking the same tire, deselect it
+    if (frontSelection?.part_number === tire.part_number) {
+      setFrontSelection(null);
+      setFrontExpanded(true);
+      setRearInventoryResults(null);
+      setRearSelection(null);
+      return;
+    }
+    
+    setFrontSelection(tireWithPrice);
+    setFrontExpanded(false);
+    
+    // Auto-search rear inventory
+    const rearSize = `${rearWidth}/${rearAspect}R${rearRim}`;
+    searchRearInventory(rearSize);
+  };
+
+  // Staggered: handle rear tire selection
+  const handleRearSelection = (tire) => {
+    const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
+    const tireWithPrice = { ...tire, consumer_price: consumerPrice };
+    
+    // If clicking the same tire, deselect it
+    if (rearSelection?.part_number === tire.part_number) {
+      setRearSelection(null);
+      return;
+    }
+    
+    setRearSelection(tireWithPrice);
+  };
+
+  // Staggered: expand front results to change selection
+  const handleExpandFront = () => {
+    setFrontExpanded(true);
+    setRearInventoryResults(null);
+    setRearSelection(null);
   };
 
   // Search by part number
@@ -1195,6 +1489,15 @@ export default function TireFinder() {
       // Tire Size Search
       const tireSize = `${selectedWidth}/${selectedAspect}R${selectedRim}`;
       console.log('Searching for tire size:', tireSize);
+      
+      if (isStaggeredMode) {
+        // Staggered: search front size only, reset staggered selections
+        setFrontSelection(null);
+        setRearSelection(null);
+        setFrontExpanded(true);
+        setRearInventoryResults(null);
+      }
+      
       await searchInventory(tireSize);
       
     } else if (partNumber.trim()) {
@@ -1907,15 +2210,218 @@ export default function TireFinder() {
           )}
 
           {/* Inventory Results */}
-          <InventoryResults 
-            results={inventoryResults} 
-            storeId={selectedStore}
-            loading={inventoryLoading}
-            qtyNeeded={qtyNeeded}
-            selections={selections}
-            onSelectionChange={handleSelectionChange}
-            onContinueToQuote={handleContinueToQuote}
-          />
+          {!isStaggeredMode ? (
+            // ===== STANDARD MODE: existing behavior =====
+            <InventoryResults 
+              results={inventoryResults} 
+              storeId={selectedStore}
+              loading={inventoryLoading}
+              qtyNeeded={qtyNeeded}
+              selections={selections}
+              onSelectionChange={handleSelectionChange}
+              onContinueToQuote={handleContinueToQuote}
+            />
+          ) : (
+            // ===== STAGGERED MODE: sequential front → rear flow =====
+            <>
+              {/* Staggered Continue Bar - shows when both tires are selected */}
+              {frontSelection && rearSelection && (
+                <div style={{
+                  position: 'sticky', top: '0', zIndex: 50,
+                  backgroundColor: '#8b1538', borderRadius: '10px',
+                  padding: '12px 20px', marginTop: '20px',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  boxShadow: '0 4px 15px rgba(139, 21, 56, 0.3)',
+                  flexWrap: 'wrap', gap: '10px',
+                }}>
+                  <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ color: 'white', fontSize: '12px', fontWeight: '600' }}>
+                      ▲ Front: {frontSelection.brand_code} {frontSelection.sales_class || frontSelection.name} — ${frontSelection.consumer_price?.toFixed(2)}
+                    </span>
+                    <span style={{ color: '#fbbf24', fontSize: '12px', fontWeight: '600' }}>
+                      ▼ Rear: {rearSelection.brand_code} {rearSelection.sales_class || rearSelection.name} — ${rearSelection.consumer_price?.toFixed(2)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleContinueToQuote}
+                    style={{
+                      backgroundColor: 'white', color: '#8b1538', border: 'none',
+                      padding: '10px 25px', borderRadius: '20px',
+                      fontSize: '12px', fontWeight: '700', letterSpacing: '1px',
+                      cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    CONTINUE TO QUOTE →
+                  </button>
+                </div>
+              )}
+
+              {/* FRONT AXLE: Collapsed summary when tire is selected and not expanded */}
+              {frontSelection && !frontExpanded && (
+                <div 
+                  onClick={handleExpandFront}
+                  style={{
+                    backgroundColor: '#f0fdf4',
+                    border: '2px solid #22c55e',
+                    borderRadius: '10px',
+                    padding: '15px 20px',
+                    marginTop: '20px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#dcfce7'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#f0fdf4'; }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#16a34a', letterSpacing: '1px', marginBottom: '4px' }}>
+                        ✓ FRONT AXLE SELECTED
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: '#333' }}>
+                        {frontSelection.brand_code} {frontSelection.sales_class || frontSelection.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
+                        {frontSelection.tire_size_formatted || `${selectedWidth}/${selectedAspect}R${selectedRim}`} • ${frontSelection.consumer_price?.toFixed(2)}/tire • Part# {frontSelection.part_number}
+                      </div>
+                    </div>
+                    <span style={{
+                      color: '#9b59b6',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      border: '1px solid #9b59b6',
+                      padding: '4px 12px',
+                      borderRadius: '12px',
+                    }}>
+                      CHANGE
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* FRONT AXLE: Full inventory results (shown when expanded or no selection yet) */}
+              {inventoryResults && inventoryResults.length > 0 && (frontExpanded || !frontSelection) && (
+                <div style={{
+                  backgroundColor: 'white',
+                  borderRadius: '10px',
+                  padding: '25px',
+                  marginTop: '20px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                }}>
+                  <h3 style={{
+                    color: '#9b59b6',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    textAlign: 'center',
+                    marginBottom: '5px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '2px',
+                  }}>
+                    ▲ Front Axle — {selectedWidth}/{selectedAspect}R{selectedRim} ({inventoryResults.length})
+                  </h3>
+                  <p style={{ textAlign: 'center', color: '#9b59b6', fontSize: '11px', marginBottom: '20px', fontStyle: 'italic' }}>
+                    Select a tire for the front axle
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {inventoryResults.map((tire, idx) => {
+                      const store = STORES.find(s => s.id === parseInt(selectedStore));
+                      const primaryWarehouse = store?.warehouse || 'fresno';
+                      const isFrontSelected = frontSelection?.part_number === tire.part_number;
+                      const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
+                      
+                      return (
+                        <StaggeredTireCard
+                          key={tire.part_number + idx}
+                          tire={tire}
+                          primaryWarehouse={primaryWarehouse}
+                          isSelected={isFrontSelected}
+                          consumerPrice={consumerPrice}
+                          onSelect={() => handleFrontSelection(tire)}
+                          axleLabel="FRONT"
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Front loading state */}
+              {inventoryLoading && isStaggeredMode && (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#9b59b6' }}>
+                  <p style={{ fontSize: '14px' }}>🔍 Searching front axle inventory...</p>
+                </div>
+              )}
+
+              {/* REAR AXLE: Results (shown after front is selected) */}
+              {rearInventoryLoading && (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#9b59b6' }}>
+                  <p style={{ fontSize: '14px' }}>🔍 Searching rear axle inventory...</p>
+                </div>
+              )}
+
+              {rearInventoryResults && rearInventoryResults.length > 0 && !frontExpanded && (
+                <div style={{
+                  backgroundColor: 'white',
+                  borderRadius: '10px',
+                  padding: '25px',
+                  marginTop: '20px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                }}>
+                  <h3 style={{
+                    color: '#9b59b6',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    textAlign: 'center',
+                    marginBottom: '5px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '2px',
+                  }}>
+                    ▼ Rear Axle — {rearWidth}/{rearAspect}R{rearRim} ({rearInventoryResults.length})
+                  </h3>
+                  <p style={{ textAlign: 'center', color: '#9b59b6', fontSize: '11px', marginBottom: '20px', fontStyle: 'italic' }}>
+                    Select a tire for the rear axle
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {rearInventoryResults.map((tire, idx) => {
+                      const store = STORES.find(s => s.id === parseInt(selectedStore));
+                      const primaryWarehouse = store?.warehouse || 'fresno';
+                      const isRearSelected = rearSelection?.part_number === tire.part_number;
+                      const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
+                      
+                      return (
+                        <StaggeredTireCard
+                          key={tire.part_number + idx}
+                          tire={tire}
+                          primaryWarehouse={primaryWarehouse}
+                          isSelected={isRearSelected}
+                          consumerPrice={consumerPrice}
+                          onSelect={() => handleRearSelection(tire)}
+                          axleLabel="REAR"
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* No rear results message */}
+              {rearInventoryResults && rearInventoryResults.length === 0 && !rearInventoryLoading && (
+                <div style={{
+                  backgroundColor: '#fff7ed',
+                  border: '1px solid #f97316',
+                  borderRadius: '10px',
+                  padding: '20px',
+                  marginTop: '20px',
+                  textAlign: 'center',
+                }}>
+                  <p style={{ color: '#c2410c', fontSize: '13px', fontWeight: '600' }}>
+                    No rear tires found with {qtyNeeded}+ in stock for size {rearWidth}/{rearAspect}R{rearRim}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
