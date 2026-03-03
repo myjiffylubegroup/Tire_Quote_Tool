@@ -629,6 +629,20 @@ export default function TireFinder() {
   const [selectedAspect, setSelectedAspect] = useState('');
   const [selectedRim, setSelectedRim] = useState('');
 
+  // ===== STAGGERED FITMENT STATE =====
+  const [isStaggeredMode, setIsStaggeredMode] = useState(false);
+  
+  // Rear axle tire size dropdowns (mirror front axle state)
+  const [rearTireType, setRearTireType] = useState('');
+  const [rearWidth, setRearWidth] = useState('');
+  const [rearAspect, setRearAspect] = useState('');
+  const [rearRim, setRearRim] = useState('');
+  
+  // Rear axle dropdown options (fetched independently)
+  const [rearWidthOptions, setRearWidthOptions] = useState(FALLBACK_WIDTHS);
+  const [rearAspectOptions, setRearAspectOptions] = useState(FALLBACK_ASPECTS);
+  const [rearRimOptions, setRearRimOptions] = useState(FALLBACK_RIMS);
+
   // Part number search
   const [partNumber, setPartNumber] = useState('');
 
@@ -940,6 +954,33 @@ export default function TireFinder() {
     fetchOptions();
   }, [selectedTireType, selectedWidth, selectedAspect]);
 
+  // Fetch rear axle dropdown options (mirrors front axle logic)
+  useEffect(() => {
+    if (!isStaggeredMode) return;
+    
+    const fetchRearOptions = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (rearTireType) params.append('tire_type', rearTireType);
+        if (rearWidth) params.append('width', rearWidth);
+        if (rearAspect) params.append('aspect', rearAspect);
+        
+        const response = await fetch(`${API_BASE}/tire-inventory-options?${params}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          if (data.options.widths?.length > 0) setRearWidthOptions(data.options.widths.map(String));
+          if (data.options.aspects?.length > 0) setRearAspectOptions(data.options.aspects.map(String));
+          if (data.options.rims?.length > 0) setRearRimOptions(data.options.rims.map(String));
+        }
+      } catch (e) {
+        console.error('Failed to fetch rear options:', e);
+      }
+    };
+    
+    fetchRearOptions();
+  }, [isStaggeredMode, rearTireType, rearWidth, rearAspect]);
+
   // Fetch makes when year changes
   useEffect(() => {
     if (!selectedYear) { setMakes([]); return; }
@@ -1011,6 +1052,42 @@ export default function TireFinder() {
     setSelectedAspect(aspect);
     setSelectedRim('');
     setInventoryResults(null);
+  };
+
+  // ===== STAGGERED: Rear axle dropdown handlers =====
+  const handleRearTireTypeChange = (type) => {
+    setRearTireType(type);
+    setRearWidth('');
+    setRearAspect('');
+    setRearRim('');
+  };
+
+  const handleRearWidthChange = (width) => {
+    setRearWidth(width);
+    setRearAspect('');
+    setRearRim('');
+  };
+
+  const handleRearAspectChange = (aspect) => {
+    setRearAspect(aspect);
+    setRearRim('');
+  };
+
+  // Reset staggered state when toggling off
+  const handleStaggeredToggle = () => {
+    setIsStaggeredMode(prev => {
+      if (prev) {
+        // Turning OFF — clear rear state
+        setRearTireType('');
+        setRearWidth('');
+        setRearAspect('');
+        setRearRim('');
+        setRearWidthOptions(FALLBACK_WIDTHS);
+        setRearAspectOptions(FALLBACK_ASPECTS);
+        setRearRimOptions(FALLBACK_RIMS);
+      }
+      return !prev;
+    });
   };
 
   // Search inventory by tire size
@@ -1128,7 +1205,8 @@ export default function TireFinder() {
 
   const canSearch = 
     (selectedYear && selectedMake && selectedModel && selectedSubmodel) ||
-    (selectedWidth && selectedAspect && selectedRim) ||
+    (!isStaggeredMode && selectedWidth && selectedAspect && selectedRim) ||
+    (isStaggeredMode && selectedWidth && selectedAspect && selectedRim && rearWidth && rearAspect && rearRim) ||
     partNumber.trim();
 
   return (
@@ -1634,6 +1712,62 @@ export default function TireFinder() {
                 </span>
               </div>
 
+              {/* Staggered Fitment Toggle */}
+              <div 
+                onClick={handleStaggeredToggle}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '12px',
+                  cursor: 'pointer',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: isStaggeredMode ? '#f3e8ff' : 'transparent',
+                  border: isStaggeredMode ? '1px solid #9b59b6' : '1px solid transparent',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  borderRadius: '3px',
+                  border: `2px solid ${isStaggeredMode ? '#9b59b6' : '#ccc'}`,
+                  backgroundColor: isStaggeredMode ? '#9b59b6' : 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  flexShrink: 0,
+                }}>
+                  {isStaggeredMode && (
+                    <span style={{ color: 'white', fontSize: '11px', fontWeight: '700' }}>✓</span>
+                  )}
+                </div>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: '600',
+                  color: isStaggeredMode ? '#9b59b6' : '#888',
+                  letterSpacing: '0.5px',
+                }}>
+                  ⚡ STAGGERED (DIFFERENT FRONT/REAR)
+                </span>
+              </div>
+
+              {/* Front axle label - only shown in staggered mode */}
+              {isStaggeredMode && (
+                <div style={{
+                  fontSize: '10px',
+                  fontWeight: '700',
+                  color: '#9b59b6',
+                  letterSpacing: '1px',
+                  marginBottom: '6px',
+                  textAlign: 'center',
+                }}>
+                  ▲ FRONT AXLE
+                </div>
+              )}
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <SelectDropdown 
                   value={selectedTireType} 
@@ -1672,6 +1806,62 @@ export default function TireFinder() {
                 <p style={{ textAlign: 'center', marginTop: '10px', color: '#9b59b6', fontWeight: '700', fontSize: '14px' }}>
                   {selectedWidth}/{selectedAspect}R{selectedRim}
                 </p>
+              )}
+
+              {/* ===== REAR AXLE DROPDOWNS (Staggered Mode Only) ===== */}
+              {isStaggeredMode && (
+                <div style={{ marginTop: '20px', paddingTop: '15px', borderTop: '2px dashed #9b59b6' }}>
+                  <div style={{
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    color: '#9b59b6',
+                    letterSpacing: '1px',
+                    marginBottom: '10px',
+                    textAlign: 'center',
+                  }}>
+                    ▼ REAR AXLE
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <SelectDropdown 
+                      value={rearTireType} 
+                      onChange={handleRearTireTypeChange} 
+                      options={tireTypeOptions.length > 0 ? tireTypeOptions.map(t => ({ value: t, label: t.replace('PASSENGER/CUV/SUV', 'PASSENGER') })) : [
+                        { value: 'PASSENGER/CUV/SUV', label: 'PASSENGER' },
+                        { value: 'LIGHT TRUCK', label: 'LIGHT TRUCK' },
+                        { value: 'TRAILER', label: 'TRAILER' },
+                      ]} 
+                      placeholder="TIRE TYPE" 
+                    />
+                    <SelectDropdown 
+                      value={rearWidth} 
+                      onChange={handleRearWidthChange} 
+                      options={rearWidthOptions} 
+                      placeholder="WIDTH" 
+                    />
+                    <SelectDropdown 
+                      value={rearAspect} 
+                      onChange={handleRearAspectChange} 
+                      options={rearAspectOptions} 
+                      placeholder="ASPECT RATIO" 
+                      disabled={!rearWidth}
+                    />
+                    <SelectDropdown 
+                      value={rearRim} 
+                      onChange={setRearRim} 
+                      options={rearRimOptions} 
+                      placeholder="RIM SIZE" 
+                      disabled={!rearAspect}
+                    />
+                  </div>
+
+                  {/* Rear Size Preview */}
+                  {rearWidth && rearAspect && rearRim && (
+                    <p style={{ textAlign: 'center', marginTop: '10px', color: '#9b59b6', fontWeight: '700', fontSize: '14px' }}>
+                      {rearWidth}/{rearAspect}R{rearRim}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>

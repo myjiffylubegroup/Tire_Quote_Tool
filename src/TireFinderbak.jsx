@@ -25,7 +25,7 @@ const NAV_ITEMS = [
 ];
 
 // Quantity options
-const QTY_OPTIONS = [1, 2, 4, 5, 6, 8];
+const QTY_OPTIONS = [1, 2, 3, 4, 5, 6];
 
 // Fallback static options if API fails
 const FALLBACK_WIDTHS = ['155','165','175','185','195','205','215','225','235','245','255','265','275','285','295','305','315','325','335'];
@@ -237,7 +237,7 @@ const SpecBox = ({ label, value, highlight }) => (
 );
 
 // Inventory Results Component
-const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => {
+const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, onSelectionChange, onContinueToQuote }) => {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px', color: '#9b59b6' }}>
@@ -252,6 +252,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => 
 
   const store = STORES.find(s => s.id === parseInt(storeId));
   const primaryWarehouse = store?.warehouse || 'fresno';
+  const hasChosen = !!selections.chosen;
 
   return (
     <div style={{
@@ -272,14 +273,62 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => 
       }}>
         Available Tires ({results.length})
       </h3>
-      <p style={{ textAlign: 'center', color: '#888', fontSize: '11px', marginBottom: '20px' }}>
+      <p style={{ textAlign: 'center', color: '#888', fontSize: '11px', marginBottom: '8px' }}>
         Primary: {primaryWarehouse === 'fresno' ? 'Fresno (4703)' : 'Santa Clarita (4708)'} • 
         Min Qty: {qtyNeeded} • Sorted: Store Stock → NEXEN → ADVANTA → Price
       </p>
+      <p style={{ textAlign: 'center', color: '#9b59b6', fontSize: '11px', marginBottom: '20px', fontStyle: 'italic' }}>
+        Select <strong>Chosen</strong> (required), plus optional <strong>Good</strong> & <strong>Best</strong> alternatives
+      </p>
+
+      {/* Floating Continue Bar */}
+      {hasChosen && (
+        <div style={{
+          position: 'sticky', top: '0', zIndex: 50,
+          backgroundColor: '#8b1538', borderRadius: '10px',
+          padding: '12px 20px', marginBottom: '15px',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          boxShadow: '0 4px 15px rgba(139, 21, 56, 0.3)',
+          flexWrap: 'wrap', gap: '10px',
+        }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ color: 'white', fontSize: '12px', fontWeight: '600' }}>
+              ⭐ {selections.chosen.brand_code} {selections.chosen.sales_class || selections.chosen.name}
+            </span>
+            {selections.good && (
+              <span style={{ color: '#bbf7d0', fontSize: '11px' }}>
+                | Good: {selections.good.brand_code} {selections.good.sales_class || selections.good.name}
+              </span>
+            )}
+            {selections.best && (
+              <span style={{ color: '#fecaca', fontSize: '11px' }}>
+                | Best: {selections.best.brand_code} {selections.best.sales_class || selections.best.name}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={onContinueToQuote}
+            style={{
+              backgroundColor: 'white', color: '#8b1538', border: 'none',
+              padding: '10px 25px', borderRadius: '20px',
+              fontSize: '12px', fontWeight: '700', letterSpacing: '1px',
+              cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+          >
+            CONTINUE TO QUOTE →
+          </button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {results.map((tire, idx) => (
-          <TireCard key={tire.part_number + idx} tire={tire} primaryWarehouse={primaryWarehouse} onQuote={onQuote} />
+          <TireCard 
+            key={tire.part_number + idx} 
+            tire={tire} 
+            primaryWarehouse={primaryWarehouse} 
+            selections={selections}
+            onSelectionChange={onSelectionChange}
+          />
         ))}
       </div>
     </div>
@@ -287,7 +336,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => 
 };
 
 // Individual Tire Card
-const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
+const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => {
   const isPriority = tire.brand_code === 'NEX' || tire.brand_code === 'ADV';
   const primaryQty = primaryWarehouse === 'fresno' ? tire.qty_fresno : tire.qty_santa_clarita;
   const secondaryQty = primaryWarehouse === 'fresno' ? tire.qty_santa_clarita : tire.qty_fresno;
@@ -296,13 +345,41 @@ const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
   // Consumer price: cost × 1.5, round up to whole dollar, minus $0.01
   const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
 
+  // Check which role this tire is assigned
+  const isGood = selections.good?.part_number === tire.part_number;
+  const isChosen = selections.chosen?.part_number === tire.part_number;
+  const isBest = selections.best?.part_number === tire.part_number;
+  const isAnySelected = isGood || isChosen || isBest;
+
+  // Handle role toggle
+  const handleRoleToggle = (role) => {
+    if (consumerPrice <= 0) return;
+    const tireWithPrice = { ...tire, consumer_price: consumerPrice };
+    
+    // If this tire already has this role, uncheck it
+    if ((role === 'good' && isGood) || (role === 'chosen' && isChosen) || (role === 'best' && isBest)) {
+      onSelectionChange(role, null);
+    } else {
+      // Clear any other role this tire currently has
+      if (isGood) onSelectionChange('good', null);
+      if (isChosen) onSelectionChange('chosen', null);
+      if (isBest) onSelectionChange('best', null);
+      // Assign the new role
+      onSelectionChange(role, tireWithPrice);
+    }
+  };
+
+  // Highlight border if selected
+  const selectedBorder = isChosen ? '3px solid #8b1538' : (isGood ? '3px solid #27ae60' : (isBest ? '3px solid #dc2626' : null));
+
   return (
     <div style={{
-      border: hasStoreStock ? '2px solid #27ae60' : (isPriority ? '2px solid #9b59b6' : '1px solid #e0e0e0'),
+      border: selectedBorder || (hasStoreStock ? '2px solid #27ae60' : (isPriority ? '2px solid #9b59b6' : '1px solid #e0e0e0')),
       borderRadius: '10px',
       padding: '15px',
-      backgroundColor: hasStoreStock ? '#f0fff4' : (isPriority ? '#faf5ff' : 'white'),
+      backgroundColor: isChosen ? '#fdf2f4' : (isGood ? '#f0fdf4' : (isBest ? '#fef2f2' : (hasStoreStock ? '#f0fff4' : (isPriority ? '#faf5ff' : 'white')))),
       position: 'relative',
+      transition: 'all 0.2s ease',
     }}>
       {/* Badges */}
       <div style={{ position: 'absolute', top: '-8px', left: '15px', display: 'flex', gap: '5px' }}>
@@ -332,10 +409,26 @@ const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
             {tire.brand_code === 'NEX' ? '⭐ NEXEN' : '💰 ADVANTA'}
           </span>
         )}
+        {/* Selection role badge */}
+        {isChosen && (
+          <span style={{ backgroundColor: '#8b1538', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
+            ⭐ CHOSEN
+          </span>
+        )}
+        {isGood && (
+          <span style={{ backgroundColor: '#27ae60', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
+            GOOD
+          </span>
+        )}
+        {isBest && (
+          <span style={{ backgroundColor: '#dc2626', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
+            BEST
+          </span>
+        )}
       </div>
 
       {/* Main Info Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginTop: hasStoreStock || isPriority ? '5px' : '0' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginTop: hasStoreStock || isPriority || isAnySelected ? '5px' : '0' }}>
         {/* Left: Name & Details */}
         <div style={{ flex: '1', minWidth: '200px' }}>
           <h4 style={{ margin: '0 0 5px 0', fontSize: '14px', fontWeight: '700', color: '#333' }}>
@@ -408,28 +501,46 @@ const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
             </div>
           </div>
 
-          {/* QUOTE Button */}
-          {consumerPrice > 0 && onQuote && (
-            <button
-              onClick={() => onQuote({ ...tire, consumer_price: consumerPrice })}
-              style={{
-                marginTop: '12px',
-                backgroundColor: '#cc0000',
-                color: 'white',
-                border: 'none',
-                padding: '8px 20px',
-                borderRadius: '20px',
-                fontSize: '11px',
-                fontWeight: '700',
-                letterSpacing: '1px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#a00000'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#cc0000'}
-            >
-              📋 QUOTE
-            </button>
+          {/* Role Selection Checkboxes */}
+          {consumerPrice > 0 && (
+            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '10px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => handleRoleToggle('good')}
+                style={{
+                  padding: '5px 10px', borderRadius: '15px', fontSize: '10px', fontWeight: '700',
+                  letterSpacing: '0.5px', cursor: 'pointer', transition: 'all 0.2s ease',
+                  border: isGood ? '2px solid #27ae60' : '2px solid #d1d5db',
+                  backgroundColor: isGood ? '#dcfce7' : 'white',
+                  color: isGood ? '#16a34a' : '#666',
+                }}
+              >
+                {isGood ? '✓ ' : ''}Good
+              </button>
+              <button
+                onClick={() => handleRoleToggle('chosen')}
+                style={{
+                  padding: '5px 10px', borderRadius: '15px', fontSize: '10px', fontWeight: '700',
+                  letterSpacing: '0.5px', cursor: 'pointer', transition: 'all 0.2s ease',
+                  border: isChosen ? '2px solid #8b1538' : '2px solid #d1d5db',
+                  backgroundColor: isChosen ? '#fde8ed' : 'white',
+                  color: isChosen ? '#8b1538' : '#666',
+                }}
+              >
+                {isChosen ? '⭐ ' : ''}Chosen
+              </button>
+              <button
+                onClick={() => handleRoleToggle('best')}
+                style={{
+                  padding: '5px 10px', borderRadius: '15px', fontSize: '10px', fontWeight: '700',
+                  letterSpacing: '0.5px', cursor: 'pointer', transition: 'all 0.2s ease',
+                  border: isBest ? '2px solid #dc2626' : '2px solid #d1d5db',
+                  backgroundColor: isBest ? '#fef2f2' : 'white',
+                  color: isBest ? '#dc2626' : '#666',
+                }}
+              >
+                {isBest ? '✓ ' : ''}Best
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -457,14 +568,39 @@ const Badge = ({ label, color }) => (
 );
 
 export default function TireFinder() {
-  // Store & Qty selection - load from localStorage if available
+  // Store & Qty selection - re-quote store takes priority, then localStorage
   const [selectedStore, setSelectedStore] = useState(() => {
     if (typeof window !== 'undefined') {
+      // Check for re-quote store override first (only if pending flag set)
+      try {
+        const pending = sessionStorage.getItem('jl_requote_pending');
+        if (pending) {
+          const rqData = sessionStorage.getItem('jl_requote_data');
+          if (rqData) {
+            const parsed = JSON.parse(rqData);
+            if (parsed.store_id) return parsed.store_id.toString();
+          }
+        }
+      } catch (e) { /* fall through */ }
       return localStorage.getItem('jl_tire_store') || '609';
     }
     return '609';
   });
-  const [qtyNeeded, setQtyNeeded] = useState(4);
+  const [qtyNeeded, setQtyNeeded] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const pending = sessionStorage.getItem('jl_requote_pending');
+        if (pending) {
+          const rqData = sessionStorage.getItem('jl_requote_data');
+          if (rqData) {
+            const parsed = JSON.parse(rqData);
+            if (parsed.quantity) return parsed.quantity;
+          }
+        }
+      } catch (e) { /* fall through */ }
+    }
+    return 4;
+  });
 
   // Save store to localStorage when it changes
   useEffect(() => {
@@ -496,12 +632,45 @@ export default function TireFinder() {
   // Part number search
   const [partNumber, setPartNumber] = useState('');
 
+  // Customer Vehicle Lookup (plate search)
+  const [plateLookupPlate, setPlateLookupPlate] = useState('');
+  const [plateLookupState, setPlateLookupState] = useState('CA');
+  const [plateLookupLoading, setPlateLookupLoading] = useState(false);
+  const [plateLookupResult, setPlateLookupResult] = useState(null);
+  const [plateLookupError, setPlateLookupError] = useState(null);
+  const [isAuthenticated] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const auth = localStorage.getItem('jl_staff_auth');
+      return !!auth;
+    }
+    return false;
+  });
+
+  const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
+
   // Results
   const [tireSpecs, setTireSpecs] = useState(null); // Now an array of specs
   const [inventoryResults, setInventoryResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Tire selection state: Good / Chosen / Best
+  const [selections, setSelections] = useState({ good: null, chosen: null, best: null });
+
+  // Re-Quote mode: data carried forward from a previous quote
+  const [reQuoteData, setReQuoteData] = useState(null);
+
+  const handleSelectionChange = (role, tire) => {
+    setSelections(prev => ({ ...prev, [role]: tire }));
+  };
+
+  // Reset selections when inventory results change
+  useEffect(() => {
+    if (!inventoryResults) {
+      setSelections({ good: null, chosen: null, best: null });
+    }
+  }, [inventoryResults]);
 
   // Handle selecting a specific tire size from multiple options
   const handleSelectTireSize = (spec) => {
@@ -511,15 +680,178 @@ export default function TireFinder() {
     searchInventory(spec.tire_size);
   };
 
-  // Handle quote button click - save tire data and navigate to quote builder
-  const handleQuote = (tire) => {
-    // Save tire data to sessionStorage for QuoteBuilder
-    sessionStorage.setItem('jl_quote_tire', JSON.stringify(tire));
+  // Check for re-quote data on mount
+  useEffect(() => {
+    const pending = sessionStorage.getItem('jl_requote_pending');
+    const saved = sessionStorage.getItem('jl_requote_data');
+    
+    if (saved && pending) {
+      // Real re-quote navigation — consume the flag
+      sessionStorage.removeItem('jl_requote_pending');
+      try {
+        const data = JSON.parse(saved);
+        setReQuoteData(data);
+        // Lock store to match original quote
+        if (data.store_id) {
+          setSelectedStore(data.store_id.toString());
+        }
+        // Pre-set quantity
+        if (data.quantity) {
+          setQtyNeeded(data.quantity);
+        }
+        // Parse tire size from vehicle OE specs or original quote tire size
+        const tireSize = data.vehicle?.oe_tire_size || data.tire_size || null;
+        if (tireSize) {
+          // Parse formats like "285/45R21", "LT275/65R20", "P225/60R18"
+          const sizeMatch = tireSize.match(/(\d{3})\/?(\d{2,3})R(\d{2})/i);
+          if (sizeMatch) {
+            setSelectedWidth(sizeMatch[1]);
+            setSelectedAspect(sizeMatch[2]);
+            setSelectedRim(sizeMatch[3]);
+            // Auto-search after a brief delay to let state settle
+            setTimeout(() => {
+              const parsedSize = `${sizeMatch[1]}/${sizeMatch[2]}R${sizeMatch[3]}`;
+              searchInventory(parsedSize);
+            }, 300);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse re-quote data:', e);
+        sessionStorage.removeItem('jl_requote_data');
+      }
+    } else if (saved && !pending) {
+      // Stale re-quote data from a previous session — clear it
+      sessionStorage.removeItem('jl_requote_data');
+    }
+  }, []);
+
+  const cancelReQuote = () => {
+    sessionStorage.removeItem('jl_requote_data');
+    sessionStorage.removeItem('jl_requote_pending');
+    setReQuoteData(null);
+  };
+
+  // Plate lookup handler
+  const handlePlateLookup = async () => {
+    if (!plateLookupPlate.trim()) return;
+    
+    setPlateLookupLoading(true);
+    setPlateLookupError(null);
+    setPlateLookupResult(null);
+    setTireSpecs(null);
+    setInventoryResults(null);
+    
+    // Clear YMM selections since we're using plate lookup
+    setSelectedYear('');
+    setSelectedMake('');
+    setSelectedModel('');
+    setSelectedSubmodel('');
+    
+    try {
+      // Step 1: Look up customer/vehicle by plate
+      const lookupRes = await fetch(
+        `${API_BASE}/customer-lookup?plate=${encodeURIComponent(plateLookupPlate)}&state=${plateLookupState}&key=${API_KEY}`
+      );
+      const lookupData = await lookupRes.json();
+      
+      if (!lookupData.success || !lookupData.found) {
+        setPlateLookupError('No vehicle found for this plate. Try searching by vehicle or tire size below.');
+        setPlateLookupLoading(false);
+        return;
+      }
+      
+      const customer = lookupData.customer;
+      
+      // Use MOTOR-mapped names for tire spec lookup (fall back to Turbo names for display)
+      const motorMake = customer.motor_make || null;
+      const motorModel = customer.motor_model || null;
+      
+      // Store the full result for display and sessionStorage
+      // Display uses Turbo names (what's on record), but include MOTOR names for lookups
+      setPlateLookupResult({
+        vehicle: {
+          year: customer.vehicle_year,
+          make: customer.vehicle_make,
+          model: customer.vehicle_model,
+          display: customer.vehicle_ymm || `${customer.vehicle_year} ${customer.vehicle_make} ${customer.vehicle_model}`,
+          motor_make: motorMake,
+          motor_model: motorModel,
+        },
+        customer: {
+          first_name: customer.first_name,
+          last_name: customer.last_name,
+          full_name: customer.full_name,
+          phone: customer.phone,
+          phone_raw: customer.phone_raw,
+          email: customer.email,
+          license_plate: customer.license_plate,
+          license_state: customer.license_state
+        }
+      });
+      
+      // Step 2: Get all tire sizes for this Y/M/M
+      // Use MOTOR names if available (they match tt_smart_vehicles), fall back to Turbo names
+      const lookupMake = motorMake || customer.vehicle_make;
+      const lookupModel = motorModel || customer.vehicle_model;
+      
+      if (customer.vehicle_year && lookupMake && lookupModel) {
+        const tiresRes = await fetch(
+          `${API_BASE}/vehicle-tires?year=${customer.vehicle_year}&make=${encodeURIComponent(lookupMake)}&model=${encodeURIComponent(lookupModel)}&key=${API_KEY}`
+        );
+        const tiresData = await tiresRes.json();
+        
+        if (tiresData.success && tiresData.data && tiresData.data.length > 0) {
+          setTireSpecs(tiresData.data);
+          
+          // If only one tire size, auto-search inventory
+          if (tiresData.data.length === 1) {
+            searchInventory(tiresData.data[0].tire_size);
+          }
+        } else {
+          setPlateLookupError(
+            `Found ${customer.vehicle_ymm || 'vehicle'} but no tire specs in our database. Select a tire size below.`
+          );
+        }
+      }
+      
+    } catch (e) {
+      console.error('Plate lookup failed:', e);
+      setPlateLookupError('Lookup failed. Please try again or search manually.');
+    }
+    
+    setPlateLookupLoading(false);
+  };
+
+  const handleClearPlateLookup = () => {
+    setPlateLookupPlate('');
+    setPlateLookupResult(null);
+    setPlateLookupError(null);
+    setTireSpecs(null);
+    setInventoryResults(null);
+  };
+
+  // Handle continue to quote - save chosen tire + alternatives to sessionStorage
+  const handleContinueToQuote = () => {
+    if (!selections.chosen) return;
+
+    // Save chosen tire as the primary (same key as before for backward compatibility)
+    sessionStorage.setItem('jl_quote_tire', JSON.stringify(selections.chosen));
     sessionStorage.setItem('jl_quote_qty', qtyNeeded.toString());
+
+    // Save alt tires if selected
+    if (selections.good) {
+      sessionStorage.setItem('jl_quote_alt_good', JSON.stringify(selections.good));
+    } else {
+      sessionStorage.removeItem('jl_quote_alt_good');
+    }
+    if (selections.best) {
+      sessionStorage.setItem('jl_quote_alt_best', JSON.stringify(selections.best));
+    } else {
+      sessionStorage.removeItem('jl_quote_alt_best');
+    }
     
     // Save vehicle data if available from YMM search
     if (selectedYear && selectedMake && selectedModel) {
-      // Get OE tire specs from tireSpecs state (the selected/displayed spec)
       const selectedSpec = tireSpecs && tireSpecs.length > 0 ? tireSpecs[0] : null;
       
       const vehicleData = {
@@ -528,14 +860,40 @@ export default function TireFinder() {
         model: selectedModel,
         submodel: selectedSubmodel || null,
         display: `${selectedYear} ${selectedMake} ${selectedModel}${selectedSubmodel ? ' ' + selectedSubmodel : ''}`,
-        // Include OE tire specs from the selected fitment
         oe_tire_size: selectedSpec?.tire_size || null,
         oe_load_rating: selectedSpec?.load_index || null,
         oe_speed_rating: selectedSpec?.speed_index || null,
       };
       sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
+    } else if (plateLookupResult?.vehicle) {
+      // Save vehicle from plate lookup — use MOTOR names if available for consistency
+      const selectedSpec = tireSpecs && tireSpecs.length > 0 ? tireSpecs[0] : null;
+      const v = plateLookupResult.vehicle;
+      const vehicleData = {
+        year: v.year,
+        make: v.motor_make || v.make,
+        model: v.motor_model || v.model,
+        submodel: null,
+        display: v.display,
+        oe_tire_size: selectedSpec?.tire_size || null,
+        oe_load_rating: selectedSpec?.load_index || null,
+        oe_speed_rating: selectedSpec?.speed_index || null,
+      };
+      sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
+    } else if (reQuoteData?.vehicle) {
+      // Carry forward vehicle from original quote if no new YMM search
+      sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(reQuoteData.vehicle));
     } else {
       sessionStorage.removeItem('jl_quote_vehicle');
+    }
+    
+    // jl_requote_data stays in sessionStorage — QuoteBuilder will read it for customer/treads/linkage
+    
+    // Save customer data if from plate lookup (QuoteBuilder will pick this up)
+    if (plateLookupResult?.customer) {
+      sessionStorage.setItem('jl_quote_customer', JSON.stringify(plateLookupResult.customer));
+    } else {
+      sessionStorage.removeItem('jl_quote_customer');
     }
     
     // Navigate to quote builder
@@ -836,6 +1194,51 @@ export default function TireFinder() {
         </div>
       </nav>
 
+      {/* Re-Quote Banner */}
+      {reQuoteData && (
+        <div style={{
+          backgroundColor: '#eff6ff',
+          borderBottom: '2px solid #3b82f6',
+          padding: '12px 20px',
+        }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                padding: '3px 10px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: '700',
+                letterSpacing: '1px',
+              }}>
+                RE-QUOTE
+              </span>
+              <span style={{ fontSize: '13px', color: '#1e40af', fontWeight: '500' }}>
+                <strong>{reQuoteData.from_quote_number}</strong> for <strong>{reQuoteData.customer?.full_name || 'Customer'}</strong>
+                {reQuoteData.vehicle?.display ? ` · ${reQuoteData.vehicle.display}` : ''}
+                {' — select new tires below'}
+              </span>
+            </div>
+            <button
+              onClick={cancelReQuote}
+              style={{
+                backgroundColor: 'transparent',
+                color: '#6b7280',
+                border: '1px solid #d1d5db',
+                padding: '4px 12px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+              }}
+            >
+              ✕ Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero Banner with road/sky background */}
       <div style={{
         background: 'linear-gradient(180deg, #a8d4e6 0%, #d4e4e8 40%, #e8ebe8 60%, #9ca3af 100%)',
@@ -873,6 +1276,148 @@ export default function TireFinder() {
           }}>
             TIRE FINDER
           </p>
+
+          {/* Customer Vehicle Lookup - Only visible when authenticated */}
+          {isAuthenticated && (
+            <div style={{
+              backgroundColor: '#f0fdf4',
+              border: '2px solid #22c55e',
+              borderRadius: '12px',
+              padding: '20px',
+              marginBottom: '25px',
+            }}>
+              <h3 style={{
+                color: '#16a34a',
+                fontSize: '13px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '2px',
+                marginBottom: '12px',
+                textAlign: 'center',
+              }}>
+                🚗 Customer Vehicle Lookup
+              </h3>
+              <p style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginBottom: '15px' }}>
+                Enter a license plate to quickly find a returning customer's vehicle
+              </p>
+              
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+                {/* State Dropdown */}
+                <select
+                  value={plateLookupState}
+                  onChange={(e) => setPlateLookupState(e.target.value)}
+                  style={{
+                    padding: '10px 12px',
+                    border: '2px solid #22c55e',
+                    borderRadius: '25px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    width: '80px',
+                    textAlign: 'center',
+                    outline: 'none',
+                  }}
+                >
+                  {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                
+                {/* Plate Input */}
+                <input
+                  type="text"
+                  value={plateLookupPlate}
+                  onChange={(e) => setPlateLookupPlate(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handlePlateLookup(); }}
+                  placeholder="LICENSE PLATE"
+                  style={{
+                    padding: '10px 15px',
+                    border: '2px solid #22c55e',
+                    borderRadius: '25px',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    letterSpacing: '2px',
+                    textTransform: 'uppercase',
+                    textAlign: 'center',
+                    width: '180px',
+                    outline: 'none',
+                  }}
+                />
+                
+                {/* Look Up Button */}
+                <button
+                  onClick={handlePlateLookup}
+                  disabled={!plateLookupPlate.trim() || plateLookupLoading}
+                  style={{
+                    backgroundColor: plateLookupPlate.trim() && !plateLookupLoading ? '#22c55e' : '#ccc',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '25px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    letterSpacing: '1px',
+                    cursor: plateLookupPlate.trim() && !plateLookupLoading ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {plateLookupLoading ? 'SEARCHING...' : 'LOOK UP'}
+                </button>
+                
+                {/* Clear button */}
+                {plateLookupResult && (
+                  <button
+                    onClick={handleClearPlateLookup}
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: '#999',
+                      border: '1px solid #ccc',
+                      padding: '10px 15px',
+                      borderRadius: '25px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    CLEAR
+                  </button>
+                )}
+              </div>
+              
+              {/* Error Message */}
+              {plateLookupError && (
+                <p style={{ color: '#d97706', textAlign: 'center', marginTop: '12px', fontSize: '12px', fontWeight: '500' }}>
+                  {plateLookupError}
+                </p>
+              )}
+              
+              {/* Success Result */}
+              {plateLookupResult && (
+                <div style={{
+                  backgroundColor: 'white',
+                  border: '1px solid #22c55e',
+                  borderRadius: '10px',
+                  padding: '15px',
+                  marginTop: '15px',
+                  textAlign: 'center',
+                }}>
+                  <div style={{ color: '#16a34a', fontWeight: '700', fontSize: '11px', letterSpacing: '1px', marginBottom: '5px' }}>
+                    ✓ VEHICLE FOUND
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
+                    {plateLookupResult.vehicle.display}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '5px' }}>
+                    Plate: {plateLookupResult.customer.license_plate} ({plateLookupResult.customer.license_state})
+                    {plateLookupResult.customer.full_name && (
+                      <span> • {plateLookupResult.customer.full_name}</span>
+                    )}
+                  </div>
+                  {tireSpecs && tireSpecs.length > 1 && (
+                    <div style={{ fontSize: '11px', color: '#9b59b6', marginTop: '8px', fontWeight: '600' }}>
+                      ↓ Select a tire size below
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Three Column Layout */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flexWrap: 'wrap' }}>
@@ -1026,6 +1571,33 @@ export default function TireFinder() {
                 </div>
               </div>
 
+              {/* Custom Quote Button */}
+              <div style={{ marginTop: '15px', width: '100%', maxWidth: '320px', textAlign: 'center' }}>
+                <button
+                  onClick={() => { window.location.hash = '#/quote/build?mode=custom'; }}
+                  style={{
+                    background: 'none',
+                    border: '2px dashed #9b59b6',
+                    borderRadius: '25px',
+                    padding: '10px 20px',
+                    color: '#9b59b6',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    letterSpacing: '1px',
+                    cursor: 'pointer',
+                    width: '100%',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f3e8ff'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  ✏️ CUSTOM QUOTE
+                </button>
+                <p style={{ fontSize: '9px', color: '#999', marginTop: '5px', letterSpacing: '0.5px' }}>
+                  Tire not in inventory? Enter details manually.
+                </p>
+              </div>
+
               {loading && (
                 <p style={{ color: '#9b59b6', marginTop: '10px', fontSize: '13px' }}>Loading...</p>
               )}
@@ -1138,7 +1710,7 @@ export default function TireFinder() {
           {tireSpecs && (
             <TireSpecsResults 
               specs={tireSpecs} 
-              vehicle={`${selectedYear} ${selectedMake} ${selectedModel} ${selectedSubmodel}`}
+              vehicle={plateLookupResult ? plateLookupResult.vehicle.display : `${selectedYear} ${selectedMake} ${selectedModel} ${selectedSubmodel}`}
               onSearchInventory={searchInventory}
               onSelectSize={handleSelectTireSize}
             />
@@ -1150,7 +1722,9 @@ export default function TireFinder() {
             storeId={selectedStore}
             loading={inventoryLoading}
             qtyNeeded={qtyNeeded}
-            onQuote={handleQuote}
+            selections={selections}
+            onSelectionChange={handleSelectionChange}
+            onContinueToQuote={handleContinueToQuote}
           />
         </div>
       </div>
