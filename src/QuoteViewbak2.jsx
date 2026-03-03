@@ -1,12 +1,8 @@
 // =============================================================================
-// QUOTE VIEW - Customer-Facing Quote Display v7
+// QUOTE VIEW - Customer-Facing Quote Display v6
 // =============================================================================
 // Route: #/quote/:code
-// Updated: 2026-03-03
-// v7 Changes:
-//   - Staggered fitment display: dual tire cards (front/rear) with axle labels
-//   - Staggered pricing breakdown: separate front/rear tire line items
-//   - Hide comparison section for staggered quotes (no alt tires)
+// Updated: 2026-02-24
 // v6 Changes:
 //   - "Prepared by" employee name section above footer
 //   - Tire replacement reasons: red override on tread tiles, callout alerts
@@ -548,8 +544,6 @@ const QuoteView = () => {
   const customer = quote.customer;
   const treadData = quote.tread_depth;
   const tire = quote.tire;
-  const isStaggered = quote.is_staggered || false;
-  const tireRear = quote.tire_rear || null;
 
   const hasVehicleInfo = quote.vehicle?.display && 
     quote.vehicle.display !== '' && 
@@ -719,118 +713,54 @@ const QuoteView = () => {
             </div>
           </div>
 
-          {/* ─── Recommended Tire Card(s) ─── */}
-          {isStaggered && tireRear ? (
-            // ===== STAGGERED: Dual tire cards =====
-            <>
-              <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-                <span style={{ backgroundColor: '#8b1538', color: 'white', padding: '3px 14px', borderRadius: '12px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
-                  ⚡ STAGGERED FITMENT — DIFFERENT FRONT / REAR TIRES
-                </span>
+          {/* ─── Recommended Tire Card ─── */}
+          <div style={{ border: '2px solid #cbd5e1', borderLeft: '5px solid #8b1538', borderRadius: '10px', padding: '18px 22px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '10px', color: '#1e293b', fontWeight: '700', letterSpacing: '1px', marginBottom: '3px' }}>
+                {tire?.brand} • {tire?.size} {tire?.load_range && tire.load_range}
               </div>
-              {/* Front Tire */}
-              <div style={{ border: '2px solid #cbd5e1', borderLeft: '5px solid #8b1538', borderRadius: '10px 10px 0 0', padding: '14px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '9px', fontWeight: '700', color: '#8b1538', letterSpacing: '1px', marginBottom: '2px' }}>▲ FRONT AXLE</div>
-                  <div style={{ fontSize: '10px', color: '#1e293b', fontWeight: '700', letterSpacing: '1px', marginBottom: '2px' }}>
-                    {tire?.brand} • {tire?.size} {tire?.load_range && tire.load_range}
-                  </div>
-                  <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>{tire?.name}</h3>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                    {tire?.speed_rating && <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '16px', fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>Speed: {tire.speed_rating}</span>}
-                    {tire?.load_rating && <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '16px', fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>Load: {tire.load_rating}</span>}
-                    {tire?.part_number && <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '16px', fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>Part# {tire.part_number}</span>}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: '700' }}>Qty: {p?.quantity_front || 2}</div>
-                  <div style={{ fontSize: '28px', fontWeight: '700', color: '#8b1538', lineHeight: 1 }}>{formatCurrency(p?.price_per_tire)}</div>
-                  <div style={{ fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>per tire</div>
-                </div>
-              </div>
-              {/* Rear Tire */}
-              <div style={{ border: '2px solid #cbd5e1', borderLeft: '5px solid #6b21a8', borderTop: '2px dashed #9b59b6', borderRadius: '0 0 10px 10px', padding: '14px 22px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '9px', fontWeight: '700', color: '#6b21a8', letterSpacing: '1px', marginBottom: '2px' }}>▼ REAR AXLE</div>
-                  <div style={{ fontSize: '10px', color: '#1e293b', fontWeight: '700', letterSpacing: '1px', marginBottom: '2px' }}>
-                    {tireRear?.brand} • {tireRear?.size} {tireRear?.load_range && tireRear.load_range}
-                  </div>
-                  <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>{tireRear?.name}</h3>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                    {tireRear?.speed_rating && <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '16px', fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>Speed: {tireRear.speed_rating}</span>}
-                    {tireRear?.load_rating && <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '16px', fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>Load: {tireRear.load_rating}</span>}
-                    {tireRear?.part_number && <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '16px', fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>Part# {tireRear.part_number}</span>}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: '700' }}>Qty: {p?.quantity_rear || 2}</div>
-                  <div style={{ fontSize: '28px', fontWeight: '700', color: '#6b21a8', lineHeight: 1 }}>{formatCurrency(p?.price_per_tire_rear)}</div>
-                  <div style={{ fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>per tire</div>
-                </div>
-              </div>
-            </>
-          ) : (
-            // ===== STANDARD: Single tire card =====
-            <div style={{ border: '2px solid #cbd5e1', borderLeft: '5px solid #8b1538', borderRadius: '10px', padding: '18px 22px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '10px', color: '#1e293b', fontWeight: '700', letterSpacing: '1px', marginBottom: '3px' }}>
-                  {tire?.brand} • {tire?.size} {tire?.load_range && tire.load_range}
-                </div>
-                <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: '#1e293b' }}>
-                  {tire?.name}
-                </h3>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {tire?.speed_rating && (
-                    <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
-                      Speed: {tire.speed_rating}
-                    </span>
-                  )}
-                  {tire?.load_rating && (
-                    <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
-                      Load: {tire.load_rating}
-                    </span>
-                  )}
-                  {tire?.snowflake && (
-                    <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
-                      ❄️ 3PMSF
-                    </span>
-                  )}
-                  {tire?.part_number && (
-                    <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
-                      Part# {tire.part_number}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: '12px', color: '#1e293b', fontWeight: '700' }}>Qty: {p?.quantity}</div>
-                <div style={{ fontSize: '32px', fontWeight: '700', color: '#8b1538', lineHeight: 1 }}>{formatCurrency(p?.price_per_tire)}</div>
-                <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: '600', marginTop: '2px' }}>per tire</div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: '#1e293b' }}>
+                {tire?.name}
+              </h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {tire?.speed_rating && (
+                  <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
+                    Speed: {tire.speed_rating}
+                  </span>
+                )}
+                {tire?.load_rating && (
+                  <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
+                    Load: {tire.load_rating}
+                  </span>
+                )}
+                {tire?.snowflake && (
+                  <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
+                    ❄️ 3PMSF
+                  </span>
+                )}
+                {tire?.part_number && (
+                  <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
+                    Part# {tire.part_number}
+                  </span>
+                )}
               </div>
             </div>
-          )}
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: '12px', color: '#1e293b', fontWeight: '700' }}>Qty: {p?.quantity}</div>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: '#8b1538', lineHeight: 1 }}>{formatCurrency(p?.price_per_tire)}</div>
+              <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: '600', marginTop: '2px' }}>per tire</div>
+            </div>
+          </div>
 
           {/* ─── Warranty + Promo Row ─── */}
           <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
-            {isStaggered ? (
-              // Staggered: show warranty for both tires
-              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 16px', fontSize: '12px', color: '#1e293b', fontWeight: '500', flex: 1, minWidth: '180px' }}>
-                <div style={{ marginBottom: '4px' }}>
-                  <strong>▲ Front:</strong> {tire?.warranty_miles ? `${parseInt(tire.warranty_miles).toLocaleString()} mi warranty` : 'No specified warranty'}
-                </div>
-                <div>
-                  <strong>▼ Rear:</strong> {tireRear?.warranty_miles ? `${parseInt(tireRear.warranty_miles).toLocaleString()} mi warranty` : 'No specified warranty'}
-                </div>
-              </div>
-            ) : (
-              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', color: '#1e293b', fontWeight: '500', flex: 1, minWidth: '180px' }}>
-                {tire?.warranty_miles ? (
-                  <span>✓ <strong>{parseInt(tire.warranty_miles).toLocaleString()} Mile</strong> Tread Life Warranty</span>
-                ) : (
-                  <em>No specified tread life warranty</em>
-                )}
-              </div>
-            )}
+            <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', color: '#1e293b', fontWeight: '500', flex: 1, minWidth: '180px' }}>
+              {tire?.warranty_miles ? (
+                <span>✓ <strong>{parseInt(tire.warranty_miles).toLocaleString()} Mile</strong> Tread Life Warranty</span>
+              ) : (
+                <em>No specified tread life warranty</em>
+              )}
+            </div>
             {p?.promo_discount > 0 && (
               <div style={{ background: '#f0fdf4', border: '2px solid #16a34a', borderRadius: '8px', padding: '10px 16px', textAlign: 'center', flex: 1, minWidth: '180px' }}>
                 <div style={{ fontSize: '13px', color: '#166534', fontWeight: '700', marginBottom: '2px' }}>
@@ -861,24 +791,10 @@ const QuoteView = () => {
               <div style={sectionLabel}>PRICING</div>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <tbody>
-                  {isStaggered ? (
-                    // Staggered: separate front/rear tire line items
-                    <>
-                      <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '6px 0', fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>▲ Front Tires ({formatCurrency(p?.price_per_tire)} × {p?.quantity_front || 2})</td>
-                        <td style={{ padding: '6px 0', textAlign: 'right', fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{formatCurrency((p?.price_per_tire || 0) * (p?.quantity_front || 2))}</td>
-                      </tr>
-                      <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '6px 0', fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>▼ Rear Tires ({formatCurrency(p?.price_per_tire_rear)} × {p?.quantity_rear || 2})</td>
-                        <td style={{ padding: '6px 0', textAlign: 'right', fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{formatCurrency(p?.subtotal_tires_rear || 0)}</td>
-                      </tr>
-                    </>
-                  ) : (
-                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '6px 0', fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>Tires ({formatCurrency(p?.price_per_tire)} × {p?.quantity})</td>
-                      <td style={{ padding: '6px 0', textAlign: 'right', fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{formatCurrency(p?.subtotal_tires)}</td>
-                    </tr>
-                  )}
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '6px 0', fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>Tires ({formatCurrency(p?.price_per_tire)} × {p?.quantity})</td>
+                    <td style={{ padding: '6px 0', textAlign: 'right', fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{formatCurrency(p?.subtotal_tires)}</td>
+                  </tr>
                   <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                     <td style={{ padding: '6px 0', fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>Mount & Balance ({formatCurrency(p?.mount_balance_per_tire)} × {p?.quantity})</td>
                     <td style={{ padding: '6px 0', textAlign: 'right', fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{formatCurrency(p?.subtotal_mount_balance)}</td>
@@ -934,11 +850,9 @@ const QuoteView = () => {
                 </tbody>
               </table>
               
-              {!isStaggered && (
               <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>
                 That's just <strong style={{ color: '#8b1538', fontSize: '17px' }}>{formatCurrency(p?.per_tire_installed)}</strong> per tire installed!
               </div>
-              )}
             </div>
           </div>
 
@@ -1098,8 +1012,8 @@ const QuoteView = () => {
             </div>
           )}
 
-          {/* ─── Compare Your Options (hidden for staggered) ─── */}
-          {!isStaggered && quote.alternatives && (
+          {/* ─── Compare Your Options ─── */}
+          {quote.alternatives && (
             <div className="comparison-card" style={{ marginBottom: '16px' }}>
               <div style={{ ...sectionLabel, textAlign: 'center' }}>COMPARE YOUR OPTIONS</div>
               <div style={{ display: 'grid', gridTemplateColumns: quote.alternatives.good && quote.alternatives.best ? '1fr 1fr 1fr' : '1fr 1fr', gap: '12px' }}>
