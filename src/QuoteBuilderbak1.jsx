@@ -797,12 +797,6 @@ export default function QuoteBuilder() {
   const [altGoodTire, setAltGoodTire] = useState(null);
   const [altBestTire, setAltBestTire] = useState(null);
 
-  // Staggered fitment (different front/rear tires)
-  const [isStaggered, setIsStaggered] = useState(false);
-  const [rearTireData, setRearTireData] = useState(null);
-  const [quantityFront, setQuantityFront] = useState(2);
-  const [quantityRear, setQuantityRear] = useState(2);
-
   // Custom quote mode - for manual tire entry
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customTire, setCustomTire] = useState({
@@ -847,21 +841,6 @@ export default function QuoteBuilder() {
       const savedBest = sessionStorage.getItem('jl_quote_alt_best');
       if (savedGood) setAltGoodTire(JSON.parse(savedGood));
       if (savedBest) setAltBestTire(JSON.parse(savedBest));
-
-      // Load staggered fitment data from TireFinder
-      const savedStaggered = sessionStorage.getItem('jl_quote_staggered');
-      const savedRearTire = sessionStorage.getItem('jl_quote_tire_rear');
-      if (savedStaggered === 'true' && savedRearTire) {
-        setIsStaggered(true);
-        setRearTireData(JSON.parse(savedRearTire));
-        // Default 2 front + 2 rear for staggered
-        setQuantityFront(2);
-        setQuantityRear(2);
-        setQuantity(4);
-        // No alt tires for staggered
-        setAltGoodTire(null);
-        setAltBestTire(null);
-      }
 
       // Auto-populate customer fields if passed from TireFinder plate lookup
       const savedCustomer = sessionStorage.getItem('jl_quote_customer');
@@ -1174,29 +1153,7 @@ export default function QuoteBuilder() {
         promo_id: selectedPromo || null,
         rebate_amount: rebateAmount ? parseFloat(rebateAmount) : 0, 
         rebate_description: rebateDescription || null,
-        // Staggered fitment
-        ...(isStaggered && rearTireData ? {
-          is_staggered: true,
-          quantity_front: quantityFront,
-          quantity_rear: quantityRear,
-          tire_rear: {
-            part_number: rearTireData.part_number,
-            brand: rearTireData.sales_class?.split(' ')[0] || rearTireData.brand || rearTireData.brand_code,
-            name: rearTireData.sales_class || rearTireData.name,
-            size: rearTireData.tire_size || rearTireData.size,
-            type: rearTireData.tire_type,
-            warranty_miles: rearTireData.warranty ? parseInt(rearTireData.warranty) : null,
-            load_rating: rearTireData.load_rating,
-            speed_rating: rearTireData.speed_rating,
-            load_range: rearTireData.load_range,
-            snowflake: rearTireData.snowflake || false,
-            run_flat: rearTireData.run_flat || false,
-            price: rearTireData.consumer_price || rearTireData.price,
-            cost: rearTireData.cost || null,
-            fet: rearTireData.fet ? parseFloat(rearTireData.fet) : 0
-          }
-        } : {}),
-        // Alternative tire options (not used for staggered)
+        // Alternative tire options
         alt_good: altGoodTire ? {
           part_number: altGoodTire.part_number,
           brand: altGoodTire.sales_class?.split(' ')[0] || altGoodTire.brand || altGoodTire.brand_code,
@@ -1230,8 +1187,6 @@ export default function QuoteBuilder() {
         sessionStorage.removeItem('jl_quote_alt_best');
         sessionStorage.removeItem('jl_requote_data');
         sessionStorage.removeItem('jl_requote_pending');
-        sessionStorage.removeItem('jl_quote_staggered');
-        sessionStorage.removeItem('jl_quote_tire_rear');
         window.location.hash = `#/quote/${data.quote.short_code}`;
       } else { 
         setError(data.error || 'Failed to generate quote'); 
@@ -1459,76 +1414,33 @@ export default function QuoteBuilder() {
           </p>
 
           {/* Selected Tire Banner */}
-          {isStaggered && rearTireData ? (
-            // ===== STAGGERED: Dual tire banners =====
-            <div style={{ marginBottom: '30px' }}>
-              <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-                <span style={{ 
-                  backgroundColor: '#9b59b6', color: 'white', padding: '3px 14px', 
-                  borderRadius: '12px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' 
-                }}>
-                  ⚡ STAGGERED FITMENT — DIFFERENT FRONT / REAR
-                </span>
+          <div style={{ backgroundColor: '#9b59b6', borderRadius: '10px', padding: '20px 25px', color: 'white', marginBottom: '30px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+              <div>
+                {tireData._isCustom && (
+                  <span style={{ 
+                    backgroundColor: 'rgba(255,255,255,0.25)', 
+                    padding: '3px 10px', 
+                    borderRadius: '12px', 
+                    fontSize: '9px', 
+                    fontWeight: '700', 
+                    letterSpacing: '1px',
+                    marginBottom: '8px',
+                    display: 'inline-block'
+                  }}>
+                    ✏️ CUSTOM ENTRY
+                  </span>
+                )}
+                <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: '700' }}>{tireData.brand_code || tireData.brand} {tireData.tire_size || tireData.size} {tireData.name || tireData.sales_class}</h3>
+                <p style={{ margin: '0', opacity: 0.9, fontSize: '13px' }}>Part#: {tireData.part_number}</p>
+                {tireData.warranty && <p style={{ margin: '5px 0 0 0', opacity: 0.8, fontSize: '12px' }}>✓ {parseInt(tireData.warranty).toLocaleString()} Mile Warranty</p>}
               </div>
-              {/* Front Tire */}
-              <div style={{ backgroundColor: '#9b59b6', borderRadius: '10px 10px 0 0', padding: '15px 25px', color: 'white' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                  <div>
-                    <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '1px', opacity: 0.8, marginBottom: '3px' }}>▲ FRONT AXLE</div>
-                    <h3 style={{ margin: '0 0 3px 0', fontSize: '16px', fontWeight: '700' }}>{tireData.brand_code || tireData.brand} {tireData.tire_size || tireData.size} {tireData.name || tireData.sales_class}</h3>
-                    <p style={{ margin: '0', opacity: 0.8, fontSize: '11px' }}>Part#: {tireData.part_number}{tireData.warranty ? ` • ${parseInt(tireData.warranty).toLocaleString()} mi warranty` : ''}</p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '24px', fontWeight: '700' }}>{formatCurrency(consumerPrice)}</div>
-                    <div style={{ fontSize: '10px', opacity: 0.8 }}>per tire × {quantityFront}</div>
-                  </div>
-                </div>
-              </div>
-              {/* Rear Tire */}
-              <div style={{ backgroundColor: '#7b2d8e', borderRadius: '0 0 10px 10px', padding: '15px 25px', color: 'white', borderTop: '2px dashed rgba(255,255,255,0.3)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                  <div>
-                    <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '1px', opacity: 0.8, marginBottom: '3px' }}>▼ REAR AXLE</div>
-                    <h3 style={{ margin: '0 0 3px 0', fontSize: '16px', fontWeight: '700' }}>{rearTireData.brand_code || rearTireData.brand} {rearTireData.tire_size || rearTireData.size} {rearTireData.name || rearTireData.sales_class}</h3>
-                    <p style={{ margin: '0', opacity: 0.8, fontSize: '11px' }}>Part#: {rearTireData.part_number}{rearTireData.warranty ? ` • ${parseInt(rearTireData.warranty).toLocaleString()} mi warranty` : ''}</p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '24px', fontWeight: '700' }}>{formatCurrency(rearTireData.consumer_price || rearTireData.price || 0)}</div>
-                    <div style={{ fontSize: '10px', opacity: 0.8 }}>per tire × {quantityRear}</div>
-                  </div>
-                </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '28px', fontWeight: '700' }}>{formatCurrency(consumerPrice)}</div>
+                <div style={{ fontSize: '11px', opacity: 0.8 }}>per tire</div>
               </div>
             </div>
-          ) : (
-            // ===== STANDARD: Single tire banner =====
-            <div style={{ backgroundColor: '#9b59b6', borderRadius: '10px', padding: '20px 25px', color: 'white', marginBottom: '30px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-                <div>
-                  {tireData._isCustom && (
-                    <span style={{ 
-                      backgroundColor: 'rgba(255,255,255,0.25)', 
-                      padding: '3px 10px', 
-                      borderRadius: '12px', 
-                      fontSize: '9px', 
-                      fontWeight: '700', 
-                      letterSpacing: '1px',
-                      marginBottom: '8px',
-                      display: 'inline-block'
-                    }}>
-                      ✏️ CUSTOM ENTRY
-                    </span>
-                  )}
-                  <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: '700' }}>{tireData.brand_code || tireData.brand} {tireData.tire_size || tireData.size} {tireData.name || tireData.sales_class}</h3>
-                  <p style={{ margin: '0', opacity: 0.9, fontSize: '13px' }}>Part#: {tireData.part_number}</p>
-                  {tireData.warranty && <p style={{ margin: '5px 0 0 0', opacity: 0.8, fontSize: '12px' }}>✓ {parseInt(tireData.warranty).toLocaleString()} Mile Warranty</p>}
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '28px', fontWeight: '700' }}>{formatCurrency(consumerPrice)}</div>
-                  <div style={{ fontSize: '11px', opacity: 0.8 }}>per tire</div>
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
 
           {/* Vehicle Info (if available) - NO EMOJI */}
           {vehicleData?.display && (
@@ -1658,30 +1570,10 @@ export default function QuoteBuilder() {
                   <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>QUOTE OPTIONS</span>
                 </div>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  {isStaggered ? (
-                    // Staggered: separate front/rear qty
-                    <>
-                      <div style={{ width: '90px' }}>
-                        <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>▲ FRONT QTY</label>
-                        <SelectDropdown value={quantityFront} onChange={(v) => { const f = parseInt(v); setQuantityFront(f); setQuantity(f + quantityRear); }} options={[1, 2, 3]} placeholder="2" />
-                      </div>
-                      <div style={{ width: '90px' }}>
-                        <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>▼ REAR QTY</label>
-                        <SelectDropdown value={quantityRear} onChange={(v) => { const r = parseInt(v); setQuantityRear(r); setQuantity(quantityFront + r); }} options={[1, 2, 3]} placeholder="2" />
-                      </div>
-                      <div style={{ width: '55px' }}>
-                        <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>TOTAL</label>
-                        <div style={{ padding: '10px 0', textAlign: 'center', fontSize: '14px', fontWeight: '700', color: '#9b59b6' }}>
-                          {quantity}
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div style={{ width: '70px' }}>
-                      <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>QTY</label>
-                      <SelectDropdown value={quantity} onChange={(v) => setQuantity(parseInt(v))} options={QTY_OPTIONS} placeholder="4" />
-                    </div>
-                  )}
+                  <div style={{ width: '70px' }}>
+                    <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>QTY</label>
+                    <SelectDropdown value={quantity} onChange={(v) => setQuantity(parseInt(v))} options={QTY_OPTIONS} placeholder="4" />
+                  </div>
                   <div style={{ flex: 1, minWidth: '120px' }}>
                     <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>PROMOTION</label>
                     <SelectDropdown 
@@ -1704,8 +1596,8 @@ export default function QuoteBuilder() {
                 </div>
               </div>
 
-              {/* Alternative Tire Options (from TireFinder) — hidden for staggered */}
-              {!isStaggered && (altGoodTire || altBestTire) && (
+              {/* Alternative Tire Options (from TireFinder) */}
+              {(altGoodTire || altBestTire) && (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
                     <div style={{ flex: 1, height: '1px', backgroundColor: '#9b59b6', marginRight: '8px', position: 'relative' }}>
