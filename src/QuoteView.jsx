@@ -1,8 +1,12 @@
 // =============================================================================
-// QUOTE VIEW - Customer-Facing Quote Display v7
+// QUOTE VIEW - Customer-Facing Quote Display v8
 // =============================================================================
 // Route: #/quote/:code
 // Updated: 2026-03-03
+// v8 Changes:
+//   - Tire replacement reasons editable in edit mode (16 condition codes)
+//   - ⚠️ Issue toggle per tire with multi-select dropdown
+//   - Reasons sent to update-quote on save
 // v7 Changes:
 //   - Staggered fitment display: dual tire cards (front/rear) with axle labels
 //   - Staggered pricing breakdown: separate front/rear tire line items
@@ -59,6 +63,26 @@ const formatDate = (dateStr) => {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
   });
 };
+
+// Tire replacement reason options (must match generate-quote/update-quote codes)
+const REPLACEMENT_REASON_OPTIONS = [
+  { code: 'sidewall_damage', label: 'Sidewall Damage / Cracking' },
+  { code: 'sidewall_bulge', label: 'Sidewall Bulge / Delamination' },
+  { code: 'belt_separation', label: 'Belt Separation / Cord Exposure' },
+  { code: 'bead_damage', label: 'Bead Damage' },
+  { code: 'tread_damage', label: 'Tread Damage (Chunks, Cuts, Gouging)' },
+  { code: 'uneven_wear', label: 'Uneven Wear (Cupping, Feathering, Edge Wear)' },
+  { code: 'flat_spot', label: 'Flat Spot / Vibration' },
+  { code: 'unrepairable_puncture', label: 'Puncture in Non-Repairable Zone' },
+  { code: 'improper_repair', label: 'Prior Improper / Failed Repair' },
+  { code: 'dry_rot', label: 'Dry Rot / Weather Cracking' },
+  { code: 'age', label: 'Age (8+ Years)' },
+  { code: 'driven_flat', label: 'Driven Flat — Internal Damage' },
+  { code: 'road_hazard_impact', label: 'Road Hazard / Curb Impact Damage' },
+  { code: 'mismatched', label: 'Mismatched Tires on Same Axle' },
+  { code: 'axle_match', label: 'Axle Match — Other Tire Being Replaced' },
+  { code: 'awd_match', label: 'AWD/4WD — All Four Must Match' },
+];
 
 // ─── Tread Tile Component ───
 const TreadTile = ({ label, data }) => {
@@ -228,6 +252,9 @@ const QuoteView = () => {
     rf: { inside: '', middle: '', outside: '' },
     lr: { inside: '', middle: '', outside: '' },
     rr: { inside: '', middle: '', outside: '' },
+  });
+  const [editReasons, setEditReasons] = useState({
+    lf: [], rf: [], lr: [], rr: [],
   });
 
   const getShortCode = () => {
@@ -432,6 +459,14 @@ const QuoteView = () => {
         rr: { inside: t.rear_right?.inside?.toString() || '', middle: t.rear_right?.middle?.toString() || '', outside: t.rear_right?.outside?.toString() || '' },
       });
     }
+    // Load existing replacement reasons
+    const reasons = quote.tire_replacement_reasons || {};
+    setEditReasons({
+      lf: Array.isArray(reasons.lf) ? reasons.lf : [],
+      rf: Array.isArray(reasons.rf) ? reasons.rf : [],
+      lr: Array.isArray(reasons.lr) ? reasons.lr : [],
+      rr: Array.isArray(reasons.rr) ? reasons.rr : [],
+    });
     setEditMode(true);
   };
 
@@ -468,6 +503,16 @@ const QuoteView = () => {
             license_state: editCustomer.license_state || null,
           },
           tread_depths: treadData,
+          tire_replacement_reasons: (() => {
+            const clean = {
+              lf: editReasons.lf.filter(r => r !== '_pending'),
+              rf: editReasons.rf.filter(r => r !== '_pending'),
+              lr: editReasons.lr.filter(r => r !== '_pending'),
+              rr: editReasons.rr.filter(r => r !== '_pending'),
+            };
+            return (clean.lf.length || clean.rf.length || clean.lr.length || clean.rr.length)
+              ? clean : null;
+          })(),
           employee: { user_name: quote.created_by?.username }
         })
       });
@@ -1062,9 +1107,9 @@ const QuoteView = () => {
                 Tire, vehicle, and store cannot be changed. Use "Re-Quote" to change those.
               </p>
 
-              {/* Tread Depth Editing */}
+              {/* Tread Depth Editing + Replacement Reasons */}
               <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #e9d5f5' }}>
-                <label style={{ fontSize: '9px', color: '#1e293b', fontWeight: '700', display: 'block', marginBottom: '8px', textAlign: 'center' }}>TREAD DEPTHS (32nds)</label>
+                <label style={{ fontSize: '9px', color: '#1e293b', fontWeight: '700', display: 'block', marginBottom: '8px', textAlign: 'center' }}>TREAD DEPTHS (32nds) & TIRE CONDITIONS</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   {[
                     { key: 'lf', label: 'Driver Front' },
@@ -1090,6 +1135,61 @@ const QuoteView = () => {
                         <span style={{ fontSize: '7px', color: '#1e293b' }}>IN</span>
                         <span style={{ fontSize: '7px', color: '#1e293b' }}>MID</span>
                         <span style={{ fontSize: '7px', color: '#1e293b' }}>OUT</span>
+                      </div>
+                      {/* Replacement Reasons Toggle */}
+                      <div style={{ marginTop: '6px', borderTop: '1px solid #e0d0f0', paddingTop: '5px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '10px', color: editReasons[key].length > 0 ? '#dc2626' : '#1e293b', fontWeight: '600' }}>
+                          <input type="checkbox"
+                            checked={editReasons[key].length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditReasons(prev => ({ ...prev, [key]: ['_pending'] }));
+                              } else {
+                                setEditReasons(prev => ({ ...prev, [key]: [] }));
+                              }
+                            }}
+                            style={{ width: '14px', height: '14px', accentColor: '#dc2626' }}
+                          />
+                          ⚠️ Issues
+                        </label>
+                        {editReasons[key].length > 0 && (
+                          <div style={{ marginTop: '4px', maxHeight: '120px', overflowY: 'auto', fontSize: '9px' }}>
+                            {REPLACEMENT_REASON_OPTIONS.map(opt => (
+                              <label key={opt.code} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 0', cursor: 'pointer', color: '#1e293b' }}>
+                                <input type="checkbox"
+                                  checked={editReasons[key].includes(opt.code)}
+                                  onChange={(e) => {
+                                    setEditReasons(prev => {
+                                      const current = prev[key].filter(r => r !== '_pending');
+                                      return {
+                                        ...prev,
+                                        [key]: e.target.checked
+                                          ? [...current, opt.code]
+                                          : current.filter(r => r !== opt.code)
+                                      };
+                                    });
+                                  }}
+                                  style={{ width: '12px', height: '12px', accentColor: '#dc2626', flexShrink: 0 }}
+                                />
+                                {opt.label}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        {editReasons[key].filter(r => r !== '_pending').length > 0 && (
+                          <div style={{ marginTop: '3px', display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+                            {editReasons[key].filter(r => r !== '_pending').map(code => {
+                              const opt = REPLACEMENT_REASON_OPTIONS.find(o => o.code === code);
+                              return (
+                                <span key={code} style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1px 5px', fontSize: '8px', color: '#dc2626', fontWeight: '600' }}>
+                                  {(opt?.label || code).split('/')[0].split('(')[0].trim()}
+                                  <span onClick={() => setEditReasons(prev => ({ ...prev, [key]: prev[key].filter(r => r !== code) }))}
+                                    style={{ marginLeft: '3px', cursor: 'pointer', fontWeight: '700' }}>×</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
