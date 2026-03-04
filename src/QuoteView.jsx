@@ -1,8 +1,14 @@
 // =============================================================================
-// QUOTE VIEW - Customer-Facing Quote Display v8
+// QUOTE VIEW - Customer-Facing Quote Display v9
 // =============================================================================
 // Route: #/quote/:code
-// Updated: 2026-03-03
+// Updated: 2026-03-04
+// v9 Changes:
+//   - Removed standalone tire card when comparison section exists (saves print space)
+//   - Moved part#, speed, load to Chosen comparison card
+//   - Compact fallback tire card when no comparison (no alternatives)
+//   - Warranty disclaimer always shows (not gated on warranty_miles)
+//   - Removed standalone warranty row (redundant with comparison)
 // v8 Changes:
 //   - Tire replacement reasons editable in edit mode (16 condition codes)
 //   - ⚠️ Issue toggle per tire with multi-select dropdown
@@ -765,6 +771,9 @@ const QuoteView = () => {
           </div>
 
           {/* ─── Recommended Tire Card(s) ─── */}
+          {/* Staggered: always show dual cards (no comparison section) */}
+          {/* Standard with alternatives: skip — tire info moves to comparison Chosen card */}
+          {/* Standard without alternatives: show compact card */}
           {isStaggered && tireRear ? (
             // ===== STAGGERED: Dual tire cards =====
             <>
@@ -814,79 +823,40 @@ const QuoteView = () => {
                 </div>
               </div>
             </>
-          ) : (
-            // ===== STANDARD: Single tire card =====
-            <div style={{ border: '2px solid #cbd5e1', borderLeft: '5px solid #8b1538', borderRadius: '10px', padding: '18px 22px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
+          ) : !isStaggered && !quote.alternatives ? (
+            // ===== STANDARD, NO ALTERNATIVES: Compact standalone card =====
+            <div style={{ border: '2px solid #cbd5e1', borderLeft: '5px solid #8b1538', borderRadius: '10px', padding: '14px 20px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '10px', color: '#1e293b', fontWeight: '700', letterSpacing: '1px', marginBottom: '3px' }}>
+                <div style={{ fontSize: '10px', color: '#1e293b', fontWeight: '700', letterSpacing: '1px', marginBottom: '2px' }}>
                   {tire?.brand} • {tire?.size} {tire?.load_range && tire.load_range}
                 </div>
-                <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: '#1e293b' }}>
-                  {tire?.name}
-                </h3>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {tire?.speed_rating && (
-                    <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
-                      Speed: {tire.speed_rating}
-                    </span>
-                  )}
-                  {tire?.load_rating && (
-                    <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
-                      Load: {tire.load_rating}
-                    </span>
-                  )}
-                  {tire?.snowflake && (
-                    <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
-                      ❄️ 3PMSF
-                    </span>
-                  )}
-                  {tire?.part_number && (
-                    <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', color: '#1e293b', fontWeight: '600' }}>
-                      Part# {tire.part_number}
-                    </span>
-                  )}
+                <div style={{ fontSize: '17px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>{tire?.name}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                  {tire?.speed_rating && <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '16px', fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>Speed: {tire.speed_rating}</span>}
+                  {tire?.load_rating && <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '16px', fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>Load: {tire.load_rating}</span>}
+                  {tire?.part_number && <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '16px', fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>Part# {tire.part_number}</span>}
+                  {tire?.warranty_miles && <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '16px', fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>✓ {parseInt(tire.warranty_miles).toLocaleString()} mi</span>}
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: '12px', color: '#1e293b', fontWeight: '700' }}>Qty: {p?.quantity}</div>
-                <div style={{ fontSize: '32px', fontWeight: '700', color: '#8b1538', lineHeight: 1 }}>{formatCurrency(p?.price_per_tire)}</div>
-                <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: '600', marginTop: '2px' }}>per tire</div>
+                <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: '700' }}>Qty: {p?.quantity}</div>
+                <div style={{ fontSize: '28px', fontWeight: '700', color: '#8b1538', lineHeight: 1 }}>{formatCurrency(p?.price_per_tire)}</div>
+                <div style={{ fontSize: '10px', color: '#1e293b', fontWeight: '600' }}>per tire</div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* ─── Promo Badge (if applicable) ─── */}
+          {p?.promo_discount > 0 && (
+            <div style={{ background: '#f0fdf4', border: '2px solid #16a34a', borderRadius: '8px', padding: '10px 16px', textAlign: 'center', marginBottom: '12px' }}>
+              <div style={{ fontSize: '13px', color: '#166534', fontWeight: '700', marginBottom: '2px' }}>
+                {p?.promo_name || 'Promotion Applied'}
+              </div>
+              <div style={{ fontSize: '20px', fontWeight: '700', color: '#16a34a' }}>
+                You're saving {formatCurrency(p?.promo_discount)}
               </div>
             </div>
           )}
-
-          {/* ─── Warranty + Promo Row ─── */}
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
-            {isStaggered ? (
-              // Staggered: show warranty for both tires
-              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 16px', fontSize: '12px', color: '#1e293b', fontWeight: '500', flex: 1, minWidth: '180px' }}>
-                <div style={{ marginBottom: '4px' }}>
-                  <strong>▲ Front:</strong> {tire?.warranty_miles ? `${parseInt(tire.warranty_miles).toLocaleString()} mi warranty` : 'No specified warranty'}
-                </div>
-                <div>
-                  <strong>▼ Rear:</strong> {tireRear?.warranty_miles ? `${parseInt(tireRear.warranty_miles).toLocaleString()} mi warranty` : 'No specified warranty'}
-                </div>
-              </div>
-            ) : (
-              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', color: '#1e293b', fontWeight: '500', flex: 1, minWidth: '180px' }}>
-                {tire?.warranty_miles ? (
-                  <span>✓ <strong>{parseInt(tire.warranty_miles).toLocaleString()} Mile</strong> Tread Life Warranty</span>
-                ) : (
-                  <em>No specified tread life warranty</em>
-                )}
-              </div>
-            )}
-            {p?.promo_discount > 0 && (
-              <div style={{ background: '#f0fdf4', border: '2px solid #16a34a', borderRadius: '8px', padding: '10px 16px', textAlign: 'center', flex: 1, minWidth: '180px' }}>
-                <div style={{ fontSize: '13px', color: '#166534', fontWeight: '700', marginBottom: '2px' }}>
-                  {p?.promo_name || 'Promotion Applied'}
-                </div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#16a34a' }}>
-                  You're saving {formatCurrency(p?.promo_discount)}
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* ─── Tread + Pricing Side by Side ─── */}
           <div className="tread-pricing-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '20px' }}>
@@ -1227,11 +1197,15 @@ const QuoteView = () => {
                 {/* Recommended */}
                 <div style={{ border: '3px solid #8b1538', borderRadius: '10px', padding: '16px 12px', textAlign: 'center', backgroundColor: '#fdf2f8', position: 'relative' }}>
                   <div style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#8b1538', color: 'white', padding: '2px 14px', borderRadius: '10px', fontSize: '9px', fontWeight: '700', letterSpacing: '1px', whiteSpace: 'nowrap' }}>⭐ RECOMMENDED</div>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#8b1538', letterSpacing: '1.5px', marginBottom: '8px', marginTop: '4px' }}>CHOSEN</div>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '2px' }}>{tire?.brand}</div>
-                  <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: '500', marginBottom: '6px' }}>{tire?.name}</div>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#8b1538', letterSpacing: '1.5px', marginBottom: '4px', marginTop: '4px' }}>CHOSEN</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '1px' }}>{tire?.brand}</div>
+                  <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: '500', marginBottom: '3px' }}>{tire?.name}</div>
+                  <div style={{ fontSize: '9.5px', color: '#666', marginBottom: '4px' }}>
+                    {tire?.size}{tire?.speed_rating ? ` • Speed: ${tire.speed_rating}` : ''}{tire?.load_rating ? ` • Load: ${tire.load_rating}` : ''}
+                    {tire?.part_number ? ` • Part# ${tire.part_number}` : ''}
+                  </div>
                   <div style={{ fontSize: '20px', fontWeight: '700', color: '#8b1538', marginBottom: '2px' }}>
-                    {formatCurrency(p?.price_per_tire)}<span style={{ fontSize: '10px', fontWeight: '500', color: '#1e293b' }}>/tire</span>
+                    {formatCurrency(p?.price_per_tire)}<span style={{ fontSize: '10px', fontWeight: '500', color: '#1e293b' }}>/tire × {p?.quantity}</span>
                   </div>
                   {tire?.warranty_miles ? (
                     <div style={{ fontSize: '10.5px', color: '#1e293b', fontWeight: '600', marginBottom: '8px' }}>
@@ -1270,8 +1244,7 @@ const QuoteView = () => {
             </div>
           )}
 
-          {/* Warranty Disclaimer */}
-          {tire?.warranty_miles && (
+          {/* Warranty Disclaimer - always shown */}
             <div className="warranty-disclaimer" style={{
               backgroundColor: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '6px',
               padding: '10px 14px', marginBottom: '14px', fontSize: '10.5px', color: '#1e293b', lineHeight: '1.5', fontWeight: '500'
@@ -1281,7 +1254,6 @@ const QuoteView = () => {
               Manufacturer's require proof of tire rotations based on the vehicle OEM's schedule and correct vehicle alignment. 
               Road hazards, abuse and neglect are not covered.
             </div>
-          )}
 
           {/* Call to Action */}
           {quote.created_by?.display_name && (
