@@ -948,6 +948,38 @@ const QuoteView = () => {
                   )}
                 </tbody>
               </table>
+
+              {/* Rebate submission callout — shown only when a rebate is on the quote */}
+              {p?.rebate_amount > 0 && (
+                <div style={{
+                  marginTop: '12px',
+                  backgroundColor: '#f0fdf4',
+                  border: '1.5px solid #86efac',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <div style={{ fontSize: '20px', lineHeight: 1 }}>🏷️</div>
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#166534', marginBottom: '2px' }}>
+                      Submit Your Mail-In Rebate
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#15803d' }}>
+                      Get your {formatCurrency(p?.rebate_amount)} back after purchase.{' '}
+                      <a
+                        href="https://jiffy.win/42c9ehG"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#15803d', fontWeight: '700', textDecoration: 'underline' }}
+                      >
+                        jiffy.win/42c9ehG
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {!isStaggered && (
               <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>

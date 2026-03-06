@@ -27,8 +27,7 @@ const PROMOS = [
   { id: 'SENIOR_12', name: 'Senior 55+ (12%)' },
 ];
 
-// Rebate options - empty for now
-const REBATES = [];
+// Nexen rebate config is loaded from quote_config at runtime (key: nexen_rebate_2026)
 
 // Navigation items - consistent across all pages
 const NAV_ITEMS = [
@@ -797,9 +796,10 @@ export default function QuoteBuilder() {
 
   const [quantity, setQuantity] = useState(4);
   const [selectedPromo, setSelectedPromo] = useState('');
-  const [selectedRebate, setSelectedRebate] = useState('');
   const [rebateAmount, setRebateAmount] = useState('');
   const [rebateDescription, setRebateDescription] = useState('');
+  const [rebateDismissed, setRebateDismissed] = useState(false); // CSA manually cleared rebate
+  const [nexenRebateConfig, setNexenRebateConfig] = useState(null); // Loaded from quote_config
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
 
@@ -848,7 +848,7 @@ export default function QuoteBuilder() {
       const savedTire = sessionStorage.getItem('jl_quote_tire');
       const savedVehicle = sessionStorage.getItem('jl_quote_vehicle');
       const savedQty = sessionStorage.getItem('jl_quote_qty');
-      if (savedTire) setTireData(JSON.parse(savedTire));
+      if (savedTire) { setTireData(JSON.parse(savedTire)); setRebateDismissed(false); }
       if (savedVehicle) setVehicleData(JSON.parse(savedVehicle));
       if (savedQty) setQuantity(parseInt(savedQty));
 
@@ -941,6 +941,88 @@ export default function QuoteBuilder() {
     };
     fetchEmployees();
   }, [selectedStore]);
+
+  // Fetch Nexen rebate config from quote_config
+  useEffect(() => {
+    const fetchRebateConfig = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/generate-quote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: API_KEY, config_only: true })
+        });
+        // generate-quote doesn't support config_only — fetch quote_config directly via a
+        // lightweight approach: we read it from the active_promos endpoint pattern.
+        // Instead, use a direct Supabase REST call to read quote_config.
+        const configResponse = await fetch(
+          `https://vzsitlasfekjkvsaukmh.supabase.co/rest/v1/quote_config?config_key=eq.nexen_rebate_2026&select=config_value`,
+          {
+            headers: {
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6c2l0bGFzZmVramt2c2F1a21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc3NjI4MDgsImV4cCI6MjA1MzMzODgwOH0.iSHfBZfGDHKzpgGgFpHcs5C3Gx3YfqkMZFSBHuCFpBw',
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        const configData = await configResponse.json();
+        if (configData && configData[0]?.config_value) {
+          setNexenRebateConfig(configData[0].config_value);
+        }
+      } catch (e) {
+        console.error('Failed to fetch Nexen rebate config:', e);
+      }
+    };
+    fetchRebateConfig();
+  }, []);
+
+  // Auto-detect and apply Nexen rebate when tire or quantity changes
+  useEffect(() => {
+    // If CSA manually dismissed, don't re-apply
+    if (rebateDismissed) return;
+
+    // Need config loaded and a tire selected
+    if (!nexenRebateConfig || !tireData) {
+      setRebateAmount('');
+      setRebateDescription('');
+      return;
+    }
+
+    const cfg = nexenRebateConfig;
+
+    // Check date window
+    const today = new Date();
+    const start = new Date(cfg.start_date);
+    const end = new Date(cfg.end_date);
+    // end date is end of that day
+    end.setHours(23, 59, 59, 999);
+    if (today < start || today > end) {
+      setRebateAmount('');
+      setRebateDescription('');
+      return;
+    }
+
+    // Check minimum quantity
+    if (quantity < cfg.min_qty) {
+      setRebateAmount('');
+      setRebateDescription('');
+      return;
+    }
+
+    // Get the tire's sales_class — this is the field we match against
+    const tireSalesClass = tireData.sales_class || '';
+
+    // Find matching tier by exact sales_class match
+    const matchedTier = cfg.tiers.find(tier =>
+      tier.sales_classes.includes(tireSalesClass)
+    );
+
+    if (matchedTier) {
+      setRebateAmount(matchedTier.amount.toString());
+      setRebateDescription(matchedTier.description);
+    } else {
+      setRebateAmount('');
+      setRebateDescription('');
+    }
+  }, [tireData, quantity, nexenRebateConfig, rebateDismissed]);
 
   // Re-Quote pre-fill: detect jl_requote_data in sessionStorage (set by QuoteLookup or QuoteView)
   useEffect(() => {
@@ -1077,6 +1159,7 @@ export default function QuoteBuilder() {
       return;
     }
     setError(null);
+    setRebateDismissed(false); // Allow rebate auto-detection for new tire
     setTireData({
       part_number: `WC-${Date.now()}`,
       brand: customTire.brand.trim().toUpperCase(),
@@ -1701,16 +1784,40 @@ export default function QuoteBuilder() {
                       placeholder="NONE" 
                     />
                   </div>
-                  <div style={{ flex: 1, minWidth: '120px' }}>
-                    <label style={{ fontSize: '9px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '4px', textAlign: 'center' }}>REBATE</label>
-                    <SelectDropdown 
-                      value={selectedRebate} 
-                      onChange={setSelectedRebate} 
-                      options={REBATES.map(r => ({ value: r.id, label: r.name }))} 
-                      placeholder="NONE"
-                      disabled={REBATES.length === 0}
-                    />
-                  </div>
+                  {rebateAmount && !rebateDismissed && (
+                    <div style={{
+                      flex: '1 1 100%',
+                      backgroundColor: '#f0fdf4',
+                      border: '1.5px solid #86efac',
+                      borderRadius: '10px',
+                      padding: '8px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginTop: '6px'
+                    }}>
+                      <div>
+                        <span style={{ fontSize: '10px', color: '#166534', fontWeight: '700', letterSpacing: '0.5px' }}>
+                          🏷️ MANUFACTURER REBATE AUTO-APPLIED
+                        </span>
+                        <div style={{ fontSize: '12px', color: '#15803d', fontWeight: '600', marginTop: '1px' }}>
+                          {rebateDescription} — <strong>${parseFloat(rebateAmount).toFixed(0)} back by mail</strong>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setRebateDismissed(true);
+                          setRebateAmount('');
+                          setRebateDescription('');
+                        }}
+                        title="Remove rebate from this quote"
+                        style={{
+                          background: 'none', border: 'none', color: '#dc2626',
+                          cursor: 'pointer', fontSize: '18px', padding: '0 4px', lineHeight: 1
+                        }}
+                      >×</button>
+                    </div>
+                  )}
                 </div>
               </div>
 
