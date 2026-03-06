@@ -70,6 +70,63 @@ const formatDate = (dateStr) => {
   });
 };
 
+// =============================================================================
+// NEXEN REBATE CONFIG — Update dates/tiers here when Nexen changes the offer
+// =============================================================================
+const NEXEN_REBATE = {
+  start_date: '2026-03-01',
+  end_date:   '2026-04-30',
+  min_qty: 4,
+  rebate_url: 'https://jiffy.win/42c9ehG',
+  tiers: [
+    {
+      amount: 100,
+      label: "Nexen N'Blue 4 Season2 — $100 Mail-In Rebate",
+      sales_classes: ["Nexen N'BLUE 4S 2"],
+    },
+    {
+      amount: 80,
+      label: "Nexen — $80 Mail-In Rebate",
+      sales_classes: [
+        "Nexen ROADIAN ATX",
+        "Nexen ROADIAN GTX",
+        "Nexen ROADIAN HTX 2",
+        "Nexen ROADIAN CT8 HL",
+        "Nexen N'PRIZ AH8",
+        "Nexen N'FERA AU7",
+        "Nexen N'PRIZ S",
+        "Nexen N'FERA SPORT",
+      ],
+    },
+    {
+      amount: 60,
+      label: "Nexen N'Priz AH5 — $60 Mail-In Rebate",
+      sales_classes: ["Nexen N'PRIZ AH5"],
+    },
+  ],
+};
+
+// Returns { amount, label } if the quote qualifies for a Nexen rebate, otherwise null
+function getNexenRebate(tireName, quantity, createdAt) {
+  if (!tireName || !createdAt) return null;
+
+  // Check date window using the quote's created_at date
+  const quoteDate = new Date(createdAt);
+  const start = new Date(NEXEN_REBATE.start_date);
+  const end   = new Date(NEXEN_REBATE.end_date);
+  end.setHours(23, 59, 59, 999);
+  if (quoteDate < start || quoteDate > end) return null;
+
+  // Check minimum quantity
+  if ((quantity || 0) < NEXEN_REBATE.min_qty) return null;
+
+  // Match tire name against tier sales_classes (exact match)
+  const matched = NEXEN_REBATE.tiers.find(tier =>
+    tier.sales_classes.includes(tireName)
+  );
+  return matched ? { amount: matched.amount, label: matched.label } : null;
+}
+
 // Tire replacement reason options (must match generate-quote/update-quote codes)
 const REPLACEMENT_REASON_OPTIONS = [
   { code: 'sidewall_damage', label: 'Sidewall Damage / Cracking' },
@@ -602,6 +659,10 @@ const QuoteView = () => {
   const isStaggered = quote.is_staggered || false;
   const tireRear = quote.tire_rear || null;
 
+  // ─── Nexen rebate auto-calculation ───
+  // Uses tire name (sales_class), quantity, and quote date — no CSA input required
+  const nexenRebate = getNexenRebate(tire?.name, p?.quantity, quote.created_at);
+
   const hasVehicleInfo = quote.vehicle?.display && 
     quote.vehicle.display !== '' && 
     !quote.vehicle.display.toLowerCase().includes('unknown');
@@ -934,23 +995,33 @@ const QuoteView = () => {
                     <td style={{ padding: '10px 4px', fontSize: '16px', fontWeight: '700', color: '#1e293b', borderBottom: 'none' }}>TOTAL</td>
                     <td style={{ padding: '10px 4px', textAlign: 'right', fontSize: '22px', fontWeight: '700', color: '#8b1538', borderBottom: 'none' }}>{formatCurrency(p?.total_amount)}</td>
                   </tr>
-                  {p?.rebate_amount > 0 && (
+                  {nexenRebate && (
                     <>
                       <tr>
-                        <td style={{ padding: '6px 0', fontSize: '13px', color: '#16a34a', fontWeight: '700' }}>Less Rebate {p?.rebate_description && `(${p.rebate_description})`}</td>
-                        <td style={{ padding: '6px 0', textAlign: 'right', fontSize: '13px', color: '#16a34a', fontWeight: '700' }}>-{formatCurrency(p?.rebate_amount)}</td>
+                        <td style={{ padding: '6px 0', fontSize: '13px', color: '#16a34a', fontWeight: '700' }}>
+                          🏷️ {nexenRebate.label}
+                        </td>
+                        <td style={{ padding: '6px 0', textAlign: 'right', fontSize: '13px', color: '#16a34a', fontWeight: '700' }}>
+                          -{formatCurrency(nexenRebate.amount)}
+                        </td>
                       </tr>
                       <tr style={{ backgroundColor: '#f0fdf4' }}>
                         <td style={{ padding: '10px 4px', fontSize: '14px', fontWeight: '700', color: '#16a34a', borderBottom: 'none' }}>YOUR PRICE AFTER REBATE</td>
-                        <td style={{ padding: '10px 4px', textAlign: 'right', fontSize: '18px', fontWeight: '700', color: '#16a34a', borderBottom: 'none' }}>{formatCurrency(p?.total_after_rebate)}</td>
+                        <td style={{ padding: '10px 4px', textAlign: 'right', fontSize: '18px', fontWeight: '700', color: '#16a34a', borderBottom: 'none' }}>{formatCurrency((p?.total_amount || 0) - nexenRebate.amount)}</td>
                       </tr>
                     </>
                   )}
                 </tbody>
               </table>
+              
+              {!isStaggered && (
+              <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>
+                That's just <strong style={{ color: '#8b1538', fontSize: '17px' }}>{formatCurrency(p?.per_tire_installed)}</strong> per tire installed!
+              </div>
+              )}
 
-              {/* Rebate submission callout — shown only when a rebate is on the quote */}
-              {p?.rebate_amount > 0 && (
+              {/* Nexen rebate submission callout */}
+              {nexenRebate && (
                 <div style={{
                   marginTop: '12px',
                   backgroundColor: '#f0fdf4',
@@ -961,30 +1032,26 @@ const QuoteView = () => {
                   alignItems: 'center',
                   gap: '10px'
                 }}>
-                  <div style={{ fontSize: '20px', lineHeight: 1 }}>🏷️</div>
+                  <div style={{ fontSize: '22px', lineHeight: 1 }}>🏷️</div>
                   <div>
                     <div style={{ fontSize: '12px', fontWeight: '700', color: '#166534', marginBottom: '2px' }}>
                       Submit Your Mail-In Rebate
                     </div>
                     <div style={{ fontSize: '11px', color: '#15803d' }}>
-                      Get your {formatCurrency(p?.rebate_amount)} back after purchase.{' '}
+                      Get {formatCurrency(nexenRebate.amount)} back after purchase · Offer valid 3/1/26–4/30/26
+                    </div>
+                    <div style={{ fontSize: '11px', marginTop: '2px' }}>
                       <a
-                        href="https://jiffy.win/42c9ehG"
+                        href={NEXEN_REBATE.rebate_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: '#15803d', fontWeight: '700', textDecoration: 'underline' }}
                       >
-                        jiffy.win/42c9ehG
+                        {NEXEN_REBATE.rebate_url.replace('https://', '')}
                       </a>
                     </div>
                   </div>
                 </div>
-              )}
-              
-              {!isStaggered && (
-              <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>
-                That's just <strong style={{ color: '#8b1538', fontSize: '17px' }}>{formatCurrency(p?.per_tire_installed)}</strong> per tire installed!
-              </div>
               )}
             </div>
           </div>
