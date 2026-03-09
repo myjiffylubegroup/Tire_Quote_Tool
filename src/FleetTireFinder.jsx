@@ -259,6 +259,8 @@ const SpecBox = ({ label, value, highlight }) => (
 
 // Inventory Results Component
 const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => {
+  const [showCost, setShowCost] = useState(false);
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px', color: FLEET_BLUE }}>
@@ -282,17 +284,35 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => 
       marginTop: '25px',
       boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
     }}>
-      <h3 style={{
-        color: FLEET_BLUE,
-        fontSize: '16px',
-        fontWeight: '700',
-        textAlign: 'center',
-        marginBottom: '5px',
-        textTransform: 'uppercase',
-        letterSpacing: '2px',
-      }}>
-        Available Tires ({results.length})
-      </h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px', flexWrap: 'wrap', gap: '10px' }}>
+        <h3 style={{
+          color: FLEET_BLUE,
+          fontSize: '16px',
+          fontWeight: '700',
+          textTransform: 'uppercase',
+          letterSpacing: '2px',
+          margin: 0,
+        }}>
+          Available Tires ({results.length})
+        </h3>
+        <button
+          onClick={() => setShowCost(prev => !prev)}
+          style={{
+            backgroundColor: showCost ? '#eef2ff' : 'white',
+            color: showCost ? FLEET_BLUE : '#888',
+            border: `1px solid ${showCost ? FLEET_BLUE : '#ccc'}`,
+            borderRadius: '20px',
+            padding: '5px 14px',
+            fontSize: '11px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            letterSpacing: '0.5px',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {showCost ? '🔒 Hide Cost' : '👁 Show Cost'}
+        </button>
+      </div>
       <p style={{ textAlign: 'center', color: '#888', fontSize: '11px', marginBottom: '20px' }}>
         Primary: {primaryWarehouse === 'fresno' ? 'Fresno (4703)' : 'Santa Clarita (4708)'} • 
         Min Qty: {qtyNeeded} • Sorted: Store Stock → NEXEN → ADVANTA → Price
@@ -300,7 +320,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => 
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {results.map((tire, idx) => (
-          <TireCard key={tire.part_number + idx} tire={tire} primaryWarehouse={primaryWarehouse} onQuote={onQuote} />
+          <TireCard key={tire.part_number + idx} tire={tire} primaryWarehouse={primaryWarehouse} onQuote={onQuote} showCost={showCost} />
         ))}
       </div>
     </div>
@@ -308,7 +328,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, onQuote }) => 
 };
 
 // Individual Tire Card - Fleet Pricing
-const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
+const TireCard = ({ tire, primaryWarehouse, onQuote, showCost }) => {
   const isPriority = tire.brand_code === 'NEX' || tire.brand_code === 'ADV';
   const isNexen = tire.brand_code === 'NEX';
   const primaryQty = primaryWarehouse === 'fresno' ? tire.qty_fresno : tire.qty_santa_clarita;
@@ -413,6 +433,11 @@ const TireCard = ({ tire, primaryWarehouse, onQuote }) => {
               <div style={{ fontSize: '22px', fontWeight: '700', color: FLEET_BLUE }}>
                 ${fleetPrice.toFixed(2)}
               </div>
+              {showCost && tire.cost > 0 && (
+                <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
+                  Cost: ${parseFloat(tire.cost).toFixed(2)}
+                </div>
+              )}
             </>
           ) : (
             <div style={{ fontSize: '14px', fontWeight: '600', color: '#888' }}>
