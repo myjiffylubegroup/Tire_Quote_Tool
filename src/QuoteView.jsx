@@ -1149,6 +1149,29 @@ const QuoteView = () => {
                   <label style={{ fontSize: '9px', color: '#1e293b', fontWeight: '700', display: 'block', marginBottom: '4px' }}>EMAIL</label>
                   <input value={editCustomer.email || ''} onChange={(e) => setEditCustomer({...editCustomer, email: e.target.value})} style={inputStyle} />
                 </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '9px', color: '#1e293b', fontWeight: '700', display: 'block', marginBottom: '4px' }}>LICENSE PLATE</label>
+                    <input
+                      value={editCustomer.license_plate || ''}
+                      onChange={(e) => setEditCustomer({...editCustomer, license_plate: e.target.value.toUpperCase()})}
+                      placeholder="e.g. 8ABC123"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div style={{ width: '72px' }}>
+                    <label style={{ fontSize: '9px', color: '#1e293b', fontWeight: '700', display: 'block', marginBottom: '4px' }}>STATE</label>
+                    <select
+                      value={editCustomer.license_state || 'CA'}
+                      onChange={(e) => setEditCustomer({...editCustomer, license_state: e.target.value})}
+                      style={{ width: '100%', padding: '8px 4px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box' }}
+                    >
+                      {['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'].map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
               <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
                 <div style={{ width: '80px' }}>
@@ -1275,7 +1298,7 @@ const QuoteView = () => {
                 {/* Good */}
                 {quote.alternatives.good && (
                   <div style={{ border: '2px solid #86efac', borderRadius: '10px', padding: '16px 12px', textAlign: 'center', backgroundColor: '#f0fdf4' }}>
-                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#16a34a', letterSpacing: '1.5px', marginBottom: '8px' }}>GOOD</div>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#16a34a', letterSpacing: '1.5px', marginBottom: '8px' }}>ECONOMY</div>
                     <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '2px' }}>{quote.alternatives.good.brand}</div>
                     <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: '500', marginBottom: '6px' }}>{quote.alternatives.good.name}</div>
                     <div style={{ fontSize: '20px', fontWeight: '700', color: '#16a34a', marginBottom: '2px' }}>
@@ -1296,7 +1319,7 @@ const QuoteView = () => {
                 {/* Recommended */}
                 <div style={{ border: '3px solid #8b1538', borderRadius: '10px', padding: '16px 12px', textAlign: 'center', backgroundColor: '#fdf2f8', position: 'relative' }}>
                   <div style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#8b1538', color: 'white', padding: '2px 14px', borderRadius: '10px', fontSize: '9px', fontWeight: '700', letterSpacing: '1px', whiteSpace: 'nowrap' }}>⭐ RECOMMENDED</div>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#8b1538', letterSpacing: '1.5px', marginBottom: '4px', marginTop: '4px' }}>CHOSEN</div>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#8b1538', letterSpacing: '1.5px', marginBottom: '4px', marginTop: '4px' }}>BEST VALUE</div>
                   <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '1px' }}>{tire?.brand}</div>
                   <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: '500', marginBottom: '3px' }}>{tire?.name}</div>
                   <div style={{ fontSize: '9.5px', color: '#666', marginBottom: '4px' }}>
@@ -1322,7 +1345,7 @@ const QuoteView = () => {
                 {/* Best */}
                 {quote.alternatives.best && (
                   <div style={{ border: '2px solid #93c5fd', borderRadius: '10px', padding: '16px 12px', textAlign: 'center', backgroundColor: '#eff6ff' }}>
-                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#2563eb', letterSpacing: '1.5px', marginBottom: '8px' }}>BEST</div>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#2563eb', letterSpacing: '1.5px', marginBottom: '8px' }}>PREMIUM</div>
                     <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '2px' }}>{quote.alternatives.best.brand}</div>
                     <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: '500', marginBottom: '6px' }}>{quote.alternatives.best.name}</div>
                     <div style={{ fontSize: '20px', fontWeight: '700', color: '#2563eb', marginBottom: '2px' }}>

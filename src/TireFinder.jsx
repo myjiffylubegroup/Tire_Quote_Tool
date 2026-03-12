@@ -278,7 +278,7 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, on
         Min Qty: {qtyNeeded} • Sorted: Store Stock → NEXEN → ADVANTA → Price
       </p>
       <p style={{ textAlign: 'center', color: '#9b59b6', fontSize: '11px', marginBottom: '20px', fontStyle: 'italic' }}>
-        Select <strong>Chosen</strong> (required), plus optional <strong>Good</strong> & <strong>Best</strong> alternatives
+        Select <strong>Best Value</strong> (required), plus optional <strong>Economy</strong> & <strong>Premium</strong> alternatives
       </p>
 
       {/* Floating Continue Bar */}
@@ -297,12 +297,12 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, on
             </span>
             {selections.good && (
               <span style={{ color: '#bbf7d0', fontSize: '11px' }}>
-                | Good: {selections.good.brand_code} {selections.good.sales_class || selections.good.name}
+                | Economy: {selections.good.brand_code} {selections.good.sales_class || selections.good.name}
               </span>
             )}
             {selections.best && (
               <span style={{ color: '#fecaca', fontSize: '11px' }}>
-                | Best: {selections.best.brand_code} {selections.best.sales_class || selections.best.name}
+                | Premium: {selections.best.brand_code} {selections.best.sales_class || selections.best.name}
               </span>
             )}
           </div>
@@ -412,17 +412,17 @@ const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => 
         {/* Selection role badge */}
         {isChosen && (
           <span style={{ backgroundColor: '#8b1538', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
-            ⭐ CHOSEN
+            ⭐ BEST VALUE
           </span>
         )}
         {isGood && (
           <span style={{ backgroundColor: '#27ae60', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
-            GOOD
+            ECONOMY
           </span>
         )}
         {isBest && (
           <span style={{ backgroundColor: '#dc2626', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
-            BEST
+            PREMIUM
           </span>
         )}
       </div>
@@ -514,7 +514,7 @@ const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => 
                   color: isGood ? '#16a34a' : '#666',
                 }}
               >
-                {isGood ? '✓ ' : ''}Good
+                {isGood ? '✓ ' : ''}Economy
               </button>
               <button
                 onClick={() => handleRoleToggle('chosen')}
@@ -526,7 +526,7 @@ const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => 
                   color: isChosen ? '#8b1538' : '#666',
                 }}
               >
-                {isChosen ? '⭐ ' : ''}Chosen
+                {isChosen ? '⭐ ' : ''}Best Value
               </button>
               <button
                 onClick={() => handleRoleToggle('best')}
@@ -538,7 +538,7 @@ const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => 
                   color: isBest ? '#dc2626' : '#666',
                 }}
               >
-                {isBest ? '✓ ' : ''}Best
+                {isBest ? '✓ ' : ''}Premium
               </button>
             </div>
           )}
@@ -604,7 +604,7 @@ const StaggeredTireCard = ({ tire, primaryWarehouse, isSelected, consumerPrice, 
         )}
         {isSelected && (
           <span style={{ backgroundColor: '#8b1538', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
-            ⭐ {axleLabel} CHOSEN
+            ⭐ {axleLabel} BEST VALUE
           </span>
         )}
       </div>
@@ -689,7 +689,7 @@ const StaggeredTireCard = ({ tire, primaryWarehouse, isSelected, consumerPrice, 
                   color: isSelected ? '#8b1538' : '#666',
                 }}
               >
-                {isSelected ? '⭐ Chosen' : 'Select'}
+                {isSelected ? '⭐ Best Value' : 'Select'}
               </button>
             </div>
           )}
