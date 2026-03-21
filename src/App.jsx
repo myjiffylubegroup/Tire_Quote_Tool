@@ -9,6 +9,7 @@ import FleetTireFinder from './FleetTireFinder';
 import StaffPinGate from './StaffPinGate';
 import SmsConsent from './SmsConsent';
 import PrivacyPolicy from './PrivacyPolicy';
+import MechanicalFinder from './MechanicalFinder';
 import TermsConditions from './TermsConditions';
 
 // Simple hash-based router (no additional dependencies needed)
@@ -102,6 +103,14 @@ export default function App() {
     );
   }
   
+  if (path === '/mechanical') {
+    return (
+      <StaffPinGate>
+        <MechanicalFinder />
+      </StaffPinGate>
+    );
+  }
+
   // === DEFAULT (public) ===
   return <TireFinder />;
 }
