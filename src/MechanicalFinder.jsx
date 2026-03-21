@@ -272,7 +272,7 @@ export default function MechanicalFinder() {
     fetch(`${API_BASE}/vcdb-vehicle-submodels?year=${selYear}&make=${encodeURIComponent(selMake)}&model=${encodeURIComponent(selModel)}&key=${API_KEY}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) setSubmodels(d.data);
+        if (d.success) { setSubmodels(d.data); setStep('submodel'); }
         setLoading(false);
       });
   }, [selModel]);
