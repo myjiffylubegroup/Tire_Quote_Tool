@@ -407,6 +407,7 @@ export default function MechanicalFinder() {
           motor_time:               op.motor_time,
           is_additional_operation:  op.is_additional_operation,
           motor_db_footnote:        op.motor_db_footnote || '',
+          motor_db_description:     op.motor_db_description || '',
         })),
         notes: quoteNotes || undefined,
       };
@@ -767,6 +768,11 @@ export default function MechanicalFinder() {
                                 {op.motor_db_section} › {op.motor_db_subgroup}
                               </div>
                             )}
+                            {op.motor_db_description && (
+                              <div style={{ fontSize: '11px', color: '#475569', fontWeight: '500', marginBottom: '2px' }}>
+                                {op.motor_db_description}
+                              </div>
+                            )}
                             <div style={{ fontSize: '11px', color: '#64748b' }}>
                               {op.motor_time} hrs × $189.99 =&nbsp;
                               <strong style={{ color: DARK }}>{formatCurrency(op.labor_price)}</strong>
@@ -828,6 +834,9 @@ export default function MechanicalFinder() {
                               {op.motor_db_operation}
                               {op.qualifier_description && <span style={{ color: '#94a3b8', fontWeight: '400' }}> · {op.qualifier_description}</span>}
                             </div>
+                            {op.motor_db_description && (
+                              <div style={{ fontSize: '10px', color: '#475569' }}>{op.motor_db_description}</div>
+                            )}
                             <div style={{ fontSize: '10px', color: '#94a3b8' }}>{op.motor_time} hrs</div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
