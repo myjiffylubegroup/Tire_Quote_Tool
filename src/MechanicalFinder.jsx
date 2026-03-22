@@ -943,8 +943,15 @@ export default function MechanicalFinder() {
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = PURPLE; e.currentTarget.style.backgroundColor = LIGHT; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.backgroundColor = 'white'; }}
                 >
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: PURPLE, marginBottom: '4px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: PURPLE, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                     {cfg.engine_liter}L {cfg.engine_cylinders === '4' ? 'L4' : cfg.engine_cylinders === '6' ? 'V6' : cfg.engine_cylinders === '8' ? 'V8' : cfg.engine_cylinders + '-cyl'}
+                    {cfg.fuel_type_name && cfg.fuel_type_name !== 'GAS' && cfg.fuel_type_name !== 'U/K' && (
+                      <span style={{
+                        fontSize: '10px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px',
+                        backgroundColor: cfg.fuel_type_name === 'DIESEL' ? '#fef3c7' : '#f0fdf4',
+                        color: cfg.fuel_type_name === 'DIESEL' ? '#92400e' : '#166534',
+                      }}>{cfg.fuel_type_name}</span>
+                    )}
                   </div>
                   <div style={{ fontSize: '12px', color: '#64748b' }}>
                     {cfg.drive_type_name} · {cfg.front_brake_type}/{cfg.rear_brake_type}
