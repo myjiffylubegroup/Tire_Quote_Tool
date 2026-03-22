@@ -1035,7 +1035,8 @@ export default function MechanicalFinder() {
                   ) : (
                     <>
                       {cart.map((op) => (
-                        <div key={op.mechanical_estimating_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: `1px solid ${BORDER}`, gap: '8px' }}>
+                        <React.Fragment key={op.mechanical_estimating_id}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: `1px solid ${BORDER}`, gap: '8px' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '12px', fontWeight: '600', color: DARK, lineHeight: '1.3' }}>
                               {op.motor_db_operation}
@@ -1062,14 +1063,15 @@ export default function MechanicalFinder() {
                             <span style={{ fontSize: '13px', fontWeight: '700', color: DARK, minWidth: '60px', textAlign: 'right' }}>
                               {formatCurrency(Number(op.labor_price) * (op.quantity || 1))}
                             </span>
-                            <button onClick={() => toggleCart(op)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', lineHeight: 1, padding: '0' }}>×</button>
+                            <button onClick={() => setCart((prev) => prev.filter((c) => c.mechanical_estimating_id !== op.mechanical_estimating_id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', lineHeight: 1, padding: '0' }}>×</button>
                           </div>
                         </div>
-                          {isEachOperation(op) && (op.quantity||1) === 1 && (
-                            <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '6px 10px', margin: '4px 0', fontSize: '10px', color: '#92400e', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              ⚠️ Priced per unit — confirm quantity is correct
-                            </div>
-                          )}
+                        {isEachOperation(op) && (op.quantity||1) === 1 && (
+                          <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '6px 10px', margin: '4px 0 4px 0', fontSize: '10px', color: '#92400e' }}>
+                            ⚠️ Priced per unit — confirm quantity is correct
+                          </div>
+                        )}
+                      </React.Fragment>
                       ))}
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '10px', marginTop: '4px' }}>
