@@ -537,28 +537,72 @@ export default function MechanicalFinder() {
         setCustPlateState(c.license_state || plateState);
         setCustDataSource('lookup');
         setLookupResult('found');
-        // Pre-populate vehicle cascade using MOTOR names (preferred) falling back to Turbo names
-        const vehicleYear  = c.vehicle_year  ? String(c.vehicle_year)  : '';
-        const vehicleMake  = c.motor_make    || c.vehicle_make  || '';
-        const vehicleModel = c.motor_model   || c.vehicle_model || '';
-        if (vehicleYear && vehicleMake && vehicleModel) {
-          // Reset downstream selections first
+
+        // Pre-populate vehicle — resolve against VCdb directly
+        // motor_make/motor_model are already mapped to MOTOR naming,
+        // but we need VCdb naming for the mechanical tool.
+        // Strategy: fetch the VCdb makes list for the year, find a case-insensitive
+        // match against motor_make (or vehicle_make as fallback), then do the same for models.
+        const vehicleYear = c.vehicle_year ? String(c.vehicle_year) : '';
+        // Try motor_make first (already cleaned), fall back to raw Turbo make
+        const candidateMake  = c.motor_make  || c.vehicle_make  || '';
+        const candidateModel = c.motor_model || c.vehicle_model || '';
+
+        if (vehicleYear && candidateMake && candidateModel) {
+          // Reset downstream state
+          setSelMake(''); setMakes([]);
+          setSelModel(''); setModels([]);
           setSelSubmodel(''); setSubmodels([]);
           setSelConfig(null); setConfigs([]);
           setStep('vehicle');
-          // Set year/make/model — the existing useEffect chain handles the cascade
-          setSelYear(vehicleYear);
-          // Make and model must be set after makes/models lists are loaded
-          // Store them for the cascade to pick up
-          setPendingMake(vehicleMake);
-          setPendingModel(vehicleModel);
+
+          // Step 1: Fetch VCdb makes for this year, find match
+          const makesRes = await fetch(`${API_BASE}/vcdb-vehicle-makes?year=${vehicleYear}&key=${API_KEY}`);
+          const makesData = await makesRes.json();
+          if (makesData.success && makesData.data) {
+            setYears((prev) => prev.includes(vehicleYear) ? prev : [...prev, vehicleYear]);
+            setMakes(makesData.data);
+            setSelYear(vehicleYear);
+
+            // Find make match — exact first, then case-insensitive
+            const makeMatch = makesData.data.find(
+              (m) => m.toLowerCase() === candidateMake.toLowerCase()
+            );
+            if (makeMatch) {
+              setSelMake(makeMatch);
+
+              // Step 2: Fetch VCdb models for year+make, find model match
+              const modelsRes = await fetch(`${API_BASE}/vcdb-vehicle-models?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&key=${API_KEY}`);
+              const modelsData = await modelsRes.json();
+              if (modelsData.success && modelsData.data) {
+                setModels(modelsData.data);
+                const modelMatch = modelsData.data.find(
+                  (m) => m.toLowerCase() === candidateModel.toLowerCase()
+                );
+                if (modelMatch) {
+                  setSelModel(modelMatch);
+                  // The selModel useEffect will now fire and load submodels automatically
+                } else {
+                  // Model didn't match exactly — store as pending for CSA to pick manually
+                  setPendingModel(candidateModel);
+                }
+              }
+            } else {
+              // Make didn't match — store as pending for CSA to pick manually
+              setPendingMake(candidateMake);
+              setPendingModel(candidateModel);
+            }
+          }
         }
       } else {
         setCustPlate(plateInput.trim());
         setCustPlateState(plateState);
         setLookupResult('not_found');
       }
-    } catch { setLookupResult('not_found'); }
+    } catch (e) {
+      console.error('Plate lookup error:', e);
+      setLookupResult('not_found');
+    }
     setLookupLoading(false);
   };
 
@@ -571,16 +615,19 @@ export default function MechanicalFinder() {
     setCustDataSource('lookup');
     setLookupResult('found');
     setShowAdvSearch(false);
-    // Pre-populate vehicle if available
-    const vehicleYear  = c.vehicle_year  ? String(c.vehicle_year)  : '';
-    const vehicleMake  = c.motor_make    || c.vehicle_make  || '';
-    const vehicleModel = c.motor_model   || c.vehicle_model || '';
-    if (vehicleYear && vehicleMake && vehicleModel) {
-      setSelSubmodel(''); setSubmodels([]); setSelConfig(null); setConfigs([]);
+    // Pre-populate vehicle if available — reuse same plate lookup logic
+    const vehicleYear     = c.vehicle_year  ? String(c.vehicle_year)  : '';
+    const candidateMakeA  = c.motor_make    || c.vehicle_make  || '';
+    const candidateModelA = c.motor_model   || c.vehicle_model || '';
+    if (vehicleYear && candidateMakeA) {
+      setSelMake(''); setMakes([]);
+      setSelModel(''); setModels([]);
+      setSelSubmodel(''); setSubmodels([]);
+      setSelConfig(null); setConfigs([]);
       setStep('vehicle');
       setSelYear(vehicleYear);
-      setPendingMake(vehicleMake);
-      setPendingModel(vehicleModel);
+      setPendingMake(candidateMakeA);
+      setPendingModel(candidateModelA);
     }
   };
 
