@@ -407,10 +407,11 @@ export default function MechanicalFinder() {
   }, [selYear, pendingMake]);
 
   useEffect(() => {
-    setSelModel(''); setModels([]);
-    setSelSubmodel(''); setSubmodels([]);
+    // Guard: if plate lookup already resolved model, don't wipe it
+    if (selModel) return;
+    setSubmodels([]); setSelSubmodel('');
     setSelConfig(null); setConfigs([]);
-    if (!selYear || !selMake) return;
+    if (!selYear || !selMake) { setModels([]); return; }
     fetch(`${API_BASE}/vcdb-vehicle-models?year=${selYear}&make=${encodeURIComponent(selMake)}&key=${API_KEY}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setModels(d.data); });
@@ -549,49 +550,71 @@ export default function MechanicalFinder() {
         const candidateModel = c.motor_model || c.vehicle_model || '';
 
         if (vehicleYear && candidateMake && candidateModel) {
-          // Reset downstream state
-          setSelMake(''); setMakes([]);
-          setSelModel(''); setModels([]);
-          setSelSubmodel(''); setSubmodels([]);
-          setSelConfig(null); setConfigs([]);
-          setStep('vehicle');
+          // Resolve year/make/model/submodels against VCdb in one async chain.
+          // Key insight: ALL state is set AFTER all fetches complete, in one
+          // synchronous block. React 18 batches these into a single render so
+          // the useEffect cascade (selYear → clear make, selMake → clear model)
+          // never fires mid-sequence.
 
-          // Step 1: Fetch VCdb makes for this year, find match
+          // Step 1: Fetch makes
           const makesRes = await fetch(`${API_BASE}/vcdb-vehicle-makes?year=${vehicleYear}&key=${API_KEY}`);
           const makesData = await makesRes.json();
-          if (makesData.success && makesData.data) {
-            setYears((prev) => prev.includes(vehicleYear) ? prev : [...prev, vehicleYear]);
+          if (!makesData.success || !makesData.data) {
+            setSelYear(vehicleYear);
+            return;
+          }
+
+          const makeMatch = makesData.data.find(
+            (m) => m.toLowerCase() === candidateMake.toLowerCase()
+          );
+
+          if (!makeMatch) {
+            // Make not in VCdb list — set year+makes, CSA picks make manually
             setMakes(makesData.data);
             setSelYear(vehicleYear);
+            return;
+          }
 
-            // Find make match — exact first, then case-insensitive
-            const makeMatch = makesData.data.find(
-              (m) => m.toLowerCase() === candidateMake.toLowerCase()
-            );
-            if (makeMatch) {
-              setSelMake(makeMatch);
+          // Step 2: Fetch models
+          const modelsRes = await fetch(`${API_BASE}/vcdb-vehicle-models?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&key=${API_KEY}`);
+          const modelsData = await modelsRes.json();
+          if (!modelsData.success || !modelsData.data) {
+            setMakes(makesData.data);
+            setSelYear(vehicleYear);
+            setSelMake(makeMatch);
+            return;
+          }
 
-              // Step 2: Fetch VCdb models for year+make, find model match
-              const modelsRes = await fetch(`${API_BASE}/vcdb-vehicle-models?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&key=${API_KEY}`);
-              const modelsData = await modelsRes.json();
-              if (modelsData.success && modelsData.data) {
-                setModels(modelsData.data);
-                const modelMatch = modelsData.data.find(
-                  (m) => m.toLowerCase() === candidateModel.toLowerCase()
-                );
-                if (modelMatch) {
-                  setSelModel(modelMatch);
-                  // The selModel useEffect will now fire and load submodels automatically
-                } else {
-                  // Model didn't match exactly — store as pending for CSA to pick manually
-                  setPendingModel(candidateModel);
-                }
-              }
-            } else {
-              // Make didn't match — store as pending for CSA to pick manually
-              setPendingMake(candidateMake);
-              setPendingModel(candidateModel);
-            }
+          const modelMatch = modelsData.data.find(
+            (m) => m.toLowerCase() === candidateModel.toLowerCase()
+          );
+
+          if (!modelMatch) {
+            // Model not in list — set year+make+models, CSA picks model manually
+            setMakes(makesData.data);
+            setModels(modelsData.data);
+            setSelYear(vehicleYear);
+            setSelMake(makeMatch);
+            setStep('submodel');
+            return;
+          }
+
+          // Step 3: Fetch submodels
+          const subRes = await fetch(`${API_BASE}/vcdb-vehicle-submodels?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&model=${encodeURIComponent(modelMatch)}&key=${API_KEY}`);
+          const subData = await subRes.json();
+
+          // All fetches done — set everything in one batch
+          setMakes(makesData.data);
+          setModels(modelsData.data);
+          if (subData.success && subData.data) setSubmodels(subData.data);
+
+          // Set year/make/model together — React 18 batches these
+          setSelYear(vehicleYear);
+          setSelMake(makeMatch);
+          setSelModel(modelMatch);
+
+          if (subData.success && subData.data && subData.data.length > 0) {
+            setStep('submodel');
           }
         }
       } else {
