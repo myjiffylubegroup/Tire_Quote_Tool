@@ -346,6 +346,8 @@ export default function MechanicalFinder() {
   const [lookupLoading,  setLookupLoading]  = useState(false);
   const [lookupResult,   setLookupResult]   = useState(null);
   const [showAdvSearch,  setShowAdvSearch]  = useState(false);
+  const [pendingMake,    setPendingMake]    = useState('');
+  const [pendingModel,   setPendingModel]   = useState('');
   const [custFirstName,  setCustFirstName]  = useState('');
   const [custLastName,   setCustLastName]   = useState('');
   const [custPhone,      setCustPhone]      = useState('');
@@ -526,6 +528,7 @@ export default function MechanicalFinder() {
       const data = await res.json();
       if (data.success && data.found && data.customer) {
         const c = data.customer;
+        // Fill customer fields
         setCustFirstName(c.first_name || '');
         setCustLastName(c.last_name || '');
         setCustPhone(formatPhone(c.phone_raw || c.phone) || '');
@@ -534,6 +537,22 @@ export default function MechanicalFinder() {
         setCustPlateState(c.license_state || plateState);
         setCustDataSource('lookup');
         setLookupResult('found');
+        // Pre-populate vehicle cascade using MOTOR names (preferred) falling back to Turbo names
+        const vehicleYear  = c.vehicle_year  ? String(c.vehicle_year)  : '';
+        const vehicleMake  = c.motor_make    || c.vehicle_make  || '';
+        const vehicleModel = c.motor_model   || c.vehicle_model || '';
+        if (vehicleYear && vehicleMake && vehicleModel) {
+          // Reset downstream selections first
+          setSelSubmodel(''); setSubmodels([]);
+          setSelConfig(null); setConfigs([]);
+          setStep('vehicle');
+          // Set year/make/model — the existing useEffect chain handles the cascade
+          setSelYear(vehicleYear);
+          // Make and model must be set after makes/models lists are loaded
+          // Store them for the cascade to pick up
+          setPendingMake(vehicleMake);
+          setPendingModel(vehicleModel);
+        }
       } else {
         setCustPlate(plateInput.trim());
         setCustPlateState(plateState);
@@ -552,6 +571,17 @@ export default function MechanicalFinder() {
     setCustDataSource('lookup');
     setLookupResult('found');
     setShowAdvSearch(false);
+    // Pre-populate vehicle if available
+    const vehicleYear  = c.vehicle_year  ? String(c.vehicle_year)  : '';
+    const vehicleMake  = c.motor_make    || c.vehicle_make  || '';
+    const vehicleModel = c.motor_model   || c.vehicle_model || '';
+    if (vehicleYear && vehicleMake && vehicleModel) {
+      setSelSubmodel(''); setSubmodels([]); setSelConfig(null); setConfigs([]);
+      setStep('vehicle');
+      setSelYear(vehicleYear);
+      setPendingMake(vehicleMake);
+      setPendingModel(vehicleModel);
+    }
   };
 
   const cartTotal = cart.reduce((sum, op) => sum + Number(op.labor_price) * (op.quantity || 1), 0);
@@ -631,6 +661,7 @@ export default function MechanicalFinder() {
     setCustFirstName(''); setCustLastName(''); setCustPhone('');
     setCustEmail(''); setCustPlate(''); setCustPlateState('CA');
     setPlateInput(''); setLookupResult(null); setCustDataSource('manual');
+    setPendingMake(''); setPendingModel('');
     setQuoteNotes(''); setGeneratedQuote(null); setError('');
   };
 
@@ -703,9 +734,44 @@ export default function MechanicalFinder() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-            STEP 1: Vehicle Picker
-        ══════════════════════════════════════════════════════════════════ */}
+        {/* ── PLATE LOOKUP (always visible until browse/submitted) ── */}
+        {step !== 'browse' && step !== 'submitted' && (
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '20px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: lookupResult === 'found' ? '2px solid #86efac' : `1px solid ${BORDER}` }}>
+            <h2 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700', color: DARK, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+              🔍 Customer Lookup <span style={{ fontSize: '11px', fontWeight: '400', color: '#94a3b8', textTransform: 'none', letterSpacing: 0 }}>— optional, fills customer & vehicle</span>
+            </h2>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="text" placeholder="License plate (e.g. 8ABC123)" value={plateInput}
+                onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === 'Enter' && handlePlateLookup()}
+                style={{ ...inputStyle, flex: 1, minWidth: '160px', fontSize: '14px', padding: '10px 14px', textTransform: 'uppercase' }}
+                onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER}
+              />
+              <select value={plateState} onChange={(e) => setPlateState(e.target.value)}
+                style={{ padding: '10px 8px', border: `1px solid ${BORDER}`, borderRadius: '6px', fontSize: '13px', width: '64px', outline: 'none' }}>
+                {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <button onClick={handlePlateLookup} disabled={lookupLoading || !plateInput.trim()} style={{
+                padding: '10px 20px', backgroundColor: lookupLoading || !plateInput.trim() ? '#ccc' : PURPLE,
+                color: 'white', border: 'none', borderRadius: '25px', fontSize: '13px', fontWeight: '700',
+                cursor: lookupLoading || !plateInput.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+              }}>{lookupLoading ? 'Looking up…' : 'Look Up'}</button>
+            </div>
+            {lookupResult === 'found' && (
+              <div style={{ marginTop: '10px', backgroundColor: '#f0fff4', border: '1px solid #86efac', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#16a34a', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                ✓ Customer found — fields pre-filled
+                {(selYear || selMake) && <span style={{ color: '#15803d' }}>· Vehicle: {selYear} {selMake} {selModel}</span>}
+              </div>
+            )}
+            {lookupResult === 'not_found' && (
+              <div style={{ marginTop: '10px', backgroundColor: '#fef9c3', border: '1px solid #fde047', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', color: '#854d0e' }}>
+                No match found — select vehicle manually below
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── STEP 1: Vehicle Picker ── */}
         {(step === 'vehicle' || step === 'submodel') && (
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <h2 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '700', color: DARK, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
@@ -1090,27 +1156,6 @@ export default function MechanicalFinder() {
                   <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
                     Customer <span style={{ fontWeight: '400', color: '#94a3b8' }}>(optional)</span>
                   </div>
-                  {/* Plate lookup */}
-                  <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                    <input type="text" placeholder="License plate" value={plateInput} onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => e.key === 'Enter' && handlePlateLookup()}
-                      style={{ ...inputStyle, flex: 1, textTransform: 'uppercase' }} />
-                    <select value={plateState} onChange={(e) => setPlateState(e.target.value)}
-                      style={{ padding: '8px 6px', border: `1px solid ${BORDER}`, borderRadius: '6px', fontSize: '12px', width: '56px', outline: 'none' }}>
-                      {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <button onClick={handlePlateLookup} disabled={lookupLoading || !plateInput.trim()} style={{
-                      padding: '8px 12px', backgroundColor: lookupLoading || !plateInput.trim() ? '#ccc' : PURPLE,
-                      color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: '700',
-                      cursor: lookupLoading || !plateInput.trim() ? 'not-allowed' : 'pointer',
-                    }}>{lookupLoading ? '…' : '🔍'}</button>
-                  </div>
-                  {lookupResult === 'found' && (
-                    <div style={{ backgroundColor: '#f0fff4', border: '1px solid #86efac', borderRadius: '6px', padding: '6px 10px', marginBottom: '8px', fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>✓ Customer found</div>
-                  )}
-                  {lookupResult === 'not_found' && (
-                    <div style={{ backgroundColor: '#fef9c3', border: '1px solid #fde047', borderRadius: '6px', padding: '6px 10px', marginBottom: '8px', fontSize: '11px', color: '#854d0e' }}>No match — enter manually below</div>
-                  )}
                   <button onClick={() => setShowAdvSearch(true)} style={{ background: 'none', border: 'none', color: PURPLE, fontSize: '11px', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline', padding: '0 0 10px 0', display: 'block' }}>
                     🔍 Search by Name or Phone
                   </button>
