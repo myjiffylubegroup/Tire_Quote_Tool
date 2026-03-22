@@ -404,7 +404,7 @@ export default function MechanicalFinder() {
     fetch(`${API_BASE}/vcdb-vehicle-makes?year=${selYear}&key=${API_KEY}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setMakes(d.data); });
-  }, [selYear]);
+  }, [selYear, pendingMake]);
 
   useEffect(() => {
     setSelModel(''); setModels([]);
@@ -414,7 +414,7 @@ export default function MechanicalFinder() {
     fetch(`${API_BASE}/vcdb-vehicle-models?year=${selYear}&make=${encodeURIComponent(selMake)}&key=${API_KEY}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setModels(d.data); });
-  }, [selMake]);
+  }, [selMake, pendingModel]);
 
   useEffect(() => {
     setSelSubmodel(''); setSubmodels([]);
@@ -740,17 +740,17 @@ export default function MechanicalFinder() {
             <h2 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700', color: DARK, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
               🔍 Customer Lookup <span style={{ fontSize: '11px', fontWeight: '400', color: '#94a3b8', textTransform: 'none', letterSpacing: 0 }}>— optional, fills customer & vehicle</span>
             </h2>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <input type="text" placeholder="License plate (e.g. 8ABC123)" value={plateInput}
-                onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === 'Enter' && handlePlateLookup()}
-                style={{ ...inputStyle, flex: 1, minWidth: '160px', fontSize: '14px', padding: '10px 14px', textTransform: 'uppercase' }}
-                onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER}
-              />
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', maxWidth: '520px' }}>
               <select value={plateState} onChange={(e) => setPlateState(e.target.value)}
-                style={{ padding: '10px 8px', border: `1px solid ${BORDER}`, borderRadius: '6px', fontSize: '13px', width: '64px', outline: 'none' }}>
+                style={{ padding: '10px 8px', border: `2px solid ${PURPLE}`, borderRadius: '25px', fontSize: '13px', width: '72px', outline: 'none', fontWeight: '600', appearance: 'none', textAlign: 'center' }}>
                 {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
+              <input type="text" placeholder="License plate" value={plateInput}
+                onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === 'Enter' && handlePlateLookup()}
+                style={{ ...inputStyle, width: '180px', fontSize: '15px', padding: '10px 14px', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: '700', textAlign: 'center' }}
+                onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER}
+              />
               <button onClick={handlePlateLookup} disabled={lookupLoading || !plateInput.trim()} style={{
                 padding: '10px 20px', backgroundColor: lookupLoading || !plateInput.trim() ? '#ccc' : PURPLE,
                 color: 'white', border: 'none', borderRadius: '25px', fontSize: '13px', fontWeight: '700',
