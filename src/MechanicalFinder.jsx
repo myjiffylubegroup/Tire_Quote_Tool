@@ -396,21 +396,24 @@ export default function MechanicalFinder() {
   // Cascading vehicle selects
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    setSelMake(''); setMakes([]);
-    setSelModel(''); setModels([]);
-    setSelSubmodel(''); setSubmodels([]);
-    setSelConfig(null); setConfigs([]);
-    if (!selYear) return;
+    // Don't wipe make/model if plate lookup already resolved them
+    if (!selMake) {
+      setModels([]); setSelModel('');
+      setSubmodels([]); setSelSubmodel('');
+      setSelConfig(null); setConfigs([]);
+    }
+    if (!selYear) { setMakes([]); setSelMake(''); return; }
+    // Always reload the makes list so the dropdown has options
     fetch(`${API_BASE}/vcdb-vehicle-makes?year=${selYear}&key=${API_KEY}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setMakes(d.data); });
-  }, [selYear, pendingMake]);
+  }, [selYear]);
 
   useEffect(() => {
-    // Guard: if plate lookup already resolved model, don't wipe it
-    if (selModel) return;
-    setSubmodels([]); setSelSubmodel('');
-    setSelConfig(null); setConfigs([]);
+    if (!selModel) {
+      setSubmodels([]); setSelSubmodel('');
+      setSelConfig(null); setConfigs([]);
+    }
     if (!selYear || !selMake) { setModels([]); return; }
     fetch(`${API_BASE}/vcdb-vehicle-models?year=${selYear}&make=${encodeURIComponent(selMake)}&key=${API_KEY}`)
       .then((r) => r.json())
