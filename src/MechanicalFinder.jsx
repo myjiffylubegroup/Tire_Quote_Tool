@@ -361,11 +361,11 @@ export default function MechanicalFinder() {
     if (isInCart(op.mechanical_estimating_id)) {
       setCart((prev) => prev.filter((c) => c.mechanical_estimating_id !== op.mechanical_estimating_id));
     } else {
-      setCart((prev) => [...prev, op]);
+      setCart((prev) => [...prev, { ...op, quantity: 1 }]);
     }
   };
 
-  const cartTotal = cart.reduce((sum, op) => sum + Number(op.labor_price), 0);
+  const cartTotal = cart.reduce((sum, op) => sum + Number(op.labor_price) * (op.quantity || 1), 0);
 
   const handleGenerateQuote = async () => {
     if (cart.length === 0) return;
@@ -408,6 +408,7 @@ export default function MechanicalFinder() {
           is_additional_operation:  op.is_additional_operation,
           motor_db_footnote:        op.motor_db_footnote || '',
           motor_db_description:     op.motor_db_description || '',
+          quantity:                 op.quantity || 1,
         })),
         notes: quoteNotes || undefined,
       };
@@ -837,10 +838,24 @@ export default function MechanicalFinder() {
                             {op.motor_db_description && (
                               <div style={{ fontSize: '10px', color: '#475569' }}>{op.motor_db_description}</div>
                             )}
-                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>{op.motor_time} hrs</div>
+                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>{op.motor_time} hrs ea.</div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                            <span style={{ fontSize: '13px', fontWeight: '700', color: DARK }}>{formatCurrency(op.labor_price)}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            {/* Qty stepper */}
+                            <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${BORDER}`, borderRadius: '20px', overflow: 'hidden' }}>
+                              <button
+                                onClick={() => setCart((prev) => prev.map((c) => c.mechanical_estimating_id === op.mechanical_estimating_id ? { ...c, quantity: Math.max(1, (c.quantity || 1) - 1) } : c))}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px 8px', fontSize: '14px', color: '#64748b', lineHeight: 1 }}
+                              >−</button>
+                              <span style={{ fontSize: '12px', fontWeight: '700', color: DARK, minWidth: '16px', textAlign: 'center' }}>{op.quantity || 1}</span>
+                              <button
+                                onClick={() => setCart((prev) => prev.map((c) => c.mechanical_estimating_id === op.mechanical_estimating_id ? { ...c, quantity: (c.quantity || 1) + 1 } : c))}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px 8px', fontSize: '14px', color: '#64748b', lineHeight: 1 }}
+                              >+</button>
+                            </div>
+                            <span style={{ fontSize: '13px', fontWeight: '700', color: DARK, minWidth: '60px', textAlign: 'right' }}>
+                              {formatCurrency(Number(op.labor_price) * (op.quantity || 1))}
+                            </span>
                             <button onClick={() => toggleCart(op)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', lineHeight: 1, padding: '0' }}>×</button>
                           </div>
                         </div>
