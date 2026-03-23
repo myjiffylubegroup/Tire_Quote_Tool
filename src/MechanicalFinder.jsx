@@ -454,8 +454,10 @@ export default function MechanicalFinder() {
   // ─────────────────────────────────────────────────────────────────────────
   // Load operation tree when config selected
   // ─────────────────────────────────────────────────────────────────────────
-  const loadTree = useCallback((baseVehicleId) => {
-    fetch(`${API_BASE}/ewt-labor-search?base_vehicle_id=${baseVehicleId}&mode=tree&key=${API_KEY}`)
+  const loadTree = useCallback((baseVehicleId, engineConfigId) => {
+    const treeParams = new URLSearchParams({ key: API_KEY, base_vehicle_id: baseVehicleId, mode: 'tree' });
+    if (engineConfigId) treeParams.set('engine_config_id', engineConfigId);
+    fetch(`${API_BASE}/ewt-labor-search?${treeParams.toString()}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setTree(d.data); });
   }, []);
@@ -474,6 +476,7 @@ export default function MechanicalFinder() {
 
     setOpsLoading(true);
     const params = new URLSearchParams({ key: API_KEY, base_vehicle_id: selConfig.base_vehicle_id });
+    if (selConfig.engine_config_id) params.set('engine_config_id', selConfig.engine_config_id);
     if (searchTerm && searchTerm.trim().length >= 3) {
       params.set('search', searchTerm.trim());
     } else {
@@ -501,7 +504,7 @@ export default function MechanicalFinder() {
     setOperations([]);
     setSelSection(''); setSelGroup(''); setSelSubgroup('');
     setSearchTerm('');
-    loadTree(cfg.base_vehicle_id);
+    loadTree(cfg.base_vehicle_id, cfg.engine_config_id);
   };
 
   const handleTreeClick = (section, group, subgroup) => {
