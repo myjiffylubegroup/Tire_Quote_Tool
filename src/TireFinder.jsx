@@ -199,7 +199,7 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory, onSelectSize }) =
       {/* Search Inventory Button */}
       <div style={{ textAlign: 'center', marginTop: '25px' }}>
         <button
-          onClick={() => onSearchInventory(spec.tire_size)}
+          onClick={() => onSearchInventory(spec.tire_size, spec)}
           style={{
             backgroundColor: '#27ae60',
             color: 'white',
@@ -409,6 +409,19 @@ const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => 
             {tire.brand_code === 'NEX' ? '⭐ NEXEN' : '💰 ADVANTA'}
           </span>
         )}
+        {tire.oe_rating_unverified && (
+          <span style={{
+            backgroundColor: '#d97706',
+            color: 'white',
+            padding: '2px 10px',
+            borderRadius: '10px',
+            fontSize: '10px',
+            fontWeight: '700',
+            letterSpacing: '1px',
+          }}>
+            ⚠️ VERIFY RATINGS
+          </span>
+        )}
         {/* Selection role badge */}
         {isChosen && (
           <span style={{ backgroundColor: '#8b1538', color: 'white', padding: '2px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', letterSpacing: '1px' }}>
@@ -600,6 +613,19 @@ const StaggeredTireCard = ({ tire, primaryWarehouse, isSelected, consumerPrice, 
             fontSize: '10px', fontWeight: '700', letterSpacing: '1px',
           }}>
             {tire.brand_code === 'NEX' ? '⭐ NEXEN' : '💰 ADVANTA'}
+          </span>
+        )}
+        {tire.oe_rating_unverified && (
+          <span style={{
+            backgroundColor: '#d97706',
+            color: 'white',
+            padding: '2px 10px',
+            borderRadius: '10px',
+            fontSize: '10px',
+            fontWeight: '700',
+            letterSpacing: '1px',
+          }}>
+            ⚠️ VERIFY RATINGS
           </span>
         )}
         {isSelected && (
@@ -835,8 +861,8 @@ export default function TireFinder() {
   const handleSelectTireSize = (spec) => {
     // Set to single-item array so it shows the detail view
     setTireSpecs([spec]);
-    // Automatically search inventory for this size
-    searchInventory(spec.tire_size);
+    // Automatically search inventory for this size, passing OE spec for safety filtering
+    searchInventory(spec.tire_size, spec);
   };
 
   // Check for re-quote data on mount
@@ -962,9 +988,9 @@ export default function TireFinder() {
         if (tiresData.success && tiresData.data && tiresData.data.length > 0) {
           setTireSpecs(tiresData.data);
           
-          // If only one tire size, auto-search inventory
+          // If only one tire size, auto-search inventory with OE spec for safety filtering
           if (tiresData.data.length === 1) {
-            searchInventory(tiresData.data[0].tire_size);
+            searchInventory(tiresData.data[0].tire_size, tiresData.data[0]);
           }
         } else {
           setPlateLookupError(
@@ -1304,14 +1330,23 @@ export default function TireFinder() {
     });
   };
 
-  // Search inventory by tire size
-  const searchInventory = async (tireSize) => {
+  // Search inventory by tire size.
+  // Pass `spec` (from vehicle-tires response) when vehicle context is known —
+  // this enables hard OE load index / speed rating filtering in the Edge Function.
+  // Omit spec for size-only or part# searches where no vehicle context exists.
+  const searchInventory = async (tireSize, spec = null) => {
     setInventoryLoading(true);
     setError(null);
     setInventoryResults(null);
     
     try {
       const compressedSize = tireSize.replace(/[^0-9]/g, '');
+
+      // Build OE filter params when vehicle spec is known and load index is specified.
+      // MOTOR uses "0" for load index when unspecified — skip filtering in that case.
+      const loadIndex = spec?.load_index ? parseInt(spec.load_index, 10) : 0;
+      const speedRating = spec?.speed_index || null;
+      const hasOeContext = loadIndex > 0 && !!speedRating;
       
       const response = await fetch(`${API_BASE}/tire-inventory-search`, {
         method: 'POST',
@@ -1322,6 +1357,10 @@ export default function TireFinder() {
           tire_type: selectedTireType || undefined,
           qty_needed: qtyNeeded,
           limit: 100,
+          ...(hasOeContext && {
+            min_load_index: loadIndex,
+            min_speed_rating: speedRating,
+          }),
         }),
       });
       
