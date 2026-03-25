@@ -1041,8 +1041,8 @@ export default function TireFinder() {
           year: parseInt(selectedYear),
           make: selectedMake,
           model: selectedModel,
-          submodel: (selectedSubmodel && selectedSubmodel !== 'UNKNOWN') ? selectedSubmodel : null,
-          display: `${selectedYear} ${selectedMake} ${selectedModel}${(selectedSubmodel && selectedSubmodel !== 'UNKNOWN') ? ' ' + selectedSubmodel : ''}`,
+          submodel: selectedSubmodel || null,
+          display: `${selectedYear} ${selectedMake} ${selectedModel}${selectedSubmodel ? ' ' + selectedSubmodel : ''}`,
           oe_tire_size: selectedSpec?.tire_size || null,
           oe_load_rating: selectedSpec?.load_index || null,
           oe_speed_rating: selectedSpec?.speed_index || null,
@@ -1107,8 +1107,8 @@ export default function TireFinder() {
         year: parseInt(selectedYear),
         make: selectedMake,
         model: selectedModel,
-        submodel: (selectedSubmodel && selectedSubmodel !== 'UNKNOWN') ? selectedSubmodel : null,
-        display: `${selectedYear} ${selectedMake} ${selectedModel}${(selectedSubmodel && selectedSubmodel !== 'UNKNOWN') ? ' ' + selectedSubmodel : ''}`,
+        submodel: selectedSubmodel || null,
+        display: `${selectedYear} ${selectedMake} ${selectedModel}${selectedSubmodel ? ' ' + selectedSubmodel : ''}`,
         oe_tire_size: selectedSpec?.tire_size || null,
         oe_load_rating: selectedSpec?.load_index || null,
         oe_speed_rating: selectedSpec?.speed_index || null,
@@ -1511,15 +1511,7 @@ export default function TireFinder() {
       setInventoryResults(null);
       
       try {
-        // UNKNOWN submodel: call vehicle-tires without submodel (Mode 2 — returns all
-        // unique sizes across all trims for this Y/M/M). The CSA will see a size
-        // selector if multiple options exist, or go straight to inventory if only one.
-        const isUnknownSubmodel = selectedSubmodel === 'UNKNOWN';
-        const url = isUnknownSubmodel
-          ? `${API_BASE}/vehicle-tires?year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(selectedModel)}&key=${API_KEY}`
-          : `${API_BASE}/vehicle-tires?year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(selectedModel)}&submodel=${encodeURIComponent(selectedSubmodel)}&key=${API_KEY}`;
-
-        const res = await fetch(url);
+        const res = await fetch(`${API_BASE}/vehicle-tires?year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(selectedModel)}&submodel=${encodeURIComponent(selectedSubmodel)}&key=${API_KEY}`);
         const data = await res.json();
         if (data.success && data.data && data.data.length > 0) {
           // Store ALL tire specs (could be multiple)
@@ -1885,16 +1877,7 @@ export default function TireFinder() {
                 <SelectDropdown value={selectedYear} onChange={handleYearChange} options={years} placeholder="YEAR" />
                 <SelectDropdown value={selectedMake} onChange={handleMakeChange} options={makes} placeholder="MAKE" disabled={!selectedYear} />
                 <SelectDropdown value={selectedModel} onChange={handleModelChange} options={models} placeholder="MODEL" disabled={!selectedMake} />
-                <SelectDropdown 
-                  value={selectedSubmodel} 
-                  onChange={setSelectedSubmodel} 
-                  options={[
-                    { value: 'UNKNOWN', label: 'UNKNOWN / NOT LISTED' },
-                    ...submodels.map(s => ({ value: s.submodel, label: s.submodel }))
-                  ]} 
-                  placeholder="STYLE" 
-                  disabled={!selectedModel} 
-                />
+                <SelectDropdown value={selectedSubmodel} onChange={setSelectedSubmodel} options={submodels.map(s => s.submodel)} placeholder="STYLE" disabled={!selectedModel} />
               </div>
             </div>
 
