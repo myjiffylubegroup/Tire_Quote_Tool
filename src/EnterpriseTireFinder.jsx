@@ -226,7 +226,7 @@ const TireSpecsResults = ({ specs, vehicle, onSearchInventory, onSelectSize }) =
       {/* Search Inventory Button */}
       <div style={{ textAlign: 'center', marginTop: '25px' }}>
         <button
-          onClick={() => onSearchInventory(spec.tire_size)}
+          onClick={() => onSearchInventory(spec.tire_size, spec)}
           style={{
             backgroundColor: ENTERPRISE_GREEN,
             color: 'white',
@@ -377,6 +377,19 @@ const TireCard = ({ tire, primaryWarehouse, onQuote, showCost }) => {
             letterSpacing: '1px',
           }}>
             {tire.brand_code === 'NEX' ? '⭐ NEXEN' : '💰 ADVANTA'}
+          </span>
+        )}
+        {tire.oe_rating_unverified && (
+          <span style={{
+            backgroundColor: '#d97706',
+            color: 'white',
+            padding: '2px 10px',
+            borderRadius: '10px',
+            fontSize: '10px',
+            fontWeight: '700',
+            letterSpacing: '1px',
+          }}>
+            ⚠️ VERIFY RATINGS
           </span>
         )}
       </div>
@@ -563,7 +576,7 @@ export default function EnterpriseTireFinder() {
   // Handle selecting a specific tire size from multiple options
   const handleSelectTireSize = (spec) => {
     setTireSpecs([spec]);
-    searchInventory(spec.tire_size);
+    searchInventory(spec.tire_size, spec);
   };
 
   // Handle quote button click - save tire data and navigate to quote builder
@@ -577,8 +590,8 @@ export default function EnterpriseTireFinder() {
         year: parseInt(selectedYear),
         make: selectedMake,
         model: selectedModel,
-        submodel: selectedSubmodel || null,
-        display: `${selectedYear} ${selectedMake} ${selectedModel}${selectedSubmodel ? ' ' + selectedSubmodel : ''}`
+        submodel: (selectedSubmodel && selectedSubmodel !== 'UNKNOWN') ? selectedSubmodel : null,
+        display: `${selectedYear} ${selectedMake} ${selectedModel}${(selectedSubmodel && selectedSubmodel !== 'UNKNOWN') ? ' ' + selectedSubmodel : ''}`
       };
       sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
     } else {
@@ -701,13 +714,17 @@ export default function EnterpriseTireFinder() {
   };
 
   // Search inventory by tire size
-  const searchInventory = async (tireSize) => {
+  const searchInventory = async (tireSize, spec = null) => {
     setInventoryLoading(true);
     setError(null);
     setInventoryResults(null);
     
     try {
       const compressedSize = tireSize.replace(/[^0-9]/g, '');
+
+      const loadIndex = spec?.load_index ? parseInt(spec.load_index, 10) : 0;
+      const speedRating = spec?.speed_index || null;
+      const hasOeContext = loadIndex > 0 && !!speedRating;
       
       const response = await fetch(`${API_BASE}/tire-inventory-search`, {
         method: 'POST',
@@ -718,6 +735,10 @@ export default function EnterpriseTireFinder() {
           tire_type: selectedTireType || undefined,
           qty_needed: qtyNeeded,
           limit: 100,
+          ...(hasOeContext && {
+            min_load_index: loadIndex,
+            min_speed_rating: speedRating,
+          }),
         }),
       });
       
@@ -785,7 +806,12 @@ export default function EnterpriseTireFinder() {
       setInventoryResults(null);
       
       try {
-        const res = await fetch(`${API_BASE}/vehicle-tires?year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(selectedModel)}&submodel=${encodeURIComponent(selectedSubmodel)}&key=${API_KEY}`);
+        const isUnknownSubmodel = selectedSubmodel === 'UNKNOWN';
+        const url = isUnknownSubmodel
+          ? `${API_BASE}/vehicle-tires?year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(selectedModel)}&key=${API_KEY}`
+          : `${API_BASE}/vehicle-tires?year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(selectedModel)}&submodel=${encodeURIComponent(selectedSubmodel)}&key=${API_KEY}`;
+
+        const res = await fetch(url);
         const data = await res.json();
         if (data.success && data.data && data.data.length > 0) {
           setTireSpecs(data.data);
@@ -977,7 +1003,16 @@ export default function EnterpriseTireFinder() {
                 <SelectDropdown value={selectedYear} onChange={handleYearChange} options={years} placeholder="YEAR" />
                 <SelectDropdown value={selectedMake} onChange={handleMakeChange} options={makes} placeholder="MAKE" disabled={!selectedYear} />
                 <SelectDropdown value={selectedModel} onChange={handleModelChange} options={models} placeholder="MODEL" disabled={!selectedMake} />
-                <SelectDropdown value={selectedSubmodel} onChange={setSelectedSubmodel} options={submodels.map(s => s.submodel)} placeholder="STYLE" disabled={!selectedModel} />
+                <SelectDropdown 
+                  value={selectedSubmodel} 
+                  onChange={setSelectedSubmodel} 
+                  options={[
+                    { value: 'UNKNOWN', label: 'UNKNOWN / NOT LISTED' },
+                    ...submodels.map(s => ({ value: s.submodel, label: s.submodel }))
+                  ]} 
+                  placeholder="STYLE" 
+                  disabled={!selectedModel} 
+                />
               </div>
             </div>
 
