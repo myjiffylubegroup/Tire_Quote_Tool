@@ -363,7 +363,7 @@ export default function MechanicalQuoteView({ code }) {
                   <div style={{ fontSize: '13px', color: SLATE, textAlign: 'right', paddingTop: '1px' }}>{item.motor_time}h</div>
                   <div style={{ fontSize: '13px', color: SLATE, textAlign: 'right', paddingTop: '1px' }}>{item.quantity}</div>
                   <div style={{ fontSize: '13px', fontWeight: '600', color: DARK, textAlign: 'right', paddingTop: '1px' }}>
-                    {formatCurrency(item.labor_price * item.quantity)}
+                    {formatCurrency(parseFloat(item.labor_price) * (item.quantity || 1))}
                   </div>
                 </div>
               ))}
