@@ -10,6 +10,7 @@ import StaffPinGate from './StaffPinGate';
 import SmsConsent from './SmsConsent';
 import PrivacyPolicy from './PrivacyPolicy';
 import MechanicalFinder from './MechanicalFinder';
+import MechanicalQuoteView from './MechanicalQuoteView';
 import TermsConditions from './TermsConditions';
 
 // Simple hash-based router (no additional dependencies needed)
@@ -103,6 +104,12 @@ export default function App() {
     );
   }
   
+  // MechanicalQuoteView - public (customer has the short code link)
+  if (path.startsWith('/mechanical/') && path !== '/mechanical/') {
+    const code = path.replace('/mechanical/', '');
+    return <MechanicalQuoteView code={code} />;
+  }
+
   if (path === '/mechanical') {
     return (
       <StaffPinGate>

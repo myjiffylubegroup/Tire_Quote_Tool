@@ -9,10 +9,8 @@ import FleetTireFinder from './FleetTireFinder';
 import StaffPinGate from './StaffPinGate';
 import SmsConsent from './SmsConsent';
 import PrivacyPolicy from './PrivacyPolicy';
+import MechanicalFinder from './MechanicalFinder';
 import TermsConditions from './TermsConditions';
-import AboutUs from './AboutUs';
-import ContactUs from './ContactUs';
-import DoNotSell from './DoNotSell';
 
 // Simple hash-based router (no additional dependencies needed)
 export default function App() {
@@ -32,20 +30,19 @@ export default function App() {
   // #/ or #/finder -> TireFinder
   // #/inventory -> StoreInventory
   // #/quote/:code -> QuoteView (customer link)
-  // #/sms-consent -> SmsConsent (Twilio compliance)
+  // #/sms-consent -> SmsConsent (SMS opt-in & terms)
   // #/privacy-policy -> PrivacyPolicy
   // #/terms -> TermsConditions
-  // #/about -> AboutUs
-  // #/contact -> ContactUs
-  // #/do-not-sell -> DoNotSell (CCPA compliance)
   //
   // PROTECTED ROUTES (staff PIN required):
   // #/quotes -> QuoteLookup
-  // #/quote/build -> QuoteBuilder
+  // #/quote/build -> QuoteBuilder (also handles ?revise=uuid)
   // #/enterprise -> EnterpriseTireFinder
   // #/fleet -> FleetTireFinder
   
-  const path = currentPath.replace('#', '') || '/';
+  // Strip query params for route matching (e.g., /quote/build?revise=xxx -> /quote/build)
+  const fullPath = currentPath.replace('#', '') || '/';
+  const path = fullPath.split('?')[0];
   
   // === PUBLIC ROUTES ===
   
@@ -56,28 +53,17 @@ export default function App() {
   if (path === '/sms-consent') {
     return <SmsConsent />;
   }
-  
+
   if (path === '/privacy-policy') {
     return <PrivacyPolicy />;
   }
-  
+
   if (path === '/terms') {
     return <TermsConditions />;
   }
   
-  if (path === '/about') {
-    return <AboutUs />;
-  }
-  
-  if (path === '/contact') {
-    return <ContactUs />;
-  }
-  
-  if (path === '/do-not-sell') {
-    return <DoNotSell />;
-  }
-  
   // QuoteView - public (customer has the short code link)
+  // Also handles ?edit=true param (QuoteView reads it from hash internally)
   if (path.startsWith('/quote/') && path !== '/quote/build') {
     const code = path.replace('/quote/', '');
     return <QuoteView code={code} />;
@@ -117,6 +103,14 @@ export default function App() {
     );
   }
   
+  if (path === '/mechanical') {
+    return (
+      <StaffPinGate>
+        <MechanicalFinder />
+      </StaffPinGate>
+    );
+  }
+
   // === DEFAULT (public) ===
   return <TireFinder />;
 }
