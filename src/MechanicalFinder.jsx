@@ -332,6 +332,8 @@ export default function MechanicalFinder() {
   const [searchTerm,  setSearchTerm]  = useState('');
   const [operations,  setOperations]  = useState([]);
   const [cart,        setCart]        = useState([]);    // selected line items
+  const [parts,       setParts]       = useState([]);    // parts added during build
+  const [partForm,    setPartForm]    = useState({ part_number: '', description: '', quantity: 1, unit_price: '' });
 
   // ── Employee list ──
   const [employees, setEmployees] = useState([]);
@@ -693,6 +695,13 @@ export default function MechanicalFinder() {
           base_vehicle_id: selConfig.base_vehicle_id,
           config:          selConfig,
         },
+        parts: parts.map((p, i) => ({
+          part_number:  p.part_number || undefined,
+          description:  p.description,
+          quantity:     p.quantity,
+          unit_price:   p.unit_price,
+          source:       'manual',
+        })),
         items: cart.map((op) => ({
           mechanical_estimating_id: op.mechanical_estimating_id,
           motor_db_section:         op.motor_db_section,
@@ -1232,6 +1241,88 @@ export default function MechanicalFinder() {
                       </div>
                     </>
                   )}
+                </div>
+
+                {/* Parts */}
+                <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
+                    Parts <span style={{ fontWeight: '400', color: '#94a3b8' }}>(optional)</span>
+                  </div>
+
+                  {/* Parts list */}
+                  {parts.length > 0 && (
+                    <div style={{ marginBottom: '10px' }}>
+                      {parts.map((p, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, gap: '8px' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '12px', fontWeight: '600', color: DARK }}>{p.description}</div>
+                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                              {p.part_number && <span>{p.part_number} · </span>}
+                              {p.quantity} × {formatCurrency(p.unit_price)}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: DARK }}>{formatCurrency(p.quantity * p.unit_price)}</span>
+                            <button onClick={() => setParts((prev) => prev.filter((_, idx) => idx !== i))}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', lineHeight: 1, padding: 0 }}>×</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add part form */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <input type="text" placeholder="Part Number (optional)"
+                      value={partForm.part_number}
+                      onChange={(e) => setPartForm((p) => ({ ...p, part_number: e.target.value }))}
+                      style={inputStyle}
+                      onFocus={(e) => e.target.style.borderColor = PURPLE}
+                      onBlur={(e) => e.target.style.borderColor = BORDER}
+                    />
+                    <input type="text" placeholder="Description *"
+                      value={partForm.description}
+                      onChange={(e) => setPartForm((p) => ({ ...p, description: e.target.value }))}
+                      style={inputStyle}
+                      onFocus={(e) => e.target.style.borderColor = PURPLE}
+                      onBlur={(e) => e.target.style.borderColor = BORDER}
+                    />
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <input type="number" placeholder="Qty" min="1"
+                        value={partForm.quantity}
+                        onChange={(e) => setPartForm((p) => ({ ...p, quantity: Math.max(1, parseInt(e.target.value) || 1) }))}
+                        style={{ ...inputStyle, width: '60px' }}
+                        onFocus={(e) => e.target.style.borderColor = PURPLE}
+                        onBlur={(e) => e.target.style.borderColor = BORDER}
+                      />
+                      <input type="number" placeholder="Unit Price *" min="0" step="0.01"
+                        value={partForm.unit_price}
+                        onChange={(e) => setPartForm((p) => ({ ...p, unit_price: e.target.value }))}
+                        style={{ ...inputStyle, flex: 1 }}
+                        onFocus={(e) => e.target.style.borderColor = PURPLE}
+                        onBlur={(e) => e.target.style.borderColor = BORDER}
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!partForm.description.trim() || !partForm.unit_price) return;
+                        setParts((prev) => [...prev, {
+                          part_number: partForm.part_number.trim() || null,
+                          description: partForm.description.trim(),
+                          quantity:    partForm.quantity,
+                          unit_price:  parseFloat(partForm.unit_price),
+                        }]);
+                        setPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
+                      }}
+                      disabled={!partForm.description.trim() || !partForm.unit_price}
+                      style={{
+                        padding: '8px', border: `2px solid ${BORDER}`, borderRadius: '6px',
+                        backgroundColor: !partForm.description.trim() || !partForm.unit_price ? '#f5f5f5' : LIGHT,
+                        color: !partForm.description.trim() || !partForm.unit_price ? '#94a3b8' : PURPLE,
+                        fontSize: '12px', fontWeight: '700', cursor: !partForm.description.trim() || !partForm.unit_price ? 'not-allowed' : 'pointer',
+                      }}
+                    >+ Add Part</button>
+                  </div>
                 </div>
 
                 {/* Customer */}
