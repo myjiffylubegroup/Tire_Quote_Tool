@@ -621,7 +621,7 @@ export default function QuoteLookup() {
                         {formatDate(quote.created_at)}
                       </td>
                       <td style={{ padding: '12px 15px' }}>
-                        <div style={{ fontWeight: '500', color: '#333' }}>{quote.customer.name}</div>
+                        <div style={{ fontWeight: '500', color: '#333' }}>{quote.customer.full_name}</div>
                         {quote.customer.phone && (
                           <div style={{ fontSize: '11px', color: '#888' }}>{formatPhone(quote.customer.phone)}</div>
                         )}
@@ -637,44 +637,20 @@ export default function QuoteLookup() {
                           overflow: 'hidden', 
                           textOverflow: 'ellipsis' 
                         }}>
-                          {quote.vehicle}
+                          {quote.vehicle_display}
                         </div>
                       </td>
+                      {quoteMode === 'tires' && (
                       <td style={{ padding: '12px 10px', textAlign: 'center' }}>
                         {quote.tread ? (
                           <div style={{ display: 'flex', justifyContent: 'center', gap: '3px', flexWrap: 'nowrap' }}>
-                            {quote.tread.red_count > 0 && (
-                              <span style={{ 
-                                backgroundColor: '#fee2e2', color: '#dc2626',
-                                padding: '2px 6px', borderRadius: '8px', 
-                                fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap'
-                              }}>
-                                🔴 {quote.tread.red_count}
-                              </span>
-                            )}
-                            {quote.tread.yellow_count > 0 && (
-                              <span style={{ 
-                                backgroundColor: '#fef3c7', color: '#d97706',
-                                padding: '2px 6px', borderRadius: '8px', 
-                                fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap'
-                              }}>
-                                🟡 {quote.tread.yellow_count}
-                              </span>
-                            )}
-                            {quote.tread.green_count > 0 && quote.tread.red_count === 0 && quote.tread.yellow_count === 0 && (
-                              <span style={{ 
-                                backgroundColor: '#d1fae5', color: '#059669',
-                                padding: '2px 6px', borderRadius: '8px', 
-                                fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap'
-                              }}>
-                                🟢 {quote.tread.green_count}
-                              </span>
-                            )}
+                            {quote.tread.red_count > 0 && <span style={{ backgroundColor: '#fee2e2', color: '#dc2626', padding: '2px 6px', borderRadius: '8px', fontSize: '10px', fontWeight: '700' }}>🔴 {quote.tread.red_count}</span>}
+                            {quote.tread.yellow_count > 0 && <span style={{ backgroundColor: '#fef3c7', color: '#d97706', padding: '2px 6px', borderRadius: '8px', fontSize: '10px', fontWeight: '700' }}>🟡 {quote.tread.yellow_count}</span>}
+                            {quote.tread.green_count > 0 && quote.tread.red_count === 0 && quote.tread.yellow_count === 0 && <span style={{ backgroundColor: '#d1fae5', color: '#059669', padding: '2px 6px', borderRadius: '8px', fontSize: '10px', fontWeight: '700' }}>🟢 {quote.tread.green_count}</span>}
                           </div>
-                        ) : (
-                          <span style={{ color: '#ccc', fontSize: '11px' }}>—</span>
-                        )}
+                        ) : <span style={{ color: '#ccc', fontSize: '11px' }}>—</span>}
                       </td>
+                      )}
                       {quoteMode === 'tires' ? (
                         <td style={{ padding: '12px 15px', color: '#666' }}>
                           <div style={{ fontWeight: '500' }}>{quote.tire?.brand} {quote.tire?.size}</div>
