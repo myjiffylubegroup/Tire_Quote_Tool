@@ -189,6 +189,9 @@ const StyledSelect = ({ value, onChange, options, placeholder, style }) => (
 export default function QuoteLookup() {
   const [selectedStore, setSelectedStore] = useState(() => localStorage.getItem('jl_tire_store') || '609');
   
+  // Quote type toggle
+  const [quoteMode, setQuoteMode] = useState('tires'); // 'tires' | 'mechanical'
+
   // Search state
   const [searchType, setSearchType] = useState('name');
   const [searchValue, setSearchValue] = useState('');
@@ -208,10 +211,12 @@ export default function QuoteLookup() {
     localStorage.setItem('jl_tire_store', selectedStore);
   }, [selectedStore]);
 
-  // Load recent quotes on mount
+  // Load recent quotes on mount / when store or mode changes
   useEffect(() => {
+    setQuotes([]);
+    setHasSearched(false);
     handleSearch(true);
-  }, [selectedStore]);
+  }, [selectedStore, quoteMode]);
 
   const handleSearch = async (initialLoad = false) => {
     setLoading(true);
@@ -219,7 +224,8 @@ export default function QuoteLookup() {
     if (!initialLoad) setHasSearched(true);
 
     try {
-      const response = await fetch(`${API_BASE}/search-quotes`, {
+      const endpoint = quoteMode === 'mechanical' ? 'search-mechanical-quotes' : 'search-quotes';
+      const response = await fetch(`${API_BASE}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -230,7 +236,7 @@ export default function QuoteLookup() {
           license_state: searchType === 'plate' ? licenseState : undefined,
           sort_by: sortBy,
           sort_order: sortOrder,
-          filter_status: filterStatus,
+          filter_status: quoteMode === 'mechanical' ? undefined : filterStatus,
           limit: 50
         })
       });
@@ -264,7 +270,11 @@ export default function QuoteLookup() {
   };
 
   const openQuote = (shortCode) => {
-    window.location.hash = `#/quote/${shortCode}`;
+    if (quoteMode === 'mechanical') {
+      window.location.hash = `#/mechanical/${shortCode}`;
+    } else {
+      window.location.hash = `#/quote/${shortCode}`;
+    }
   };
 
   // Check if quote was created today (Pacific time) — matches get-quote is_editable logic
@@ -352,11 +362,37 @@ export default function QuoteLookup() {
             color: '#888', 
             textAlign: 'center', 
             fontSize: '13px', 
-            marginBottom: '25px',
+            marginBottom: '20px',
             letterSpacing: '1px'
           }}>
             Search saved quotes by customer name, license plate, phone, or quote number
           </p>
+
+          {/* Quote type toggle */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '0', marginBottom: '25px', border: '2px solid #9b59b6', borderRadius: '25px', overflow: 'hidden', width: 'fit-content', margin: '0 auto 25px' }}>
+            <button
+              onClick={() => setQuoteMode('tires')}
+              style={{
+                padding: '10px 28px', border: 'none', cursor: 'pointer',
+                backgroundColor: quoteMode === 'tires' ? '#9b59b6' : 'white',
+                color: quoteMode === 'tires' ? 'white' : '#9b59b6',
+                fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px',
+              }}
+            >
+              🛞 Tire Quotes
+            </button>
+            <button
+              onClick={() => setQuoteMode('mechanical')}
+              style={{
+                padding: '10px 28px', border: 'none', cursor: 'pointer',
+                backgroundColor: quoteMode === 'mechanical' ? '#9b59b6' : 'white',
+                color: quoteMode === 'mechanical' ? 'white' : '#9b59b6',
+                fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px',
+              }}
+            >
+              🔧 Mechanical Quotes
+            </button>
+          </div>
 
           {/* Search Form */}
           <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -446,7 +482,8 @@ export default function QuoteLookup() {
               />
             </div>
 
-            {/* Conversion Filter */}
+            {/* Conversion Filter — tires only */}
+            {quoteMode === 'tires' && (
             <div style={{ width: '150px' }}>
               <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
                 FILTER
@@ -464,6 +501,7 @@ export default function QuoteLookup() {
                 placeholder="Filter..."
               />
             </div>
+            )}
 
             {/* Search Button */}
             <button
@@ -546,12 +584,20 @@ export default function QuoteLookup() {
                     <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Date</th>
                     <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Customer</th>
                     <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Vehicle</th>
-                    <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Tread</th>
-                    <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Tire</th>
+                    {quoteMode === 'tires' ? (
+                      <>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Tread</th>
+                        <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Tire</th>
+                      </>
+                    ) : (
+                      <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Services</th>
+                    )}
                     <th style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#666' }}>Total</th>
-                    <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Purchased</th>
+                    {quoteMode === 'tires' && (
+                      <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Purchased</th>
+                    )}
                     <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Status</th>
-                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666', minWidth: '180px' }}>Actions</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666', minWidth: '120px' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -629,12 +675,19 @@ export default function QuoteLookup() {
                           <span style={{ color: '#ccc', fontSize: '11px' }}>—</span>
                         )}
                       </td>
-                      <td style={{ padding: '12px 15px', color: '#666' }}>
-                        <div style={{ fontWeight: '500' }}>{quote.tire.brand} {quote.tire.size}</div>
-                        <div style={{ fontSize: '11px', color: '#888' }}>Qty: {quote.quantity}</div>
-                      </td>
+                      {quoteMode === 'tires' ? (
+                        <td style={{ padding: '12px 15px', color: '#666' }}>
+                          <div style={{ fontWeight: '500' }}>{quote.tire?.brand} {quote.tire?.size}</div>
+                          <div style={{ fontSize: '11px', color: '#888' }}>Qty: {quote.quantity}</div>
+                        </td>
+                      ) : (
+                        <td style={{ padding: '12px 15px', textAlign: 'center', color: '#666' }}>
+                          <div style={{ fontSize: '12px', fontWeight: '600' }}>{quote.item_count} labor</div>
+                          {quote.parts_count > 0 && <div style={{ fontSize: '11px', color: '#888' }}>{quote.parts_count} parts</div>}
+                        </td>
+                      )}
                       <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#333' }}>
-                        {formatCurrency(quote.total_amount)}
+                        {formatCurrency(quoteMode === 'mechanical' ? quote.total : quote.total_amount)}
                       </td>
                       <td style={{ padding: '12px 10px', textAlign: 'center' }}>
                         {quote.conversion ? (
@@ -663,6 +716,7 @@ export default function QuoteLookup() {
                           <span style={{ color: '#cbd5e1', fontSize: '14px' }}>—</span>
                         )}
                       </td>
+                      )}
                       <td style={{ padding: '12px 15px', textAlign: 'center' }}>
                         {quote.is_expired ? (
                           <span style={{ 
@@ -691,63 +745,28 @@ export default function QuoteLookup() {
                       <td style={{ padding: '8px 10px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openQuote(quote.short_code);
-                            }}
-                            style={{
-                              backgroundColor: '#9b59b6',
-                              color: 'white',
-                              border: 'none',
-                              padding: '5px 10px',
-                              borderRadius: '12px',
-                              fontSize: '10px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                            }}
+                            onClick={(e) => { e.stopPropagation(); openQuote(quote.short_code); }}
+                            style={{ backgroundColor: '#9b59b6', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
                           >
                             VIEW
                           </button>
-                          {isSameDay(quote.created_at) && !quote.is_expired && (
+                          {quoteMode === 'tires' && isSameDay(quote.created_at) && !quote.is_expired && (
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                editQuote(quote.short_code);
-                              }}
-                              style={{
-                                backgroundColor: 'transparent',
-                                color: '#9b59b6',
-                                border: '1.5px solid #9b59b6',
-                                padding: '5px 10px',
-                                borderRadius: '12px',
-                                fontSize: '10px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                              }}
+                              onClick={(e) => { e.stopPropagation(); editQuote(quote.short_code); }}
+                              style={{ backgroundColor: 'transparent', color: '#9b59b6', border: '1.5px solid #9b59b6', padding: '5px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
                             >
                               EDIT
                             </button>
                           )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              reQuote(quote.quote_id);
-                            }}
-                            disabled={reQuoting === quote.quote_id}
-                            style={{
-                              backgroundColor: 'transparent',
-                              color: '#3b82f6',
-                              border: '1.5px solid #3b82f6',
-                              padding: '5px 10px',
-                              borderRadius: '12px',
-                              fontSize: '10px',
-                              fontWeight: '600',
-                              cursor: reQuoting === quote.quote_id ? 'wait' : 'pointer',
-                              opacity: reQuoting === quote.quote_id ? 0.5 : 1,
-                            }}
-                          >
-                            {reQuoting === quote.quote_id ? '...' : 'RE-QUOTE'}
-                          </button>
+                          {quoteMode === 'tires' && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); reQuote(quote.quote_id); }}
+                              disabled={reQuoting === quote.quote_id}
+                              style={{ backgroundColor: 'transparent', color: '#3b82f6', border: '1.5px solid #3b82f6', padding: '5px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', cursor: reQuoting === quote.quote_id ? 'wait' : 'pointer', opacity: reQuoting === quote.quote_id ? 0.5 : 1 }}
+                            >
+                              {reQuoting === quote.quote_id ? '...' : 'RE-QUOTE'}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
