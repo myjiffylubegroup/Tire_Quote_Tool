@@ -178,7 +178,7 @@ export default function MechanicalQuoteView({ code }) {
       });
       const data = await res.json();
       if (data.success) {
-        setQuote((prev: any) => ({
+        setQuote((prev) => ({
           ...prev,
           customer: {
             ...prev.customer,
