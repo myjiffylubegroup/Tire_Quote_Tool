@@ -110,8 +110,8 @@ export default function App() {
     return <MechanicalQuoteView code={code} />;
   }
 
-  if (path === '/mechanical' || path.startsWith('/mechanical?')) {
-    const revisionMode = path.includes('mode=revision');
+  if (path === '/mechanical') {
+    const revisionMode = fullPath.includes('mode=revision');
     return (
       <StaffPinGate>
         <MechanicalFinder revisionMode={revisionMode} />
