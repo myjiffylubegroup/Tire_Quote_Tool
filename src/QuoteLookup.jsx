@@ -665,24 +665,17 @@ export default function QuoteLookup() {
                       <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#333' }}>
                         {formatCurrency(quoteMode === 'mechanical' ? quote.total : quote.total_amount)}
                       </td>
+                      {quoteMode === 'tires' && (
                       <td style={{ padding: '12px 10px', textAlign: 'center' }}>
                         {quote.conversion ? (
                           quote.conversion.status === 'purchased' ? (
                             <span 
                               title={`${quote.conversion.tires_purchased} tire${quote.conversion.tires_purchased !== 1 ? 's' : ''} · Store ${quote.conversion.purchase_store} · ${quote.conversion.days_to_purchase} day${quote.conversion.days_to_purchase !== 1 ? 's' : ''}`}
-                              style={{ 
-                                backgroundColor: '#d1fae5', color: '#065f46',
-                                padding: '3px 8px', borderRadius: '10px', 
-                                fontSize: '10px', fontWeight: '600', cursor: 'default'
-                              }}>
+                              style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '3px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600', cursor: 'default' }}>
                               ✅ {quote.conversion.tires_purchased}
                             </span>
                           ) : quote.conversion.status === 'unmatched' ? (
-                            <span style={{ 
-                              backgroundColor: '#f1f5f9', color: '#94a3b8',
-                              padding: '3px 8px', borderRadius: '10px', 
-                              fontSize: '10px', fontWeight: '600'
-                            }}>
+                            <span style={{ backgroundColor: '#f1f5f9', color: '#94a3b8', padding: '3px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600' }}>
                               NO PLATE
                             </span>
                           ) : (
