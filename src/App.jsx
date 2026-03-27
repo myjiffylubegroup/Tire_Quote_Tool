@@ -110,10 +110,11 @@ export default function App() {
     return <MechanicalQuoteView code={code} />;
   }
 
-  if (path === '/mechanical') {
+  if (path === '/mechanical' || path.startsWith('/mechanical?')) {
+    const revisionMode = path.includes('mode=revision');
     return (
       <StaffPinGate>
-        <MechanicalFinder />
+        <MechanicalFinder revisionMode={revisionMode} />
       </StaffPinGate>
     );
   }

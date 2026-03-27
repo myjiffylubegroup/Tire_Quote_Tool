@@ -295,7 +295,7 @@ const Header = ({ selectedStore, onStoreChange }) => (
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function MechanicalFinder() {
+export default function MechanicalFinder({ revisionMode: revisionModeProp = false }) {
   // ── Store (persisted) ──
   const [selectedStore, setSelectedStore] = useState(() =>
     localStorage.getItem('jl_tire_store') || '609'
@@ -379,10 +379,9 @@ export default function MechanicalFinder() {
   })();
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Detect revision mode from URL + sessionStorage on mount
+  // Detect revision mode from prop (set by App.jsx router) + sessionStorage
   useEffect(() => {
-    const hash = window.location.hash || '';
-    if (hash.includes('mode=revision')) {
+    if (revisionModeProp) {
       const ctx = sessionStorage.getItem('jl_revision_context');
       if (ctx) {
         try {
@@ -398,11 +397,11 @@ export default function MechanicalFinder() {
               .then((r) => r.json())
               .then((d) => { if (d.success) setTree(d.data); });
           }
-          setStep('services');
+          setStep('browse');
         } catch (e) { console.error('Failed to parse revision context', e); }
       }
     }
-  }, []);
+  }, [revisionModeProp]);
 
   // Fetch years + employees on mount / store change
   // ─────────────────────────────────────────────────────────────────────────
