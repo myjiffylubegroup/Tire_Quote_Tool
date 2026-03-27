@@ -660,6 +660,33 @@ export default function MechanicalQuoteView({ code }) {
                 </div>
               )}
 
+              {/* Add labor to revision — navigates to MechanicalFinder in revision mode */}
+              <div style={{ marginBottom: '10px' }}>
+                <button onClick={() => {
+                  // Store revision context for MechanicalFinder to pick up
+                  sessionStorage.setItem('jl_revision_context', JSON.stringify({
+                    quote_id:        quote.quote_id,
+                    short_code:      quote.short_code,
+                    base_vehicle_id: quote.vehicle?.base_vehicle_id,
+                    engine_config_id: quote.vehicle?.config?.engine_config_id,
+                    vehicle_display: quote.vehicle?.display,
+                    config_label:    quote.vehicle?.config
+                      ? `${quote.vehicle.config.engine_liter}L · ${quote.vehicle.config.fuel_type_name || 'GAS'} · ${quote.vehicle.config.drive_type_name}`
+                      : '',
+                  }));
+                  window.location.hash = '#/mechanical?mode=revision';
+                }} style={{
+                  width: '100%', padding: '10px', border: '2px dashed #92400e',
+                  borderRadius: '8px', backgroundColor: 'white', color: '#92400e',
+                  fontSize: '13px', fontWeight: '700', cursor: 'pointer', textAlign: 'center',
+                }}>
+                  🔧 Add Labor Services to Revision
+                </button>
+                <div style={{ fontSize: '10px', color: '#92400e', textAlign: 'center', marginTop: '4px' }}>
+                  Opens service browser with vehicle pre-loaded
+                </div>
+              </div>
+
               {/* Add revised part form */}
               <div style={{ backgroundColor: 'white', borderRadius: '6px', padding: '10px', border: `1px solid ${BORDER}`, marginBottom: '12px' }}>
                 <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '8px' }}>ADD PART TO REVISION</div>

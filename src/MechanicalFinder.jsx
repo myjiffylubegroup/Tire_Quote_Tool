@@ -335,6 +335,12 @@ export default function MechanicalFinder() {
   const [parts,       setParts]       = useState([]);    // parts added during build
   const [partForm,    setPartForm]    = useState({ part_number: '', description: '', quantity: 1, unit_price: '' });
 
+  // ── Revision mode ──
+  const [revisionMode,    setRevisionMode]    = useState(false);
+  const [revisionContext, setRevisionContext] = useState(null); // { quote_id, short_code, base_vehicle_id, engine_config_id, vehicle_display, config_label }
+  const [revisionAuth,    setRevisionAuth]    = useState('');
+  const [revisionError,   setRevisionError]   = useState('');
+
   // ── Employee list ──
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -373,6 +379,31 @@ export default function MechanicalFinder() {
   })();
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Detect revision mode from URL + sessionStorage on mount
+  useEffect(() => {
+    const hash = window.location.hash || '';
+    if (hash.includes('mode=revision')) {
+      const ctx = sessionStorage.getItem('jl_revision_context');
+      if (ctx) {
+        try {
+          const parsed = JSON.parse(ctx);
+          setRevisionContext(parsed);
+          setRevisionMode(true);
+          sessionStorage.removeItem('jl_revision_context');
+          // Pre-load tree for this vehicle
+          if (parsed.base_vehicle_id) {
+            const params = new URLSearchParams({ key: API_KEY, base_vehicle_id: parsed.base_vehicle_id, mode: 'tree' });
+            if (parsed.engine_config_id) params.set('engine_config_id', String(parsed.engine_config_id));
+            fetch(`${API_BASE}/ewt-labor-search?${params.toString()}`)
+              .then((r) => r.json())
+              .then((d) => { if (d.success) setTree(d.data); });
+          }
+          setStep('services');
+        } catch (e) { console.error('Failed to parse revision context', e); }
+      }
+    }
+  }, []);
+
   // Fetch years + employees on mount / store change
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -663,6 +694,49 @@ export default function MechanicalFinder() {
   };
 
   const cartTotal = cart.reduce((sum, op) => sum + Number(op.labor_price) * (op.quantity || 1), 0);
+
+  const handleSubmitRevision = async () => {
+    if (cart.length === 0) { setRevisionError('Add at least one service'); return; }
+    if (!revisionAuth.trim() || revisionAuth.trim().length < 5) { setRevisionError('Authorization note is required'); return; }
+    if (!revisionContext?.quote_id) { setRevisionError('Revision context lost — please go back to the quote'); return; }
+    setLoading(true); setRevisionError('');
+    try {
+      const res = await fetch(`${API_BASE}/add-mechanical-revision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key:           API_KEY,
+          quote_id:      revisionContext.quote_id,
+          revision_auth: revisionAuth.trim(),
+          items: cart.map((op) => ({
+            mechanical_estimating_id: op.mechanical_estimating_id,
+            motor_db_section:         op.motor_db_section,
+            motor_db_group:           op.motor_db_group,
+            motor_db_subgroup:        op.motor_db_subgroup,
+            motor_db_operation:       op.motor_db_operation,
+            qualifier_description:    op.qualifier_description,
+            motor_time:               op.motor_time,
+            labor_price:              op.labor_price,
+            motor_db_description:     op.motor_db_description,
+            motor_db_footnote:        op.motor_db_footnote,
+            is_additional_operation:  op.is_additional_operation,
+            quantity:                 op.quantity || 1,
+          })),
+          parts: [],
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.hash = `#/mechanical/${revisionContext.short_code}`;
+      } else {
+        setRevisionError(data.error || 'Failed to submit revision');
+        setLoading(false);
+      }
+    } catch (e) {
+      setRevisionError('Network error');
+      setLoading(false);
+    }
+  };
 
   const handleGenerateQuote = async () => {
     if (cart.length === 0) return;
@@ -977,24 +1051,29 @@ export default function MechanicalFinder() {
         {/* ══════════════════════════════════════════════════════════════════
             STEP 4: Browse + Cart (two-panel layout)
         ══════════════════════════════════════════════════════════════════ */}
-        {step === 'browse' && selConfig && (
+        {step === 'browse' && (selConfig || (revisionMode && revisionContext)) && (
           <>
             {/* Vehicle summary bar */}
             <div style={{ backgroundColor: DARK, color: 'white', borderRadius: '10px', padding: '12px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <span style={{ fontSize: '13px', fontWeight: '700' }}>
-                  {selYear} {selMake} {selModel} {selSubmodel}
+                  {revisionMode && revisionContext ? revisionContext.vehicle_display : `${selYear} ${selMake} ${selModel} ${selSubmodel}`}
                 </span>
                 <span style={{ fontSize: '12px', color: '#94a3b8', marginLeft: '12px' }}>
-                  {selConfig.engine_liter}L · {selConfig.drive_type_name} · {selConfig.front_brake_type}/{selConfig.rear_brake_type}
+                  {revisionMode && revisionContext ? revisionContext.config_label : selConfig ? `${selConfig.engine_liter}L · ${selConfig.drive_type_name} · ${selConfig.front_brake_type}/${selConfig.rear_brake_type}` : ''}
                 </span>
+                {revisionMode && (
+                  <span style={{ marginLeft: '12px', fontSize: '10px', fontWeight: '700', backgroundColor: '#f59e0b', color: '#1e293b', borderRadius: '4px', padding: '2px 8px' }}>REVISION MODE</span>
+                )}
               </div>
+              {!revisionMode && (
               <button
                 onClick={handleReset}
                 style={{ background: 'none', border: '1px solid #475569', color: '#94a3b8', borderRadius: '20px', padding: '6px 14px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}
               >
                 ← New Vehicle
               </button>
+              )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 320px', gap: '16px', alignItems: 'start' }}>
@@ -1243,7 +1322,8 @@ export default function MechanicalFinder() {
                   )}
                 </div>
 
-                {/* Parts */}
+                {/* Parts — hidden in revision mode (added on QuoteView) */}
+                {!revisionMode && (
                 <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
                     Parts <span style={{ fontWeight: '400', color: '#94a3b8' }}>(optional)</span>
@@ -1325,7 +1405,11 @@ export default function MechanicalFinder() {
                   </div>
                 </div>
 
-                {/* Customer */}
+                </div>
+                )}
+
+                {/* Customer — hidden in revision mode */}
+                {!revisionMode && (
                 <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
                     Customer <span style={{ fontWeight: '400', color: '#94a3b8' }}>(optional)</span>
@@ -1360,7 +1444,11 @@ export default function MechanicalFinder() {
                     onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
                 </div>
 
-                {/* Employee */}
+                </div>
+                )}
+
+                {/* Employee — hidden in revision mode */}
+                {!revisionMode && (
                 <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Prepared By</div>
                   <select
@@ -1377,12 +1465,38 @@ export default function MechanicalFinder() {
                   </select>
                 </div>
 
-                {/* Generate */}
-                <PurpleButton onClick={handleGenerateQuote} disabled={cart.length===0 || loading || !selectedEmployee}>
-                  {loading ? 'Generating…' : `Generate Quote · ${formatCurrency(cartTotal)}`}
-                </PurpleButton>
-                {cart.length > 0 && !selectedEmployee && (
-                  <div style={{ fontSize: '11px', color: '#dc2626', textAlign: 'center', marginTop: '-8px' }}>Select an employee above</div>
+                </div>
+                )}
+
+                {/* Generate Quote OR Submit Revision */}
+                {revisionMode ? (
+                  <div>
+                    <div style={{ marginBottom: '8px' }}>
+                      <label style={{ fontSize: '10px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>AUTHORIZATION NOTE * (required)</label>
+                      <input type="text" value={revisionAuth} onChange={(e) => setRevisionAuth(e.target.value)}
+                        placeholder='e.g. "Authorized by customer via phone at 2:15pm"'
+                        style={{ ...inputStyle, borderColor: '#f59e0b', borderWidth: '2px' }} />
+                    </div>
+                    {revisionError && <div style={{ color: '#dc2626', fontSize: '11px', marginBottom: '6px' }}>{revisionError}</div>}
+                    <button onClick={handleSubmitRevision} disabled={cart.length === 0 || loading || !revisionAuth.trim()}
+                      style={{
+                        width: '100%', padding: '14px', border: 'none', borderRadius: '25px',
+                        backgroundColor: cart.length === 0 || !revisionAuth.trim() ? '#ccc' : '#92400e',
+                        color: 'white', fontSize: '14px', fontWeight: '700', cursor: cart.length === 0 || !revisionAuth.trim() ? 'not-allowed' : 'pointer',
+                      }}>
+                      {loading ? 'Submitting…' : `Authorize & Add to Revision · ${formatCurrency(cartTotal)}`}
+                    </button>
+                    {cart.length === 0 && <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', marginTop: '6px' }}>Add services above</div>}
+                  </div>
+                ) : (
+                  <>
+                  <PurpleButton onClick={handleGenerateQuote} disabled={cart.length===0 || loading || !selectedEmployee}>
+                    {loading ? 'Generating…' : `Generate Quote · ${formatCurrency(cartTotal)}`}
+                  </PurpleButton>
+                  {cart.length > 0 && !selectedEmployee && (
+                    <div style={{ fontSize: '11px', color: '#dc2626', textAlign: 'center', marginTop: '-8px' }}>Select an employee above</div>
+                  )}
+                  </>
                 )}
               </div>
 
