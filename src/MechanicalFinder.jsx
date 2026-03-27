@@ -1404,8 +1404,6 @@ export default function MechanicalFinder() {
                     >+ Add Part</button>
                   </div>
                 </div>
-
-                </div>
                 )}
 
                 {/* Customer — hidden in revision mode */}
@@ -1443,8 +1441,6 @@ export default function MechanicalFinder() {
                     style={{ ...inputStyle, resize: 'vertical' }}
                     onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
                 </div>
-
-                </div>
                 )}
 
                 {/* Employee — hidden in revision mode */}
@@ -1463,8 +1459,6 @@ export default function MechanicalFinder() {
                       <option key={emp.employee_id || emp.user_id} value={emp.employee_id || emp.user_id}>{emp.display_name}</option>
                     ))}
                   </select>
-                </div>
-
                 </div>
                 )}
 
