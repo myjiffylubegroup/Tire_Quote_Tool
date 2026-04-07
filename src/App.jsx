@@ -12,6 +12,7 @@ import PrivacyPolicy from './PrivacyPolicy';
 import MechanicalFinder from './MechanicalFinder';
 import MechanicalQuoteView from './MechanicalQuoteView';
 import TermsConditions from './TermsConditions';
+import Reports from './Reports';
 
 // Simple hash-based router (no additional dependencies needed)
 export default function App() {
@@ -40,6 +41,7 @@ export default function App() {
   // #/quote/build -> QuoteBuilder (also handles ?revise=uuid)
   // #/enterprise -> EnterpriseTireFinder
   // #/fleet -> FleetTireFinder
+  // #/reports -> Reports
   
   // Strip query params for route matching (e.g., /quote/build?revise=xxx -> /quote/build)
   const fullPath = currentPath.replace('#', '') || '/';
@@ -100,6 +102,14 @@ export default function App() {
     return (
       <StaffPinGate>
         <FleetTireFinder />
+      </StaffPinGate>
+    );
+  }
+
+  if (path === '/reports') {
+    return (
+      <StaffPinGate>
+        <Reports />
       </StaffPinGate>
     );
   }

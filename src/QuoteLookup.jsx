@@ -18,11 +18,12 @@ const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','
 
 // Navigation items - consistent across all pages
 const NAV_ITEMS = [
-  { label: 'TIRE FINDER', href: '#/' },
-  { label: 'STORE INVENTORY', href: '#/inventory' },
-  { label: 'RETRIEVE QUOTE', href: '#/quotes' },
-  { label: 'ENTERPRISE RENT-A-CAR', href: '#/enterprise' },
-  { label: 'FLEET NEGOTIATED', href: '#/fleet' },
+  { label: 'TIRE FINDER',           href: '#/'          },
+  { label: 'STORE INVENTORY',       href: '#/inventory' },
+  { label: 'RETRIEVE QUOTE',        href: '#/quotes'    },
+  { label: 'ENTERPRISE RENT-A-CAR', href: '#/enterprise'},
+  { label: 'FLEET NEGOTIATED',      href: '#/fleet'     },
+  { label: 'REPORTS',               href: '#/reports'   },
 ];
 
 const formatCurrency = (amount) => 
