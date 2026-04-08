@@ -294,9 +294,9 @@ export default function Reports() {
       acc.emailed  += r.delivery?.emailed   || 0;
       acc.texted   += r.delivery?.texted    || 0;
       acc.paypal   += r.delivery?.paypal    || 0;
-      acc.print    += r.delivery?.print_only|| 0;
+      acc.printed  += r.delivery?.printed   || 0;
       return acc;
-    }, { emailed: 0, texted: 0, paypal: 0, print: 0 });
+    }, { emailed: 0, texted: 0, paypal: 0, printed: 0 });
   })();
 
   const csaRows = reportData?.csa_metrics || [];
@@ -524,15 +524,15 @@ export default function Reports() {
               <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #eee', padding: '20px' }}>
                 <SectionTitle>Quote Delivery Methods</SectionTitle>
                 {deliveryTotals && (() => {
-                  const total = deliveryTotals.emailed + deliveryTotals.texted + deliveryTotals.paypal + deliveryTotals.print;
+                  const total = deliveryTotals.emailed + deliveryTotals.texted + deliveryTotals.paypal + deliveryTotals.printed;
                   const pct = (n) => total > 0 ? Math.round((n / total) * 100) : 0;
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       {[
-                        { label: '📧 Emailed',    value: deliveryTotals.emailed, color: '#3b82f6' },
-                        { label: '💬 Texted',     value: deliveryTotals.texted,  color: '#10b981' },
-                        { label: '💳 PayPal',     value: deliveryTotals.paypal,  color: '#f59e0b' },
-                        { label: '🖨️ Print Only', value: deliveryTotals.print,   color: '#94a3b8' },
+                        { label: '📧 Emailed',    value: deliveryTotals.emailed,  color: '#3b82f6' },
+                        { label: '💬 Texted',     value: deliveryTotals.texted,   color: '#10b981' },
+                        { label: '💳 PayPal',     value: deliveryTotals.paypal,   color: '#f59e0b' },
+                        { label: '🖨️ Printed',    value: deliveryTotals.printed,  color: '#94a3b8' },
                       ].map(d => (
                         <div key={d.label}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
