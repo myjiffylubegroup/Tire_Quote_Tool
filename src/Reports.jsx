@@ -260,7 +260,7 @@ export default function Reports() {
   // Join eroc + quote metrics by store for the main table
   const storeRows = (() => {
     if (!reportData) return [];
-    const storeMap: Record<string, any> = {};
+    const storeMap = {};
 
     // Seed from STORES list so all 8 always appear (or just the auth store)
     const visibleStores = isCorporate
