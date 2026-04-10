@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
@@ -31,7 +31,7 @@ const PURPLE = '#9b59b6';
 const DARK   = '#1e293b';
 const LIGHT  = '#f8f4ff';
 const BORDER = '#e2d9f3';
-const AMBER  = '#f59e0b';
+const GREEN  = '#16a34a';
 
 const formatPhone = (phone) => {
   if (!phone) return '';
@@ -59,22 +59,16 @@ const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => 
     onChange={(e) => onChange(e.target.value)}
     disabled={disabled}
     style={{
-      width: '100%',
-      padding: '10px 15px',
+      width: '100%', padding: '10px 15px',
       border: `2px solid ${disabled ? '#ddd' : PURPLE}`,
       borderRadius: '25px',
       backgroundColor: disabled ? '#f5f5f5' : 'white',
       color: disabled ? '#999' : '#333',
-      fontSize: '13px',
-      fontWeight: '600',
-      textTransform: 'uppercase',
-      letterSpacing: '0.5px',
-      cursor: disabled ? 'not-allowed' : 'pointer',
-      outline: 'none',
-      appearance: 'none',
+      fontSize: '13px', fontWeight: '600', textTransform: 'uppercase',
+      letterSpacing: '0.5px', cursor: disabled ? 'not-allowed' : 'pointer',
+      outline: 'none', appearance: 'none',
       backgroundImage: disabled ? 'none' : `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-      backgroundRepeat: 'no-repeat',
-      backgroundPosition: 'right 15px center',
+      backgroundRepeat: 'no-repeat', backgroundPosition: 'right 15px center',
     }}
   >
     <option value="">{placeholder}</option>
@@ -90,14 +84,10 @@ const PurpleButton = ({ onClick, disabled, children, small }) => (
     disabled={disabled}
     style={{
       backgroundColor: disabled ? '#ccc' : PURPLE,
-      color: 'white',
-      border: 'none',
-      borderRadius: '25px',
+      color: 'white', border: 'none', borderRadius: '25px',
       padding: small ? '8px 20px' : '12px 32px',
-      fontSize: small ? '12px' : '14px',
-      fontWeight: '700',
-      letterSpacing: '0.5px',
-      cursor: disabled ? 'not-allowed' : 'pointer',
+      fontSize: small ? '12px' : '14px', fontWeight: '700',
+      letterSpacing: '0.5px', cursor: disabled ? 'not-allowed' : 'pointer',
       textTransform: 'uppercase',
     }}
   >
@@ -120,7 +110,6 @@ const StepLabel = ({ n, label, active, done }) => (
     </span>
   </div>
 );
-
 
 // ─── Each Quantity Modal ───────────────────────────────────────────────────────
 
@@ -245,18 +234,11 @@ const Header = ({ selectedStore, onStoreChange }) => (
             value={selectedStore}
             onChange={(e) => onStoreChange(e.target.value)}
             style={{
-              padding: '8px 30px 8px 12px',
-              border: `2px solid ${PURPLE}`,
-              borderRadius: '20px',
-              fontSize: '13px',
-              fontWeight: '600',
-              color: '#333',
-              cursor: 'pointer',
-              outline: 'none',
-              appearance: 'none',
+              padding: '8px 30px 8px 12px', border: `2px solid ${PURPLE}`,
+              borderRadius: '20px', fontSize: '13px', fontWeight: '600',
+              color: '#333', cursor: 'pointer', outline: 'none', appearance: 'none',
               backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 10px center',
+              backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center',
               backgroundColor: 'white',
             }}
           >
@@ -275,14 +257,10 @@ const Header = ({ selectedStore, onStoreChange }) => (
             href={item.href}
             style={{
               color: item.active ? PURPLE : '#94a3b8',
-              textDecoration: 'none',
-              fontSize: '11px',
-              fontWeight: '700',
-              letterSpacing: '1px',
-              padding: '14px 16px',
+              textDecoration: 'none', fontSize: '11px', fontWeight: '700',
+              letterSpacing: '1px', padding: '14px 16px',
               borderBottom: item.active ? `3px solid ${PURPLE}` : '3px solid transparent',
-              whiteSpace: 'nowrap',
-              transition: 'color 0.2s',
+              whiteSpace: 'nowrap', transition: 'color 0.2s',
             }}
           >
             {item.label}
@@ -305,7 +283,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   }, [selectedStore]);
 
   // ── Step tracking ──
-  // Steps: 'vehicle' | 'submodel' | 'config' | 'browse' | 'submitted'
+  // Steps: 'vehicle' | 'submodel' | 'config' | 'browse' | 'parts' | 'submitted'
   const [step, setStep] = useState('vehicle');
 
   // ── Step 1: Vehicle picker ──
@@ -322,22 +300,31 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
 
   // ── Step 3: Config picker ──
   const [configs,    setConfigs]    = useState([]);
-  const [selConfig,  setSelConfig]  = useState(null); // full config object
+  const [selConfig,  setSelConfig]  = useState(null);
 
   // ── Step 4: Browse/Search ──
-  const [tree,        setTree]        = useState([]);    // [{section, group, subgroup, operation_count}]
+  const [tree,        setTree]        = useState([]);
   const [selSection,  setSelSection]  = useState('');
   const [selGroup,    setSelGroup]    = useState('');
   const [selSubgroup, setSelSubgroup] = useState('');
   const [searchTerm,  setSearchTerm]  = useState('');
   const [operations,  setOperations]  = useState([]);
-  const [cart,        setCart]        = useState([]);    // selected line items
-  const [parts,       setParts]       = useState([]);    // parts added during build
-  const [partForm,    setPartForm]    = useState({ part_number: '', description: '', quantity: 1, unit_price: '' });
+  const [cart,        setCart]        = useState([]);
+
+  // ── Step 5: Parts ──
+  const [parts,    setParts]    = useState([]);
+  const [partForm, setPartForm] = useState({ part_number: '', description: '', quantity: 1, unit_price: '' });
+
+  // ── PartsTech punchout state ──
+  const [ptSessionId,   setPtSessionId]   = useState(null);   // active punchout session
+  const [ptPolling,     setPtPolling]     = useState(false);  // currently polling
+  const [ptError,       setPtError]       = useState('');     // punchout error message
+  const [ptLoading,     setPtLoading]     = useState(false);  // creating session
+  const pollIntervalRef = useRef(null);                       // ref to clear interval
 
   // ── Revision mode ──
   const [revisionMode,    setRevisionMode]    = useState(false);
-  const [revisionContext, setRevisionContext] = useState(null); // { quote_id, short_code, base_vehicle_id, engine_config_id, vehicle_display, config_label }
+  const [revisionContext, setRevisionContext] = useState(null);
   const [revisionAuth,    setRevisionAuth]    = useState('');
   const [revisionError,   setRevisionError]   = useState('');
 
@@ -363,23 +350,30 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   const [custPlate,      setCustPlate]      = useState('');
   const [custPlateState, setCustPlateState] = useState('CA');
   const [custDataSource, setCustDataSource] = useState('manual');
+  const [custVin,        setCustVin]        = useState('');   // captured from plate lookup
   const [quoteNotes,     setQuoteNotes]     = useState('');
 
   // ── Loading / error ──
-  const [loading,   setLoading]   = useState(false);
-  const [opsLoading,setOpsLoading]= useState(false);
-  const [error,     setError]     = useState('');
+  const [loading,    setLoading]    = useState(false);
+  const [opsLoading, setOpsLoading] = useState(false);
+  const [error,      setError]      = useState('');
 
   // ── Generated quote ──
   const [generatedQuote, setGeneratedQuote] = useState(null);
 
-  // ── Auth (from StaffPinGate via localStorage) ──
+  // ── Auth ──
   const auth = (() => {
     try { return JSON.parse(localStorage.getItem('jl_staff_auth') || '{}'); } catch { return {}; }
   })();
 
+  // ── Clean up polling on unmount ──
+  useEffect(() => {
+    return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
+  }, []);
+
   // ─────────────────────────────────────────────────────────────────────────
-  // Detect revision mode from prop (set by App.jsx router) + sessionStorage
+  // Detect revision mode
+  // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (revisionModeProp) {
       const ctx = sessionStorage.getItem('jl_revision_context');
@@ -389,7 +383,6 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           setRevisionContext(parsed);
           setRevisionMode(true);
           sessionStorage.removeItem('jl_revision_context');
-          // Pre-load tree for this vehicle
           if (parsed.base_vehicle_id) {
             const params = new URLSearchParams({ key: API_KEY, base_vehicle_id: parsed.base_vehicle_id, mode: 'tree' });
             if (parsed.engine_config_id) params.set('engine_config_id', String(parsed.engine_config_id));
@@ -403,7 +396,8 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     }
   }, [revisionModeProp]);
 
-  // Fetch years + employees on mount / store change
+  // ─────────────────────────────────────────────────────────────────────────
+  // Fetch years + employees
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch(`${API_BASE}/vcdb-vehicle-years?key=${API_KEY}`)
@@ -428,14 +422,12 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   // Cascading vehicle selects
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    // Don't wipe make/model if plate lookup already resolved them
     if (!selMake) {
       setModels([]); setSelModel('');
       setSubmodels([]); setSelSubmodel('');
       setSelConfig(null); setConfigs([]);
     }
     if (!selYear) { setMakes([]); setSelMake(''); return; }
-    // Always reload the makes list so the dropdown has options
     fetch(`${API_BASE}/vcdb-vehicle-makes?year=${selYear}&key=${API_KEY}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setMakes(d.data); });
@@ -465,9 +457,6 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       });
   }, [selModel]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Load configs when submodel selected → advance to step 2b
-  // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     setSelConfig(null); setConfigs([]);
     if (!selYear || !selMake || !selModel || !selSubmodel) return;
@@ -475,10 +464,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     fetch(`${API_BASE}/vcdb-vehicle-configs?year=${selYear}&make=${encodeURIComponent(selMake)}&model=${encodeURIComponent(selModel)}&submodel=${encodeURIComponent(selSubmodel)}&key=${API_KEY}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) {
-          setConfigs(d.data);
-          setStep('submodel');
-        }
+        if (d.success) { setConfigs(d.data); setStep('submodel'); }
         setLoading(false);
       });
   }, [selSubmodel]);
@@ -499,13 +485,8 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!selConfig) return;
-    if (!selSubgroup && !searchTerm) {
-      setOperations([]);
-      return;
-    }
-    // Don't search with fewer than 3 chars
+    if (!selSubgroup && !searchTerm) { setOperations([]); return; }
     if (searchTerm && searchTerm.trim().length < 3) return;
-
     setOpsLoading(true);
     const params = new URLSearchParams({ key: API_KEY, base_vehicle_id: selConfig.base_vehicle_id });
     if (selConfig.engine_config_id) params.set('engine_config_id', selConfig.engine_config_id);
@@ -518,10 +499,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     }
     fetch(`${API_BASE}/ewt-labor-search?${params.toString()}`)
       .then((r) => r.json())
-      .then((d) => {
-        if (d.success) setOperations(d.data);
-        setOpsLoading(false);
-      })
+      .then((d) => { if (d.success) setOperations(d.data); setOpsLoading(false); })
       .catch(() => setOpsLoading(false));
   }, [selSection, selGroup, selSubgroup, searchTerm, selConfig]);
 
@@ -547,9 +525,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   };
 
   const isInCart = (id) => cart.some((c) => c.mechanical_estimating_id === id);
-
   const addToCart = (op, qty = 1) => setCart((prev) => [...prev, { ...op, quantity: qty }]);
-
   const handleAddClick = (op) => {
     if (isInCart(op.mechanical_estimating_id)) {
       setCart((prev) => prev.filter((c) => c.mechanical_estimating_id !== op.mechanical_estimating_id));
@@ -558,7 +534,16 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     if (isEachOperation(op)) { setEachModalOp(op); } else { addToCart(op, 1); }
   };
 
-  // ─── Customer plate lookup ───
+  // ── Advance from browse (labor) to parts step ──
+  const handleGoToParts = () => {
+    setParts([]);
+    setPtSessionId(null);
+    setPtPolling(false);
+    setPtError('');
+    setStep('parts');
+  };
+
+  // ── Customer plate lookup ──
   const handlePlateLookup = async () => {
     if (!plateInput.trim()) return;
     setLookupLoading(true); setLookupResult(null);
@@ -567,86 +552,59 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       const data = await res.json();
       if (data.success && data.found && data.customer) {
         const c = data.customer;
-        // Fill customer fields
         setCustFirstName(c.first_name || '');
         setCustLastName(c.last_name || '');
         setCustPhone(formatPhone(c.phone_raw || c.phone) || '');
         setCustEmail(c.email || '');
         setCustPlate(c.license_plate || plateInput.trim());
         setCustPlateState(c.license_state || plateState);
+        setCustVin(c.vin || '');
         setCustDataSource('lookup');
         setLookupResult('found');
 
-        // Pre-populate vehicle — resolve against VCdb directly
-        // motor_make/motor_model are already mapped to MOTOR naming,
-        // but we need VCdb naming for the mechanical tool.
-        // Strategy: fetch the VCdb makes list for the year, find a case-insensitive
-        // match against motor_make (or vehicle_make as fallback), then do the same for models.
-        const vehicleYear = c.vehicle_year ? String(c.vehicle_year) : '';
-        // Try motor_make first (already cleaned), fall back to raw Turbo make
+        const vehicleYear    = c.vehicle_year ? String(c.vehicle_year) : '';
         const candidateMake  = c.motor_make  || c.vehicle_make  || '';
         const candidateModel = c.motor_model || c.vehicle_model || '';
 
         if (vehicleYear && candidateMake && candidateModel) {
-          // Resolve year/make/model/submodels against VCdb in one async chain.
-          // Key insight: ALL state is set AFTER all fetches complete, in one
-          // synchronous block. React 18 batches these into a single render so
-          // the useEffect cascade (selYear → clear make, selMake → clear model)
-          // never fires mid-sequence.
-
-          // Step 1: Fetch makes
           const makesRes = await fetch(`${API_BASE}/vcdb-vehicle-makes?year=${vehicleYear}&key=${API_KEY}`);
           const makesData = await makesRes.json();
-          if (!makesData.success || !makesData.data) {
-            setSelYear(vehicleYear);
-            return;
-          }
+          if (!makesData.success || !makesData.data) { setLookupLoading(false); return; }
 
           const makeMatch = makesData.data.find(
             (m) => m.toLowerCase() === candidateMake.toLowerCase()
+          ) || makesData.data.find(
+            (m) => m.toLowerCase().startsWith(candidateMake.toLowerCase().split(' ')[0])
           );
+          if (!makeMatch) { setLookupLoading(false); return; }
 
-          if (!makeMatch) {
-            // Make not in VCdb list — set year+makes, CSA picks make manually
-            setMakes(makesData.data);
-            setSelYear(vehicleYear);
-            return;
-          }
-
-          // Step 2: Fetch models
           const modelsRes = await fetch(`${API_BASE}/vcdb-vehicle-models?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&key=${API_KEY}`);
           const modelsData = await modelsRes.json();
-          if (!modelsData.success || !modelsData.data) {
-            setMakes(makesData.data);
-            setSelYear(vehicleYear);
-            setSelMake(makeMatch);
-            return;
-          }
+          if (!modelsData.success || !modelsData.data) { setLookupLoading(false); return; }
 
           const modelMatch = modelsData.data.find(
             (m) => m.toLowerCase() === candidateModel.toLowerCase()
+          ) || modelsData.data.find(
+            (m) => m.toLowerCase().startsWith(candidateModel.toLowerCase().split(' ')[0])
           );
 
           if (!modelMatch) {
-            // Model not in list — set year+make+models, CSA picks model manually
             setMakes(makesData.data);
             setModels(modelsData.data);
             setSelYear(vehicleYear);
             setSelMake(makeMatch);
             setStep('submodel');
+            setLookupLoading(false);
             return;
           }
 
-          // Step 3: Fetch submodels
           const subRes = await fetch(`${API_BASE}/vcdb-vehicle-submodels?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&model=${encodeURIComponent(modelMatch)}&key=${API_KEY}`);
           const subData = await subRes.json();
 
-          // All fetches done — set everything in one batch
           setMakes(makesData.data);
           setModels(modelsData.data);
           if (subData.success && subData.data) setSubmodels(subData.data);
 
-          // Set year/make/model together — React 18 batches these
           setSelYear(vehicleYear);
           setSelMake(makeMatch);
           setSelModel(modelMatch);
@@ -673,10 +631,10 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setCustPhone(formatPhone(c.phone_raw || c.phone) || '');
     setCustEmail(c.email || '');
     if (c.license_plate) { setCustPlate(c.license_plate); setCustPlateState(c.license_state || 'CA'); }
+    setCustVin(c.vin || '');
     setCustDataSource('lookup');
     setLookupResult('found');
     setShowAdvSearch(false);
-    // Pre-populate vehicle if available — reuse same plate lookup logic
     const vehicleYear     = c.vehicle_year  ? String(c.vehicle_year)  : '';
     const candidateMakeA  = c.motor_make    || c.vehicle_make  || '';
     const candidateModelA = c.motor_model   || c.vehicle_model || '';
@@ -692,7 +650,115 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     }
   };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // PartsTech Punchout
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    setPtPolling(false);
+  };
+
+  const startPolling = (sessionId) => {
+    setPtPolling(true);
+    setPtError('');
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/partstech-poll-session?session_id=${sessionId}&key=${API_KEY}`
+        );
+        const data = await res.json();
+
+        if (!data.success) {
+          // Session expired or not found
+          stopPolling();
+          setPtError(data.error || 'PartsTech session error — please try again');
+          return;
+        }
+
+        if (data.ready) {
+          stopPolling();
+          // Add returned parts to parts array, avoiding duplicates by partstech_order_item_id
+          if (data.parts && data.parts.length > 0) {
+            setParts((prev) => {
+              const existingIds = new Set(prev.map((p) => p.partstech_order_item_id).filter(Boolean));
+              const newParts = data.parts.filter(
+                (p) => !p.partstech_order_item_id || !existingIds.has(p.partstech_order_item_id)
+              );
+              return [...prev, ...newParts];
+            });
+          }
+          setPtSessionId(null);
+        }
+        // if data.ready === false, keep polling
+      } catch (err) {
+        console.error('Poll error:', err);
+        // Don't stop polling on transient network errors — retry next interval
+      }
+    }, 2000); // poll every 2 seconds
+  };
+
+  const handlePunchout = async () => {
+    setPtLoading(true);
+    setPtError('');
+
+    try {
+      const vehiclePayload = {
+        year:     selYear     ? Number(selYear) : undefined,
+        make:     selMake     || undefined,
+        model:    selModel    || undefined,
+        submodel: selSubmodel || undefined,
+        vin:      custVin     || undefined,
+      };
+
+      const res = await fetch(`${API_BASE}/partstech-punchout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key:      API_KEY,
+          store_id: Number(selectedStore),
+          vehicle:  vehiclePayload,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setPtError(data.error || 'Failed to open PartsTech — please try again');
+        setPtLoading(false);
+        return;
+      }
+
+      // Open PartsTech in new tab
+      window.open(data.redirect_url, '_blank');
+
+      // Store session and start polling
+      setPtSessionId(data.session_id);
+      startPolling(data.session_id);
+
+    } catch (err) {
+      console.error('Punchout error:', err);
+      setPtError('Network error — please try again');
+    }
+
+    setPtLoading(false);
+  };
+
+  const handleCancelPunchout = () => {
+    stopPolling();
+    setPtSessionId(null);
+    setPtError('');
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Quote generation
+  // ─────────────────────────────────────────────────────────────────────────
   const cartTotal = cart.reduce((sum, op) => sum + Number(op.labor_price) * (op.quantity || 1), 0);
+  const partsTotal = parts.reduce((sum, p) => sum + (p.unit_price * p.quantity), 0);
 
   const handleSubmitRevision = async () => {
     if (cart.length === 0) { setRevisionError('Add at least one service'); return; }
@@ -768,12 +834,16 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           base_vehicle_id: selConfig.base_vehicle_id,
           config:          selConfig,
         },
-        parts: parts.map((p, i) => ({
-          part_number:  p.part_number || undefined,
-          description:  p.description,
-          quantity:     p.quantity,
-          unit_price:   p.unit_price,
-          source:       'manual',
+        parts: parts.map((p) => ({
+          part_number:              p.part_number              || undefined,
+          description:              p.description,
+          quantity:                 p.quantity,
+          unit_price:               p.unit_price,
+          source:                   p.source                   || 'manual',
+          cost_price:               p.cost_price               ?? undefined,
+          partstech_order_item_id:  p.partstech_order_item_id  || undefined,
+          partstech_session_id:     p.partstech_session_id     || undefined,
+          partstech_store_id:       p.partstech_store_id       || undefined,
         })),
         items: cart.map((op) => ({
           mechanical_estimating_id: op.mechanical_estimating_id,
@@ -810,21 +880,25 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   };
 
   const handleReset = () => {
+    stopPolling();
     setStep('vehicle');
     setSelYear(''); setSelMake(''); setSelModel('');
     setSelSubmodel(''); setSelConfig(null);
     setTree([]); setOperations([]); setCart([]);
     setSelSection(''); setSelGroup(''); setSelSubgroup('');
     setSearchTerm('');
+    setParts([]); setPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
+    setPtSessionId(null); setPtPolling(false); setPtError('');
     setCustFirstName(''); setCustLastName(''); setCustPhone('');
     setCustEmail(''); setCustPlate(''); setCustPlateState('CA');
+    setCustVin('');
     setPlateInput(''); setLookupResult(null); setCustDataSource('manual');
     setPendingMake(''); setPendingModel('');
     setQuoteNotes(''); setGeneratedQuote(null); setError('');
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Derived tree structure for nav panel
+  // Derived tree structure
   // ─────────────────────────────────────────────────────────────────────────
   const treeGrouped = tree.reduce((acc, row) => {
     if (!acc[row.motor_db_section]) acc[row.motor_db_section] = {};
@@ -835,18 +909,18 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
 
   const [expandedSections, setExpandedSections] = useState({});
   const [expandedGroups,   setExpandedGroups]   = useState({});
-
   const toggleSection = (s) => setExpandedSections((p) => ({ ...p, [s]: !p[s] }));
   const toggleGroup   = (k) => setExpandedGroups((p) => ({ ...p, [k]: !p[k] }));
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Step progress indicators
+  // Step progress
   // ─────────────────────────────────────────────────────────────────────────
   const stepDone = {
-    vehicle:  ['submodel','config','browse','submitted'].includes(step),
-    submodel: ['config','browse','submitted'].includes(step),
-    config:   ['browse','submitted'].includes(step),
-    browse:   step === 'submitted',
+    vehicle:  ['submodel','config','browse','parts','submitted'].includes(step),
+    submodel: ['config','browse','parts','submitted'].includes(step),
+    config:   ['browse','parts','submitted'].includes(step),
+    browse:   ['parts','submitted'].includes(step),
+    parts:    step === 'submitted',
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -858,7 +932,6 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px 20px' }}>
 
-        {/* Each modal */}
         {eachModalOp && (
           <EachModal
             op={eachModalOp}
@@ -867,7 +940,6 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           />
         )}
 
-        {/* Advanced search modal */}
         {showAdvSearch && (
           <AdvancedSearchModal onSelect={handleAdvSearchSelect} onClose={() => setShowAdvSearch(false)} />
         )}
@@ -882,7 +954,8 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
             <StepLabel n={2} label="Submodel" active={step==='submodel'} done={stepDone.submodel} />
             <StepLabel n={3} label="Config"   active={step==='submodel'} done={stepDone.config} />
             <StepLabel n={4} label="Services" active={step==='browse'}   done={stepDone.browse} />
-            <StepLabel n={5} label="Quote"    active={step==='submitted'} done={false} />
+            <StepLabel n={5} label="Parts"    active={step==='parts'}    done={stepDone.parts} />
+            <StepLabel n={6} label="Quote"    active={step==='submitted'} done={false} />
           </div>
         </div>
 
@@ -892,8 +965,8 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           </div>
         )}
 
-        {/* ── PLATE LOOKUP (always visible until browse/submitted) ── */}
-        {step !== 'browse' && step !== 'submitted' && (
+        {/* ── PLATE LOOKUP (visible until browse/parts/submitted) ── */}
+        {step !== 'browse' && step !== 'parts' && step !== 'submitted' && (
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '20px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: lookupResult === 'found' ? '2px solid #86efac' : `1px solid ${BORDER}` }}>
             <h2 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700', color: DARK, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
               🔍 Customer Lookup <span style={{ fontSize: '11px', fontWeight: '400', color: '#94a3b8', textTransform: 'none', letterSpacing: 0 }}>— optional, fills customer & vehicle</span>
@@ -929,37 +1002,20 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           </div>
         )}
 
-        {/* ── STEP 1: Vehicle Picker ── */}
+        {/* ══════════════════════════════════════════════════════════════════
+            STEP 1: Vehicle Picker
+        ══════════════════════════════════════════════════════════════════ */}
         {(step === 'vehicle' || step === 'submodel') && (
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <h2 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '700', color: DARK, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
               Step 1 — Select Vehicle
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-              <SelectDropdown
-                value={selYear}
-                onChange={setSelYear}
-                options={years.map(String)}
-                placeholder="Year"
-              />
-              <SelectDropdown
-                value={selMake}
-                onChange={setSelMake}
-                options={makes}
-                placeholder="Make"
-                disabled={!selYear}
-              />
-              <SelectDropdown
-                value={selModel}
-                onChange={setSelModel}
-                options={models}
-                placeholder="Model"
-                disabled={!selMake}
-              />
+              <SelectDropdown value={selYear}  onChange={setSelYear}  options={years.map(String)} placeholder="Year" />
+              <SelectDropdown value={selMake}  onChange={setSelMake}  options={makes}  placeholder="Make"  disabled={!selYear} />
+              <SelectDropdown value={selModel} onChange={setSelModel} options={models} placeholder="Model" disabled={!selMake} />
             </div>
-            {loading && (
-              <div style={{ marginTop: '12px', fontSize: '13px', color: '#888' }}>Loading…</div>
-            )}
+            {loading && <div style={{ marginTop: '12px', fontSize: '13px', color: '#888' }}>Loading…</div>}
           </div>
         )}
 
@@ -973,22 +1029,13 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
               {submodels.map((sm) => (
-                <button
-                  key={sm}
-                  onClick={() => setSelSubmodel(sm)}
-                  style={{
-                    padding: '12px 16px',
-                    border: `2px solid ${selSubmodel === sm ? PURPLE : BORDER}`,
-                    borderRadius: '10px',
-                    backgroundColor: selSubmodel === sm ? LIGHT : 'white',
-                    color: selSubmodel === sm ? PURPLE : DARK,
-                    fontSize: '13px',
-                    fontWeight: selSubmodel === sm ? '700' : '500',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'all 0.15s',
-                  }}
-                >
+                <button key={sm} onClick={() => setSelSubmodel(sm)} style={{
+                  padding: '12px 16px', border: `2px solid ${selSubmodel === sm ? PURPLE : BORDER}`,
+                  borderRadius: '10px', backgroundColor: selSubmodel === sm ? LIGHT : 'white',
+                  color: selSubmodel === sm ? PURPLE : DARK, fontSize: '13px',
+                  fontWeight: selSubmodel === sm ? '700' : '500', cursor: 'pointer',
+                  textAlign: 'left', transition: 'all 0.15s',
+                }}>
                   {sm}
                 </button>
               ))}
@@ -997,7 +1044,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
         )}
 
         {/* ══════════════════════════════════════════════════════════════════
-            STEP 2b: Config Picker (engine / drive type)
+            STEP 2b: Config Picker
         ══════════════════════════════════════════════════════════════════ */}
         {step === 'submodel' && selSubmodel && configs.length > 0 && (
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
@@ -1009,38 +1056,28 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
               {configs.map((cfg, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleSelectConfig(cfg)}
-                  style={{
-                    padding: '14px 16px',
-                    border: `2px solid ${BORDER}`,
-                    borderRadius: '10px',
-                    backgroundColor: 'white',
-                    color: DARK,
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    lineHeight: '1.5',
-                    transition: 'all 0.15s',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = PURPLE; e.currentTarget.style.backgroundColor = LIGHT; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.backgroundColor = 'white'; }}
-                >
+                <button key={i} onClick={() => handleSelectConfig(cfg)} style={{
+                  padding: '14px 16px', border: `2px solid ${BORDER}`, borderRadius: '10px',
+                  backgroundColor: 'white', color: DARK, fontSize: '13px', fontWeight: '600',
+                  cursor: 'pointer', textAlign: 'left', lineHeight: '1.5', transition: 'all 0.15s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = PURPLE; e.currentTarget.style.backgroundColor = LIGHT; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.backgroundColor = 'white'; }}>
                   <div style={{ fontSize: '14px', fontWeight: '700', color: PURPLE, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                     {cfg.engine_liter}L {cfg.engine_cylinders === '4' ? 'L4' : cfg.engine_cylinders === '6' ? 'V6' : cfg.engine_cylinders === '8' ? 'V8' : cfg.engine_cylinders + '-cyl'}
                     {cfg.fuel_type_name && cfg.fuel_type_name !== 'GAS' && cfg.fuel_type_name !== 'U/K' && (
-                      <span style={{
-                        fontSize: '10px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px',
+                      <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px',
                         backgroundColor: cfg.fuel_type_name === 'DIESEL' ? '#fef3c7' : '#f0fdf4',
                         color: cfg.fuel_type_name === 'DIESEL' ? '#92400e' : '#166534',
                       }}>{cfg.fuel_type_name}</span>
                     )}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>
-                    {cfg.drive_type_name} · {cfg.front_brake_type}/{cfg.rear_brake_type}
-                  </div>
+                  <div style={{ fontSize: '12px', color: '#475569' }}>{cfg.drive_type_name}</div>
+                  {cfg.front_brake_type && (
+                    <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                      Brakes: {cfg.front_brake_type} / {cfg.rear_brake_type}
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -1048,76 +1085,75 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
         )}
 
         {/* ══════════════════════════════════════════════════════════════════
-            STEP 4: Browse + Cart (two-panel layout)
+            STEP 4: Browse Labor
         ══════════════════════════════════════════════════════════════════ */}
-        {step === 'browse' && (selConfig || (revisionMode && revisionContext)) && (
+        {(step === 'browse' || revisionMode) && selConfig && (
           <>
-            {/* Vehicle summary bar */}
-            <div style={{ backgroundColor: DARK, color: 'white', borderRadius: '10px', padding: '12px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-              <div>
-                <span style={{ fontSize: '13px', fontWeight: '700' }}>
-                  {revisionMode && revisionContext ? revisionContext.vehicle_display : `${selYear} ${selMake} ${selModel} ${selSubmodel}`}
+            {/* Vehicle summary banner */}
+            <div style={{ backgroundColor: DARK, borderRadius: '12px', padding: '14px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: 'white' }}>
+                  🚗 {selYear} {selMake} {selModel} {selSubmodel}
                 </span>
-                <span style={{ fontSize: '12px', color: '#94a3b8', marginLeft: '12px' }}>
-                  {revisionMode && revisionContext ? revisionContext.config_label : selConfig ? `${selConfig.engine_liter}L · ${selConfig.drive_type_name} · ${selConfig.front_brake_type}/${selConfig.rear_brake_type}` : ''}
+                <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                  {selConfig.engine_liter}L · {selConfig.drive_type_name}
                 </span>
-                {revisionMode && (
-                  <span style={{ marginLeft: '12px', fontSize: '10px', fontWeight: '700', backgroundColor: '#f59e0b', color: '#1e293b', borderRadius: '4px', padding: '2px 8px' }}>REVISION MODE</span>
-                )}
               </div>
               {!revisionMode && (
-              <button
-                onClick={handleReset}
-                style={{ background: 'none', border: '1px solid #475569', color: '#94a3b8', borderRadius: '20px', padding: '6px 14px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}
-              >
-                ← New Vehicle
-              </button>
+                <button onClick={() => { setStep('submodel'); setSelConfig(null); }}
+                  style={{ background: 'none', border: `1px solid #475569`, borderRadius: '20px', color: '#94a3b8', fontSize: '11px', fontWeight: '600', padding: '4px 12px', cursor: 'pointer' }}>
+                  ← Change Vehicle
+                </button>
+              )}
+              {revisionMode && revisionContext && (
+                <span style={{ fontSize: '12px', color: AMBER, fontWeight: '700' }}>
+                  ✏️ REVISION MODE — {revisionContext.vehicle_display}
+                </span>
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 320px', gap: '16px', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 300px', gap: '16px', alignItems: 'start' }}>
 
-              {/* ── Left: Tree nav ── */}
-              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', maxHeight: '75vh', overflowY: 'auto' }}>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', letterSpacing: '1px', marginBottom: '12px', textTransform: 'uppercase' }}>
-                  Service Categories
+              {/* ── Left: Category tree ── */}
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', maxHeight: '75vh', overflowY: 'auto' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px', padding: '0 4px' }}>
+                  Categories
                 </div>
-                {Object.keys(treeGrouped).sort().map((section) => (
+                {Object.entries(treeGrouped).map(([section, groups]) => (
                   <div key={section}>
-                    <button
-                      onClick={() => toggleSection(section)}
-                      style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '7px 0', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                    >
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                        {section}
-                      </span>
-                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>{expandedSections[section] ? '▼' : '▶'}</span>
+                    <button onClick={() => toggleSection(section)} style={{
+                      width: '100%', textAlign: 'left', padding: '7px 8px', border: 'none',
+                      background: expandedSections[section] ? LIGHT : 'white',
+                      borderRadius: '6px', fontSize: '12px', fontWeight: '700',
+                      color: expandedSections[section] ? PURPLE : DARK, cursor: 'pointer',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}>
+                      <span>{section}</span>
+                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>{expandedSections[section] ? '▲' : '▼'}</span>
                     </button>
-
-                    {expandedSections[section] && Object.keys(treeGrouped[section]).sort().map((group) => (
-                      <div key={group} style={{ marginLeft: '10px' }}>
-                        <button
-                          onClick={() => toggleGroup(`${section}:${group}`)}
-                          style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '5px 0', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                        >
-                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#475569' }}>{group}</span>
-                          <span style={{ fontSize: '9px', color: '#94a3b8' }}>{expandedGroups[`${section}:${group}`] ? '▼' : '▶'}</span>
+                    {expandedSections[section] && Object.entries(groups).map(([group, subgroups]) => (
+                      <div key={group} style={{ marginLeft: '8px' }}>
+                        <button onClick={() => toggleGroup(`${section}:${group}`)} style={{
+                          width: '100%', textAlign: 'left', padding: '5px 8px', border: 'none',
+                          background: expandedGroups[`${section}:${group}`] ? '#f8fafc' : 'white',
+                          borderRadius: '4px', fontSize: '11px', fontWeight: '600',
+                          color: '#475569', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        }}>
+                          <span>{group}</span>
+                          <span style={{ fontSize: '9px', color: '#94a3b8' }}>{expandedGroups[`${section}:${group}`] ? '▲' : '▼'}</span>
                         </button>
-
-                        {expandedGroups[`${section}:${group}`] && treeGrouped[section][group].map((row) => (
-                          <button
-                            key={row.motor_db_subgroup}
-                            onClick={() => handleTreeClick(section, group, row.motor_db_subgroup)}
+                        {expandedGroups[`${section}:${group}`] && subgroups.map((row) => (
+                          <button key={row.motor_db_subgroup} onClick={() => handleTreeClick(section, group, row.motor_db_subgroup)}
                             style={{
-                              width: '100%', textAlign: 'left', background: 'none', border: 'none',
-                              padding: '4px 0 4px 12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                              borderLeft: selSubgroup === row.motor_db_subgroup ? `3px solid ${PURPLE}` : '3px solid transparent',
-                            }}
-                          >
-                            <span style={{ fontSize: '11px', color: selSubgroup === row.motor_db_subgroup ? PURPLE : '#64748b', fontWeight: selSubgroup === row.motor_db_subgroup ? '700' : '400' }}>
-                              {row.motor_db_subgroup}
-                            </span>
-                            <span style={{ fontSize: '9px', color: '#94a3b8', backgroundColor: '#f1f5f9', borderRadius: '10px', padding: '1px 6px' }}>
+                              width: '100%', textAlign: 'left', padding: '4px 8px 4px 16px', border: 'none',
+                              background: selSubgroup === row.motor_db_subgroup ? LIGHT : 'white',
+                              borderRadius: '4px', fontSize: '11px',
+                              color: selSubgroup === row.motor_db_subgroup ? PURPLE : '#64748b',
+                              fontWeight: selSubgroup === row.motor_db_subgroup ? '700' : '400',
+                              cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            }}>
+                            <span>{row.motor_db_subgroup}</span>
+                            <span style={{ fontSize: '9px', backgroundColor: '#f1f5f9', borderRadius: '10px', padding: '1px 5px', color: '#94a3b8' }}>
                               {row.operation_count}
                             </span>
                           </button>
@@ -1130,17 +1166,13 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
 
               {/* ── Center: Operations + Search ── */}
               <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', maxHeight: '75vh', overflowY: 'auto' }}>
-                {/* Search bar */}
                 <div style={{ marginBottom: '16px', position: 'relative' }}>
                   <input
                     type="text"
                     placeholder="Search operations (e.g. front pads, oil filter, serpentine)…"
                     value={searchTerm}
                     onChange={(e) => { setSearchTerm(e.target.value); if (e.target.value) { setSelSection(''); setSelGroup(''); setSelSubgroup(''); } }}
-                    style={{
-                      width: '100%', padding: '10px 16px 10px 36px', border: `2px solid ${BORDER}`,
-                      borderRadius: '25px', fontSize: '13px', outline: 'none', boxSizing: 'border-box',
-                    }}
+                    style={{ width: '100%', padding: '10px 16px 10px 36px', border: `2px solid ${BORDER}`, borderRadius: '25px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
                     onFocus={(e) => e.target.style.borderColor = PURPLE}
                     onBlur={(e) => e.target.style.borderColor = BORDER}
                   />
@@ -1150,28 +1182,22 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                   )}
                 </div>
 
-                {/* Breadcrumb */}
                 {selSubgroup && !searchTerm && (
                   <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '12px' }}>
                     {selSection} › {selGroup} › <strong style={{ color: DARK }}>{selSubgroup}</strong>
                   </div>
                 )}
 
-                {opsLoading && (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontSize: '13px' }}>Loading operations…</div>
-                )}
-
+                {opsLoading && <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontSize: '13px' }}>Loading operations…</div>}
                 {!opsLoading && !selSubgroup && !searchTerm && (
                   <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
                     <div style={{ fontSize: '32px', marginBottom: '10px' }}>👈</div>
                     <div style={{ fontSize: '13px' }}>Select a category from the left, or search above</div>
                   </div>
                 )}
-
                 {!opsLoading && searchTerm && searchTerm.trim().length < 3 && (
                   <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '13px' }}>Type at least 3 characters to search</div>
                 )}
-
                 {!opsLoading && operations.length === 0 && (selSubgroup || (searchTerm && searchTerm.trim().length >= 3)) && (
                   <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontSize: '13px' }}>No operations found</div>
                 )}
@@ -1181,16 +1207,13 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                     {operations.map((op) => {
                       const inCart = isInCart(op.mechanical_estimating_id);
                       return (
-                        <div
-                          key={op.mechanical_estimating_id}
-                          style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '10px 12px', borderRadius: '8px', gap: '10px',
-                            backgroundColor: inCart ? LIGHT : op.is_additional_operation ? '#fafafa' : 'white',
-                            border: `1px solid ${inCart ? PURPLE : op.is_additional_operation ? '#f0e8ff' : BORDER}`,
-                            marginLeft: op.is_additional_operation ? '16px' : '0',
-                          }}
-                        >
+                        <div key={op.mechanical_estimating_id} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '10px 12px', borderRadius: '8px', gap: '10px',
+                          backgroundColor: inCart ? LIGHT : op.is_additional_operation ? '#fafafa' : 'white',
+                          border: `1px solid ${inCart ? PURPLE : op.is_additional_operation ? '#f0e8ff' : BORDER}`,
+                          marginLeft: op.is_additional_operation ? '16px' : '0',
+                        }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
                               {op.is_additional_operation && (
@@ -1199,48 +1222,24 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                               {isEachOperation(op) && !isInCart(op.mechanical_estimating_id) && (
                                 <span style={{ fontSize: '9px', fontWeight: '700', backgroundColor: '#fef3c7', color: '#92400e', borderRadius: '4px', padding: '1px 6px', flexShrink: 0 }}>EACH</span>
                               )}
-                              <span style={{ fontSize: '13px', fontWeight: '600', color: DARK }}>
-                                {op.motor_db_operation}
-                              </span>
-                              <span style={{ fontSize: '11px', color: '#94a3b8', backgroundColor: '#f1f5f9', borderRadius: '4px', padding: '1px 6px', flexShrink: 0 }}>
-                                {op.qualifier_description}
-                              </span>
+                              <span style={{ fontSize: '13px', fontWeight: '600', color: DARK }}>{op.motor_db_operation}</span>
+                              <span style={{ fontSize: '11px', color: '#94a3b8', backgroundColor: '#f1f5f9', borderRadius: '4px', padding: '1px 6px', flexShrink: 0 }}>{op.qualifier_description}</span>
                             </div>
-                            {searchTerm && (
-                              <div style={{ fontSize: '10px', color: '#94a3b8' }}>
-                                {op.motor_db_section} › {op.motor_db_subgroup}
-                              </div>
-                            )}
-                            {op.motor_db_description && (
-                              <div style={{ fontSize: '11px', color: '#475569', fontWeight: '500', marginBottom: '2px' }}>
-                                {op.motor_db_description}
-                              </div>
-                            )}
+                            {searchTerm && <div style={{ fontSize: '10px', color: '#94a3b8' }}>{op.motor_db_section} › {op.motor_db_subgroup}</div>}
+                            {op.motor_db_description && <div style={{ fontSize: '11px', color: '#475569', fontWeight: '500', marginBottom: '2px' }}>{op.motor_db_description}</div>}
                             <div style={{ fontSize: '11px', color: '#64748b' }}>
                               {op.motor_time} hrs × $189.99 =&nbsp;
                               <strong style={{ color: DARK }}>{formatCurrency(op.labor_price)}</strong>
                             </div>
-                            {op.motor_db_footnote && (
-                              <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>
-                                ℹ️ {op.motor_db_footnote}
-                              </div>
-                            )}
+                            {op.motor_db_footnote && <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>ℹ️ {op.motor_db_footnote}</div>}
                           </div>
-                          <button
-                            onClick={() => handleAddClick(op)}
-                            style={{
-                              flexShrink: 0,
-                              padding: '6px 14px',
-                              border: `2px solid ${inCart ? PURPLE : BORDER}`,
-                              borderRadius: '20px',
-                              backgroundColor: inCart ? PURPLE : 'white',
-                              color: inCart ? 'white' : '#64748b',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
+                          <button onClick={() => handleAddClick(op)} style={{
+                            flexShrink: 0, padding: '6px 14px',
+                            border: `2px solid ${inCart ? PURPLE : BORDER}`, borderRadius: '20px',
+                            backgroundColor: inCart ? PURPLE : 'white',
+                            color: inCart ? 'white' : '#64748b',
+                            fontSize: '11px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
+                          }}>
                             {inCart ? '✓ Added' : isEachOperation(op) ? '+ Add (qty)' : '+ Add'}
                           </button>
                         </div>
@@ -1250,93 +1249,217 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                 )}
               </div>
 
-              {/* ── Right: Cart + Customer + Generate ── */}
+              {/* ── Right: Cart + CTA ── */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-                {/* Cart */}
+                {/* Labor cart */}
                 <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Quote Items
-                    </span>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: PURPLE }}>
-                      {cart.length} item{cart.length !== 1 ? 's' : ''}
-                    </span>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Quote Items</span>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: PURPLE }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
                   </div>
 
                   {cart.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '20px 0', color: '#94a3b8', fontSize: '12px' }}>
-                      No items added yet
-                    </div>
+                    <div style={{ textAlign: 'center', padding: '20px 0', color: '#94a3b8', fontSize: '12px' }}>No items added yet</div>
                   ) : (
                     <>
                       {cart.map((op) => (
                         <React.Fragment key={op.mechanical_estimating_id}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: `1px solid ${BORDER}`, gap: '8px' }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '12px', fontWeight: '600', color: DARK, lineHeight: '1.3' }}>
-                              {op.motor_db_operation}
-                              {op.qualifier_description && <span style={{ color: '#94a3b8', fontWeight: '400' }}> · {op.qualifier_description}</span>}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: `1px solid ${BORDER}`, gap: '8px' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '12px', fontWeight: '600', color: DARK, lineHeight: '1.3' }}>
+                                {op.motor_db_operation}
+                                {op.qualifier_description && <span style={{ color: '#94a3b8', fontWeight: '400' }}> · {op.qualifier_description}</span>}
+                              </div>
+                              {op.motor_db_description && <div style={{ fontSize: '10px', color: '#475569' }}>{op.motor_db_description}</div>}
+                              <div style={{ fontSize: '10px', color: '#94a3b8' }}>{op.motor_time} hrs ea.</div>
                             </div>
-                            {op.motor_db_description && (
-                              <div style={{ fontSize: '10px', color: '#475569' }}>{op.motor_db_description}</div>
-                            )}
-                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>{op.motor_time} hrs ea.</div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                            {/* Qty stepper */}
-                            <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${BORDER}`, borderRadius: '20px', overflow: 'hidden' }}>
-                              <button
-                                onClick={() => setCart((prev) => prev.map((c) => c.mechanical_estimating_id === op.mechanical_estimating_id ? { ...c, quantity: Math.max(1, (c.quantity || 1) - 1) } : c))}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px 8px', fontSize: '14px', color: '#64748b', lineHeight: 1 }}
-                              >−</button>
-                              <span style={{ fontSize: '12px', fontWeight: '700', color: DARK, minWidth: '16px', textAlign: 'center' }}>{op.quantity || 1}</span>
-                              <button
-                                onClick={() => setCart((prev) => prev.map((c) => c.mechanical_estimating_id === op.mechanical_estimating_id ? { ...c, quantity: (c.quantity || 1) + 1 } : c))}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px 8px', fontSize: '14px', color: '#64748b', lineHeight: 1 }}
-                              >+</button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${BORDER}`, borderRadius: '20px', overflow: 'hidden' }}>
+                                <button onClick={() => setCart((prev) => prev.map((c) => c.mechanical_estimating_id === op.mechanical_estimating_id ? { ...c, quantity: Math.max(1, (c.quantity || 1) - 1) } : c))}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px 8px', fontSize: '14px', color: '#64748b', lineHeight: 1 }}>−</button>
+                                <span style={{ fontSize: '12px', fontWeight: '700', color: DARK, minWidth: '16px', textAlign: 'center' }}>{op.quantity || 1}</span>
+                                <button onClick={() => setCart((prev) => prev.map((c) => c.mechanical_estimating_id === op.mechanical_estimating_id ? { ...c, quantity: (c.quantity || 1) + 1 } : c))}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px 8px', fontSize: '14px', color: '#64748b', lineHeight: 1 }}>+</button>
+                              </div>
+                              <span style={{ fontSize: '13px', fontWeight: '700', color: DARK, minWidth: '60px', textAlign: 'right' }}>{formatCurrency(Number(op.labor_price) * (op.quantity || 1))}</span>
+                              <button onClick={() => setCart((prev) => prev.filter((c) => c.mechanical_estimating_id !== op.mechanical_estimating_id))}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', lineHeight: 1, padding: '0' }}>×</button>
                             </div>
-                            <span style={{ fontSize: '13px', fontWeight: '700', color: DARK, minWidth: '60px', textAlign: 'right' }}>
-                              {formatCurrency(Number(op.labor_price) * (op.quantity || 1))}
-                            </span>
-                            <button onClick={() => setCart((prev) => prev.filter((c) => c.mechanical_estimating_id !== op.mechanical_estimating_id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', lineHeight: 1, padding: '0' }}>×</button>
                           </div>
-                        </div>
-                        {isEachOperation(op) && (op.quantity||1) === 1 && (
-                          <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '6px 10px', margin: '4px 0 4px 0', fontSize: '10px', color: '#92400e' }}>
-                            ⚠️ Priced per unit — confirm quantity is correct
-                          </div>
-                        )}
-                      </React.Fragment>
+                          {isEachOperation(op) && (op.quantity||1) === 1 && (
+                            <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '6px 10px', margin: '4px 0', fontSize: '10px', color: '#92400e' }}>
+                              ⚠️ Priced per unit — confirm quantity is correct
+                            </div>
+                          )}
+                        </React.Fragment>
                       ))}
-
                       <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '10px', marginTop: '4px' }}>
                         <span style={{ fontSize: '13px', fontWeight: '700', color: DARK }}>Labor Total</span>
                         <span style={{ fontSize: '15px', fontWeight: '700', color: PURPLE }}>{formatCurrency(cartTotal)}</span>
                       </div>
-                      <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
-                        Labor is not taxed · Parts added later
-                      </div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>Labor is not taxed · Add parts next</div>
                     </>
                   )}
                 </div>
 
-                {/* Parts — hidden in revision mode (added on QuoteView) */}
-                {!revisionMode && (
-                <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
+                {/* Revision mode submit */}
+                {revisionMode ? (
+                  <div>
+                    <div style={{ marginBottom: '8px' }}>
+                      <label style={{ fontSize: '10px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>AUTHORIZATION NOTE * (required)</label>
+                      <input type="text" value={revisionAuth} onChange={(e) => setRevisionAuth(e.target.value)}
+                        placeholder='e.g. "Authorized by customer via phone at 2:15pm"'
+                        style={{ ...inputStyle, borderColor: '#f59e0b', borderWidth: '2px' }} />
+                    </div>
+                    {revisionError && <div style={{ color: '#dc2626', fontSize: '11px', marginBottom: '6px' }}>{revisionError}</div>}
+                    <button onClick={handleSubmitRevision} disabled={cart.length === 0 || loading || !revisionAuth.trim()}
+                      style={{
+                        width: '100%', padding: '14px', border: 'none', borderRadius: '25px',
+                        backgroundColor: cart.length === 0 || !revisionAuth.trim() ? '#ccc' : '#92400e',
+                        color: 'white', fontSize: '14px', fontWeight: '700',
+                        cursor: cart.length === 0 || !revisionAuth.trim() ? 'not-allowed' : 'pointer',
+                      }}>
+                      {loading ? 'Submitting…' : `Authorize & Add to Revision · ${formatCurrency(cartTotal)}`}
+                    </button>
+                    {cart.length === 0 && <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', marginTop: '6px' }}>Add services above</div>}
+                  </div>
+                ) : (
+                  /* Add Parts button — advances to parts step */
+                  <button
+                    onClick={handleGoToParts}
+                    disabled={cart.length === 0}
+                    style={{
+                      width: '100%', padding: '14px', border: 'none', borderRadius: '25px',
+                      backgroundColor: cart.length === 0 ? '#ccc' : PURPLE,
+                      color: 'white', fontSize: '14px', fontWeight: '700', letterSpacing: '0.5px',
+                      cursor: cart.length === 0 ? 'not-allowed' : 'pointer', textTransform: 'uppercase',
+                    }}
+                  >
+                    {cart.length === 0 ? 'Add Services Above' : `Add Parts → (${cart.length} service${cart.length !== 1 ? 's' : ''})`}
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════
+            STEP 5: Parts + Customer + Generate Quote
+        ══════════════════════════════════════════════════════════════════ */}
+        {step === 'parts' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px', alignItems: 'start' }}>
+
+            {/* ── Left: Parts ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+              {/* Labor summary (read-only) */}
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Labor — {selYear} {selMake} {selModel}
+                  </span>
+                  <button onClick={() => setStep('browse')} style={{ background: 'none', border: `1px solid ${BORDER}`, borderRadius: '20px', color: '#64748b', fontSize: '11px', fontWeight: '600', padding: '3px 10px', cursor: 'pointer' }}>
+                    ← Edit Labor
+                  </button>
+                </div>
+                {cart.map((op) => (
+                  <div key={op.mechanical_estimating_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${BORDER}`, fontSize: '12px' }}>
+                    <span style={{ color: DARK, fontWeight: '600' }}>
+                      {op.motor_db_operation}
+                      {op.qualifier_description && <span style={{ color: '#94a3b8', fontWeight: '400' }}> · {op.qualifier_description}</span>}
+                      {(op.quantity || 1) > 1 && <span style={{ color: PURPLE, fontWeight: '700' }}> ×{op.quantity}</span>}
+                    </span>
+                    <span style={{ fontWeight: '700', color: DARK, flexShrink: 0, marginLeft: '12px' }}>{formatCurrency(Number(op.labor_price) * (op.quantity || 1))}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: DARK }}>Labor Subtotal</span>
+                  <span style={{ fontSize: '14px', fontWeight: '700', color: PURPLE }}>{formatCurrency(cartTotal)}</span>
+                </div>
+              </div>
+
+              {/* Parts section */}
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Parts <span style={{ fontWeight: '400', color: '#94a3b8' }}>(optional)</span>
+                  </span>
+                  {parts.length > 0 && (
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: PURPLE }}>{parts.length} part{parts.length !== 1 ? 's' : ''} · {formatCurrency(partsTotal)}</span>
+                  )}
+                </div>
+
+                {/* PartsTech punchout button */}
+                <div style={{ marginBottom: '14px' }}>
+                  {!ptPolling ? (
+                    <button
+                      onClick={handlePunchout}
+                      disabled={ptLoading}
+                      style={{
+                        width: '100%', padding: '11px 16px',
+                        border: `2px solid ${ptLoading ? '#ddd' : '#0ea5e9'}`,
+                        borderRadius: '10px', backgroundColor: ptLoading ? '#f5f5f5' : '#f0f9ff',
+                        color: ptLoading ? '#94a3b8' : '#0369a1',
+                        fontSize: '13px', fontWeight: '700', cursor: ptLoading ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                      }}
+                    >
+                      {ptLoading ? (
+                        <>⏳ Opening PartsTech…</>
+                      ) : (
+                        <>🔍 Find Parts on PartsTech</>
+                      )}
+                    </button>
+                  ) : (
+                    /* Polling state — subtle indicator, form stays usable */
+                    <div style={{ backgroundColor: '#f0f9ff', border: '2px solid #7dd3fc', borderRadius: '10px', padding: '11px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '16px', animation: 'spin 1.5s linear infinite' }}>⏳</span>
+                        <div>
+                          <div style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1' }}>Waiting for PartsTech…</div>
+                          <div style={{ fontSize: '10px', color: '#0284c7' }}>Add parts to your cart and click Submit Quote</div>
+                        </div>
+                      </div>
+                      <button onClick={handleCancelPunchout} style={{
+                        background: 'none', border: `1px solid #7dd3fc`, borderRadius: '20px',
+                        color: '#0369a1', fontSize: '11px', fontWeight: '600', padding: '3px 10px', cursor: 'pointer',
+                        whiteSpace: 'nowrap', flexShrink: 0,
+                      }}>
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                  {ptError && (
+                    <div style={{ marginTop: '6px', fontSize: '11px', color: '#dc2626', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '6px 10px' }}>
+                      ⚠️ {ptError}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: '12px', marginBottom: '12px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                    Or Add Manually
                   </div>
 
                   {/* Parts list */}
                   {parts.length > 0 && (
-                    <div style={{ marginBottom: '10px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                       {parts.map((p, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '6px 0', borderBottom: `1px solid ${BORDER}`, gap: '8px' }}>
+                        <div key={i} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                          padding: '8px 0', borderBottom: `1px solid ${BORDER}`, gap: '8px',
+                        }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '12px', fontWeight: '600', color: DARK }}>{p.description}</div>
-                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '12px', fontWeight: '600', color: DARK }}>{p.description}</span>
+                              {p.source === 'partstech' && (
+                                <span style={{ fontSize: '9px', fontWeight: '700', backgroundColor: '#f0f9ff', color: '#0369a1', borderRadius: '4px', padding: '1px 5px', border: '1px solid #7dd3fc', flexShrink: 0 }}>PT</span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
                               {p.part_number && <span>{p.part_number} · </span>}
+                              {p.supplier && <span>{p.supplier} · </span>}
                               {p.quantity} × {formatCurrency(p.unit_price)}
                             </div>
                           </div>
@@ -1350,7 +1473,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                     </div>
                   )}
 
-                  {/* Add part form */}
+                  {/* Manual add form */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <input type="text" placeholder="Part Number (optional)"
                       value={partForm.part_number}
@@ -1390,6 +1513,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                           description: partForm.description.trim(),
                           quantity:    partForm.quantity,
                           unit_price:  parseFloat(partForm.unit_price),
+                          source:      'manual',
                         }]);
                         setPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
                       }}
@@ -1398,131 +1522,120 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                         padding: '8px', border: `2px solid ${BORDER}`, borderRadius: '6px',
                         backgroundColor: !partForm.description.trim() || !partForm.unit_price ? '#f5f5f5' : LIGHT,
                         color: !partForm.description.trim() || !partForm.unit_price ? '#94a3b8' : PURPLE,
-                        fontSize: '12px', fontWeight: '700', cursor: !partForm.description.trim() || !partForm.unit_price ? 'not-allowed' : 'pointer',
+                        fontSize: '12px', fontWeight: '700',
+                        cursor: !partForm.description.trim() || !partForm.unit_price ? 'not-allowed' : 'pointer',
                       }}
-                    >+ Add Part</button>
+                    >+ Add Part Manually</button>
                   </div>
                 </div>
-                )}
+              </div>
+            </div>
 
-                {/* Customer — hidden in revision mode */}
-                {!revisionMode && (
-                <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
-                    Customer <span style={{ fontWeight: '400', color: '#94a3b8' }}>(optional)</span>
-                  </div>
-                  <button onClick={() => setShowAdvSearch(true)} style={{ background: 'none', border: 'none', color: PURPLE, fontSize: '11px', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline', padding: '0 0 10px 0', display: 'block' }}>
-                    🔍 Search by Name or Phone
-                  </button>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-                    <input type="text" placeholder="First Name" value={custFirstName} onChange={(e) => setCustFirstName(e.target.value)} style={inputStyle}
-                      onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
-                    <input type="text" placeholder="Last Name" value={custLastName} onChange={(e) => setCustLastName(e.target.value)} style={inputStyle}
-                      onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
-                  </div>
-                  <div style={{ marginBottom: '8px' }}>
-                    <input type="tel" placeholder="Phone" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} style={inputStyle}
-                      onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
-                  </div>
-                  <div style={{ marginBottom: '8px' }}>
-                    <input type="email" placeholder="Email" value={custEmail} onChange={(e) => setCustEmail(e.target.value)} style={inputStyle}
-                      onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                    <input type="text" placeholder="Plate" value={custPlate} onChange={(e) => setCustPlate(e.target.value.toUpperCase())} style={{ ...inputStyle, flex: 1, textTransform: 'uppercase' }}
-                      onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
-                    <select value={custPlateState} onChange={(e) => setCustPlateState(e.target.value)}
-                      style={{ padding: '8px 6px', border: `1px solid ${BORDER}`, borderRadius: '6px', fontSize: '12px', width: '60px', outline: 'none' }}>
-                      {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <textarea placeholder="Notes (optional)" value={quoteNotes} onChange={(e) => setQuoteNotes(e.target.value)} rows={2}
-                    style={{ ...inputStyle, resize: 'vertical' }}
+            {/* ── Right: Customer + Employee + Generate ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+              {/* Customer */}
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
+                  Customer <span style={{ fontWeight: '400', color: '#94a3b8' }}>(optional)</span>
+                </div>
+                <button onClick={() => setShowAdvSearch(true)} style={{ background: 'none', border: 'none', color: PURPLE, fontSize: '11px', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline', padding: '0 0 10px 0', display: 'block' }}>
+                  🔍 Search by Name or Phone
+                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                  <input type="text" placeholder="First Name" value={custFirstName} onChange={(e) => setCustFirstName(e.target.value)} style={inputStyle}
+                    onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
+                  <input type="text" placeholder="Last Name" value={custLastName} onChange={(e) => setCustLastName(e.target.value)} style={inputStyle}
                     onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
                 </div>
-                )}
-
-                {/* Employee — hidden in revision mode */}
-                {!revisionMode && (
-                <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Prepared By</div>
-                  <select
-                    value={selectedEmployee ? (selectedEmployee.employee_id || selectedEmployee.user_id) : ''}
-                    onChange={(e) => { const emp = employees.find((em) => String(em.employee_id || em.user_id) === e.target.value); setSelectedEmployee(emp || null); }}
-                    style={{ ...inputStyle, appearance: 'none',
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', paddingRight: '28px' }}
-                  >
-                    <option value="">Select employee…</option>
-                    {employees.map((emp) => (
-                      <option key={emp.employee_id || emp.user_id} value={emp.employee_id || emp.user_id}>{emp.display_name}</option>
-                    ))}
+                <div style={{ marginBottom: '8px' }}>
+                  <input type="tel" placeholder="Phone" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} style={inputStyle}
+                    onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
+                </div>
+                <div style={{ marginBottom: '8px' }}>
+                  <input type="email" placeholder="Email" value={custEmail} onChange={(e) => setCustEmail(e.target.value)} style={inputStyle}
+                    onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
+                </div>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                  <input type="text" placeholder="Plate" value={custPlate} onChange={(e) => setCustPlate(e.target.value.toUpperCase())} style={{ ...inputStyle, flex: 1, textTransform: 'uppercase' }}
+                    onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
+                  <select value={custPlateState} onChange={(e) => setCustPlateState(e.target.value)}
+                    style={{ padding: '8px 6px', border: `1px solid ${BORDER}`, borderRadius: '6px', fontSize: '12px', width: '60px', outline: 'none' }}>
+                    {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
-                )}
-
-                {/* Generate Quote OR Submit Revision */}
-                {revisionMode ? (
-                  <div>
-                    <div style={{ marginBottom: '8px' }}>
-                      <label style={{ fontSize: '10px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>AUTHORIZATION NOTE * (required)</label>
-                      <input type="text" value={revisionAuth} onChange={(e) => setRevisionAuth(e.target.value)}
-                        placeholder='e.g. "Authorized by customer via phone at 2:15pm"'
-                        style={{ ...inputStyle, borderColor: '#f59e0b', borderWidth: '2px' }} />
-                    </div>
-                    {revisionError && <div style={{ color: '#dc2626', fontSize: '11px', marginBottom: '6px' }}>{revisionError}</div>}
-                    <button onClick={handleSubmitRevision} disabled={cart.length === 0 || loading || !revisionAuth.trim()}
-                      style={{
-                        width: '100%', padding: '14px', border: 'none', borderRadius: '25px',
-                        backgroundColor: cart.length === 0 || !revisionAuth.trim() ? '#ccc' : '#92400e',
-                        color: 'white', fontSize: '14px', fontWeight: '700', cursor: cart.length === 0 || !revisionAuth.trim() ? 'not-allowed' : 'pointer',
-                      }}>
-                      {loading ? 'Submitting…' : `Authorize & Add to Revision · ${formatCurrency(cartTotal)}`}
-                    </button>
-                    {cart.length === 0 && <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', marginTop: '6px' }}>Add services above</div>}
-                  </div>
-                ) : (
-                  <>
-                  <PurpleButton onClick={handleGenerateQuote} disabled={cart.length===0 || loading || !selectedEmployee}>
-                    {loading ? 'Generating…' : `Generate Quote · ${formatCurrency(cartTotal)}`}
-                  </PurpleButton>
-                  {cart.length > 0 && !selectedEmployee && (
-                    <div style={{ fontSize: '11px', color: '#dc2626', textAlign: 'center', marginTop: '-8px' }}>Select an employee above</div>
-                  )}
-                  </>
-                )}
+                <textarea placeholder="Notes (optional)" value={quoteNotes} onChange={(e) => setQuoteNotes(e.target.value)} rows={2}
+                  style={{ ...inputStyle, resize: 'vertical' }}
+                  onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER} />
               </div>
 
+              {/* Employee */}
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Prepared By</div>
+                <select
+                  value={selectedEmployee ? (selectedEmployee.employee_id || selectedEmployee.user_id) : ''}
+                  onChange={(e) => { const emp = employees.find((em) => String(em.employee_id || em.user_id) === e.target.value); setSelectedEmployee(emp || null); }}
+                  style={{ ...inputStyle, appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', paddingRight: '28px' }}
+                >
+                  <option value="">Select employee…</option>
+                  {employees.map((emp) => (
+                    <option key={emp.employee_id || emp.user_id} value={emp.employee_id || emp.user_id}>{emp.display_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quote summary + Generate */}
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Quote Summary</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>
+                  <span>Labor ({cart.length} service{cart.length !== 1 ? 's' : ''})</span>
+                  <span style={{ fontWeight: '600', color: DARK }}>{formatCurrency(cartTotal)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>
+                  <span>Parts ({parts.length} item{parts.length !== 1 ? 's' : ''})</span>
+                  <span style={{ fontWeight: '600', color: DARK }}>{formatCurrency(partsTotal)}</span>
+                </div>
+                <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '10px' }}>+ tax on parts calculated at checkout</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '700', color: DARK, borderTop: `1px solid ${BORDER}`, paddingTop: '10px', marginBottom: '14px' }}>
+                  <span>Est. Total (pre-tax)</span>
+                  <span style={{ color: PURPLE }}>{formatCurrency(cartTotal + partsTotal)}</span>
+                </div>
+
+                <PurpleButton onClick={handleGenerateQuote} disabled={cart.length === 0 || loading || !selectedEmployee}>
+                  {loading ? 'Generating…' : 'Generate Quote'}
+                </PurpleButton>
+                {!selectedEmployee && (
+                  <div style={{ fontSize: '11px', color: '#dc2626', textAlign: 'center', marginTop: '6px' }}>Select an employee above</div>
+                )}
+              </div>
             </div>
-          </>
+          </div>
         )}
 
         {/* ══════════════════════════════════════════════════════════════════
-            STEP 5: Quote Generated
+            STEP 6: Quote Generated
         ══════════════════════════════════════════════════════════════════ */}
         {step === 'submitted' && generatedQuote && (
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '32px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
             <div style={{ fontSize: '48px', marginBottom: '12px' }}>✅</div>
-            <h2 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: '700', color: DARK }}>
-              Quote Created
-            </h2>
-            <p style={{ margin: '0 0 24px 0', color: '#64748b', fontSize: '14px' }}>
-              {generatedQuote.vehicle_display}
-            </p>
+            <h2 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: '700', color: DARK }}>Quote Created</h2>
+            <p style={{ margin: '0 0 24px 0', color: '#64748b', fontSize: '14px' }}>{generatedQuote.vehicle_display}</p>
 
             <div style={{ backgroundColor: LIGHT, borderRadius: '10px', padding: '20px', marginBottom: '24px', textAlign: 'left' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 {[
-                  { label: 'Quote #',  value: generatedQuote.quote_number },
-                  { label: 'Store',    value: generatedQuote.store_name },
-                  { label: 'Items',    value: `${generatedQuote.item_count} service${generatedQuote.item_count !== 1 ? 's' : ''}` },
-                  { label: 'Total',    value: formatCurrency(generatedQuote.total) },
-                  { label: 'Expires',  value: new Date(generatedQuote.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
-                  { label: 'Short URL', value: generatedQuote.short_url.replace('https://tires.myjiffylube.ai', '') },
+                  { label: 'Quote #',   value: generatedQuote.quote_number },
+                  { label: 'Store',     value: generatedQuote.store_name },
+                  { label: 'Labor',     value: formatCurrency(generatedQuote.subtotal_labor) },
+                  { label: 'Parts',     value: formatCurrency(generatedQuote.subtotal_parts) },
+                  { label: 'Total',     value: formatCurrency(generatedQuote.total) },
+                  { label: 'Expires',   value: new Date(generatedQuote.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
                 ].map(({ label, value }) => (
                   <div key={label}>
                     <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '3px' }}>{label}</div>
-                    <div style={{ fontSize: '13px', fontWeight: '600', color: DARK, wordBreak: 'break-all' }}>{value}</div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: DARK }}>{value}</div>
                   </div>
                 ))}
               </div>
@@ -1532,10 +1645,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
               <PurpleButton onClick={() => window.open(generatedQuote.short_url, '_blank')}>
                 View Quote
               </PurpleButton>
-              <button
-                onClick={handleReset}
-                style={{ padding: '12px 24px', border: `2px solid ${BORDER}`, borderRadius: '25px', backgroundColor: 'white', color: DARK, fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
-              >
+              <button onClick={handleReset} style={{ padding: '12px 24px', border: `2px solid ${BORDER}`, borderRadius: '25px', backgroundColor: 'white', color: DARK, fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
                 New Quote
               </button>
             </div>
