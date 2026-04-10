@@ -31,6 +31,7 @@ const PURPLE = '#9b59b6';
 const DARK   = '#1e293b';
 const LIGHT  = '#f8f4ff';
 const BORDER = '#e2d9f3';
+const AMBER  = '#f59e0b';
 const GREEN  = '#16a34a';
 
 const formatPhone = (phone) => {
@@ -336,10 +337,12 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   const [eachModalOp, setEachModalOp] = useState(null);
 
   // ── Customer fields + lookup ──
+  const [lookupMode,     setLookupMode]     = useState('plate'); // 'plate' | 'vin'
   const [plateInput,     setPlateInput]     = useState('');
   const [plateState,     setPlateState]     = useState('CA');
+  const [vinInput,       setVinInput]       = useState('');
   const [lookupLoading,  setLookupLoading]  = useState(false);
-  const [lookupResult,   setLookupResult]   = useState(null);
+  const [lookupResult,   setLookupResult]   = useState(null);  // 'found' | 'found_vehicle_only' | 'not_found'
   const [showAdvSearch,  setShowAdvSearch]  = useState(false);
   const [pendingMake,    setPendingMake]    = useState('');
   const [pendingModel,   setPendingModel]   = useState('');
@@ -350,7 +353,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   const [custPlate,      setCustPlate]      = useState('');
   const [custPlateState, setCustPlateState] = useState('CA');
   const [custDataSource, setCustDataSource] = useState('manual');
-  const [custVin,        setCustVin]        = useState('');   // captured from plate lookup
+  const [custVin,        setCustVin]        = useState('');
   const [quoteNotes,     setQuoteNotes]     = useState('');
 
   // ── Loading / error ──
@@ -543,76 +546,84 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setStep('parts');
   };
 
-  // ── Customer plate lookup ──
+  // ── Shared: apply customer + vehicle from any lookup result ──
+  const applyLookupResult = async (c, source) => {
+    // Customer fields — only fill if we have a real customer record
+    if (c.first_name || c.last_name) {
+      setCustFirstName(c.first_name || '');
+      setCustLastName(c.last_name || '');
+    }
+    if (c.phone_raw) setCustPhone(formatPhone(c.phone_raw) || '');
+    if (c.email)     setCustEmail(c.email);
+    if (c.license_plate) {
+      setCustPlate(c.license_plate);
+      setCustPlateState(c.license_state || 'CA');
+    }
+    if (c.vin) setCustVin(c.vin);
+    setCustDataSource('lookup');
+
+    // Vehicle pre-population
+    const vehicleYear     = c.vehicle_year  ? String(c.vehicle_year)  : '';
+    const candidateMake   = c.motor_make    || c.vehicle_make  || '';
+    const candidateModel  = c.motor_model   || c.vehicle_model || '';
+
+    if (!vehicleYear || !candidateMake) return;
+
+    try {
+      const makesRes  = await fetch(`${API_BASE}/vcdb-vehicle-makes?year=${vehicleYear}&key=${API_KEY}`);
+      const makesData = await makesRes.json();
+      if (!makesData.success || !makesData.data) return;
+
+      const makeMatch = makesData.data.find(
+        (m) => m.toLowerCase() === candidateMake.toLowerCase()
+      ) || makesData.data.find(
+        (m) => m.toLowerCase().startsWith(candidateMake.toLowerCase().split(' ')[0])
+      );
+      if (!makeMatch) return;
+
+      const modelsRes  = await fetch(`${API_BASE}/vcdb-vehicle-models?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&key=${API_KEY}`);
+      const modelsData = await modelsRes.json();
+      if (!modelsData.success || !modelsData.data) return;
+
+      const modelMatch = candidateModel ? (
+        modelsData.data.find((m) => m.toLowerCase() === candidateModel.toLowerCase()) ||
+        modelsData.data.find((m) => m.toLowerCase().startsWith(candidateModel.toLowerCase().split(' ')[0]))
+      ) : null;
+
+      if (!modelMatch) {
+        setMakes(makesData.data);
+        setModels(modelsData.data);
+        setSelYear(vehicleYear);
+        setSelMake(makeMatch);
+        setStep('submodel');
+        return;
+      }
+
+      const subRes  = await fetch(`${API_BASE}/vcdb-vehicle-submodels?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&model=${encodeURIComponent(modelMatch)}&key=${API_KEY}`);
+      const subData = await subRes.json();
+
+      setMakes(makesData.data);
+      setModels(modelsData.data);
+      if (subData.success && subData.data) setSubmodels(subData.data);
+      setSelYear(vehicleYear);
+      setSelMake(makeMatch);
+      setSelModel(modelMatch);
+      if (subData.success && subData.data && subData.data.length > 0) setStep('submodel');
+    } catch (e) {
+      console.error('Vehicle pre-population error:', e);
+    }
+  };
+
+  // ── Plate lookup ──
   const handlePlateLookup = async () => {
     if (!plateInput.trim()) return;
     setLookupLoading(true); setLookupResult(null);
     try {
-      const res = await fetch(`${API_BASE}/customer-lookup?plate=${encodeURIComponent(plateInput.trim())}&state=${plateState}&key=${API_KEY}`);
+      const res  = await fetch(`${API_BASE}/customer-lookup?plate=${encodeURIComponent(plateInput.trim())}&state=${plateState}&key=${API_KEY}`);
       const data = await res.json();
       if (data.success && data.found && data.customer) {
-        const c = data.customer;
-        setCustFirstName(c.first_name || '');
-        setCustLastName(c.last_name || '');
-        setCustPhone(formatPhone(c.phone_raw || c.phone) || '');
-        setCustEmail(c.email || '');
-        setCustPlate(c.license_plate || plateInput.trim());
-        setCustPlateState(c.license_state || plateState);
-        setCustVin(c.vin || '');
-        setCustDataSource('lookup');
         setLookupResult('found');
-
-        const vehicleYear    = c.vehicle_year ? String(c.vehicle_year) : '';
-        const candidateMake  = c.motor_make  || c.vehicle_make  || '';
-        const candidateModel = c.motor_model || c.vehicle_model || '';
-
-        if (vehicleYear && candidateMake && candidateModel) {
-          const makesRes = await fetch(`${API_BASE}/vcdb-vehicle-makes?year=${vehicleYear}&key=${API_KEY}`);
-          const makesData = await makesRes.json();
-          if (!makesData.success || !makesData.data) { setLookupLoading(false); return; }
-
-          const makeMatch = makesData.data.find(
-            (m) => m.toLowerCase() === candidateMake.toLowerCase()
-          ) || makesData.data.find(
-            (m) => m.toLowerCase().startsWith(candidateMake.toLowerCase().split(' ')[0])
-          );
-          if (!makeMatch) { setLookupLoading(false); return; }
-
-          const modelsRes = await fetch(`${API_BASE}/vcdb-vehicle-models?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&key=${API_KEY}`);
-          const modelsData = await modelsRes.json();
-          if (!modelsData.success || !modelsData.data) { setLookupLoading(false); return; }
-
-          const modelMatch = modelsData.data.find(
-            (m) => m.toLowerCase() === candidateModel.toLowerCase()
-          ) || modelsData.data.find(
-            (m) => m.toLowerCase().startsWith(candidateModel.toLowerCase().split(' ')[0])
-          );
-
-          if (!modelMatch) {
-            setMakes(makesData.data);
-            setModels(modelsData.data);
-            setSelYear(vehicleYear);
-            setSelMake(makeMatch);
-            setStep('submodel');
-            setLookupLoading(false);
-            return;
-          }
-
-          const subRes = await fetch(`${API_BASE}/vcdb-vehicle-submodels?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&model=${encodeURIComponent(modelMatch)}&key=${API_KEY}`);
-          const subData = await subRes.json();
-
-          setMakes(makesData.data);
-          setModels(modelsData.data);
-          if (subData.success && subData.data) setSubmodels(subData.data);
-
-          setSelYear(vehicleYear);
-          setSelMake(makeMatch);
-          setSelModel(modelMatch);
-
-          if (subData.success && subData.data && subData.data.length > 0) {
-            setStep('submodel');
-          }
-        }
+        await applyLookupResult(data.customer, 'plate');
       } else {
         setCustPlate(plateInput.trim());
         setCustPlateState(plateState);
@@ -625,13 +636,37 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setLookupLoading(false);
   };
 
+  // ── VIN lookup ──
+  const handleVinLookup = async () => {
+    const vin = vinInput.trim().toUpperCase();
+    if (vin.length !== 17) return;
+    setLookupLoading(true); setLookupResult(null);
+    try {
+      const res  = await fetch(`${API_BASE}/customer-lookup?search_type=vin&vin=${encodeURIComponent(vin)}&key=${API_KEY}`);
+      const data = await res.json();
+      if (data.success && data.found && data.customer) {
+        // source='turbo' means we have a customer record; source='nhtsa' means vehicle only
+        const hasCustomer = data.source === 'turbo';
+        setLookupResult(hasCustomer ? 'found' : 'found_vehicle_only');
+        setCustVin(vin);
+        await applyLookupResult(data.customer, data.source);
+      } else {
+        setLookupResult('not_found');
+      }
+    } catch (e) {
+      console.error('VIN lookup error:', e);
+      setLookupResult('not_found');
+    }
+    setLookupLoading(false);
+  };
+
   const handleAdvSearchSelect = (c) => {
     setCustFirstName(c.first_name || '');
     setCustLastName(c.last_name || '');
     setCustPhone(formatPhone(c.phone_raw || c.phone) || '');
     setCustEmail(c.email || '');
     if (c.license_plate) { setCustPlate(c.license_plate); setCustPlateState(c.license_state || 'CA'); }
-    setCustVin(c.vin || '');
+    if (c.vin) setCustVin(c.vin);
     setCustDataSource('lookup');
     setLookupResult('found');
     setShowAdvSearch(false);
@@ -719,9 +754,11 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key:      API_KEY,
-          store_id: Number(selectedStore),
-          vehicle:  vehiclePayload,
+          key:       API_KEY,
+          store_id:  Number(selectedStore),
+          vehicle:   vehiclePayload,
+          // PO number: VIN preferred, plate fallback — helps CSA match delivered parts
+          po_number: custVin || custPlate || undefined,
         }),
       });
 
@@ -891,7 +928,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setPtSessionId(null); setPtPolling(false); setPtError('');
     setCustFirstName(''); setCustLastName(''); setCustPhone('');
     setCustEmail(''); setCustPlate(''); setCustPlateState('CA');
-    setCustVin('');
+    setCustVin(''); setVinInput(''); setLookupMode('plate');
     setPlateInput(''); setLookupResult(null); setCustDataSource('manual');
     setPendingMake(''); setPendingModel('');
     setQuoteNotes(''); setGeneratedQuote(null); setError('');
@@ -965,33 +1002,85 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           </div>
         )}
 
-        {/* ── PLATE LOOKUP (visible until browse/parts/submitted) ── */}
+        {/* ── PLATE / VIN LOOKUP (visible until browse/parts/submitted) ── */}
         {step !== 'browse' && step !== 'parts' && step !== 'submitted' && (
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '20px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: lookupResult === 'found' ? '2px solid #86efac' : `1px solid ${BORDER}` }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '20px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: lookupResult === 'found' || lookupResult === 'found_vehicle_only' ? '2px solid #86efac' : `1px solid ${BORDER}` }}>
             <h2 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700', color: DARK, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
               🔍 Customer Lookup <span style={{ fontSize: '11px', fontWeight: '400', color: '#94a3b8', textTransform: 'none', letterSpacing: 0 }}>— optional, fills customer & vehicle</span>
             </h2>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', maxWidth: '520px' }}>
-              <select value={plateState} onChange={(e) => setPlateState(e.target.value)}
-                style={{ padding: '10px 8px', border: `2px solid ${PURPLE}`, borderRadius: '25px', fontSize: '13px', width: '72px', outline: 'none', fontWeight: '600', appearance: 'none', textAlign: 'center' }}>
-                {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <input type="text" placeholder="License plate" value={plateInput}
-                onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === 'Enter' && handlePlateLookup()}
-                style={{ ...inputStyle, width: '180px', fontSize: '15px', padding: '10px 14px', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: '700', textAlign: 'center' }}
-                onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER}
-              />
-              <button onClick={handlePlateLookup} disabled={lookupLoading || !plateInput.trim()} style={{
-                padding: '10px 20px', backgroundColor: lookupLoading || !plateInput.trim() ? '#ccc' : PURPLE,
-                color: 'white', border: 'none', borderRadius: '25px', fontSize: '13px', fontWeight: '700',
-                cursor: lookupLoading || !plateInput.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
-              }}>{lookupLoading ? 'Looking up…' : 'Look Up'}</button>
+
+            {/* Tab toggle */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+              {['plate', 'vin'].map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => { setLookupMode(mode); setLookupResult(null); }}
+                  style={{
+                    padding: '5px 16px', borderRadius: '20px', border: `2px solid ${lookupMode === mode ? PURPLE : BORDER}`,
+                    background: lookupMode === mode ? LIGHT : 'white',
+                    color: lookupMode === mode ? PURPLE : '#64748b',
+                    fontSize: '12px', fontWeight: '700', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px',
+                  }}
+                >
+                  {mode === 'plate' ? '🔖 Plate' : '🔑 VIN'}
+                </button>
+              ))}
             </div>
+
+            {/* Plate input */}
+            {lookupMode === 'plate' && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', maxWidth: '520px' }}>
+                <select value={plateState} onChange={(e) => setPlateState(e.target.value)}
+                  style={{ padding: '10px 8px', border: `2px solid ${PURPLE}`, borderRadius: '25px', fontSize: '13px', width: '72px', outline: 'none', fontWeight: '600', appearance: 'none', textAlign: 'center' }}>
+                  {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <input type="text" placeholder="License plate" value={plateInput}
+                  onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === 'Enter' && handlePlateLookup()}
+                  style={{ ...inputStyle, width: '180px', fontSize: '15px', padding: '10px 14px', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: '700', textAlign: 'center' }}
+                  onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER}
+                />
+                <button onClick={handlePlateLookup} disabled={lookupLoading || !plateInput.trim()} style={{
+                  padding: '10px 20px', backgroundColor: lookupLoading || !plateInput.trim() ? '#ccc' : PURPLE,
+                  color: 'white', border: 'none', borderRadius: '25px', fontSize: '13px', fontWeight: '700',
+                  cursor: lookupLoading || !plateInput.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+                }}>{lookupLoading ? 'Looking up…' : 'Look Up'}</button>
+              </div>
+            )}
+
+            {/* VIN input */}
+            {lookupMode === 'vin' && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', maxWidth: '520px' }}>
+                <input
+                  type="text" placeholder="17-character VIN" value={vinInput}
+                  onChange={(e) => setVinInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && handleVinLookup()}
+                  maxLength={17}
+                  style={{ ...inputStyle, flex: 1, fontSize: '14px', padding: '10px 14px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '700', fontFamily: 'monospace' }}
+                  onFocus={(e) => e.target.style.borderColor = PURPLE} onBlur={(e) => e.target.style.borderColor = BORDER}
+                />
+                <div style={{ fontSize: '11px', color: vinInput.length === 17 ? GREEN : '#94a3b8', fontWeight: '700', flexShrink: 0, minWidth: '32px' }}>
+                  {vinInput.length}/17
+                </div>
+                <button onClick={handleVinLookup} disabled={lookupLoading || vinInput.length !== 17} style={{
+                  padding: '10px 20px', backgroundColor: lookupLoading || vinInput.length !== 17 ? '#ccc' : PURPLE,
+                  color: 'white', border: 'none', borderRadius: '25px', fontSize: '13px', fontWeight: '700',
+                  cursor: lookupLoading || vinInput.length !== 17 ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+                }}>{lookupLoading ? 'Looking up…' : 'Look Up'}</button>
+              </div>
+            )}
+
+            {/* Result messages */}
             {lookupResult === 'found' && (
               <div style={{ marginTop: '10px', backgroundColor: '#f0fff4', border: '1px solid #86efac', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#16a34a', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 ✓ Customer found — fields pre-filled
                 {(selYear || selMake) && <span style={{ color: '#15803d' }}>· Vehicle: {selYear} {selMake} {selModel}</span>}
+              </div>
+            )}
+            {lookupResult === 'found_vehicle_only' && (
+              <div style={{ marginTop: '10px', backgroundColor: '#f0fff4', border: '1px solid #86efac', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#16a34a', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                ✓ Vehicle identified — no customer record found
+                {(selYear || selMake) && <span style={{ color: '#15803d' }}>· {selYear} {selMake} {selModel}</span>}
               </div>
             )}
             {lookupResult === 'not_found' && (
