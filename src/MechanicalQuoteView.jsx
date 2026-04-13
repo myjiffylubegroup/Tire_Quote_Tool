@@ -86,6 +86,12 @@ export default function MechanicalQuoteView({ code }) {
   const [emailSent,    setEmailSent]    = useState(false);
   const [emailError,   setEmailError]   = useState('');
 
+  // PartsTech order state
+  const [ordering,     setOrdering]     = useState(false);
+  const [orderError,   setOrderError]   = useState('');
+  const [orderResult,  setOrderResult]  = useState(null);
+  const [unavailParts, setUnavailParts] = useState([]);
+
   // ── Load quote ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!code) { setError('No quote code provided'); setLoading(false); return; }
@@ -353,6 +359,29 @@ export default function MechanicalQuoteView({ code }) {
     setSmsSending(false);
   };
 
+  // ── Place PartsTech order ─────────────────────────────────────────────────
+  const handlePlaceOrder = async () => {
+    setOrdering(true); setOrderError(""); setUnavailParts([]);
+    try {
+      const res  = await fetch(`${API_BASE}/partstech-place-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: API_KEY, quote_id: quote.quote_id, store_id: quote.store?.store_id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOrderResult({ ordered_at: data.ordered_at, order_ids: data.order_ids, part_count: data.part_count });
+        setQuote((prev) => ({ ...prev, partstech_ordered_at: data.ordered_at, partstech_order_ids: data.order_ids }));
+      } else if (data.unavailable) {
+        setUnavailParts(data.unavailable_parts || []);
+        setOrderError(data.error || "Some parts are unavailable");
+      } else {
+        setOrderError(data.error || "Order failed — please try again");
+      }
+    } catch { setOrderError("Network error — please try again"); }
+    setOrdering(false);
+  };
+
   // ── Loading / error states ───────────────────────────────────────────────────
   if (loading) {
     return (
@@ -449,6 +478,23 @@ export default function MechanicalQuoteView({ code }) {
             <button onClick={() => setShowSmsModal(true)} style={actionBtn(smsSent ? '#16a34a' : '#7c3aed')}>
               {smsSent ? '✓' : '💬'}<br/>{smsSent ? 'Sent' : 'Text'}
             </button>
+            {/* Order Parts — visible when quote has PartsTech parts and not yet ordered */}
+            {(quote.parts || []).some((p) => p.source === 'partstech') && !quote.partstech_ordered_at && (
+              <button onClick={handlePlaceOrder} disabled={ordering}
+                style={actionBtn(ordering ? '#ccc' : '#0369a1')}>
+                {ordering ? '⏳' : '📦'}<br/>{ordering ? 'Checking…' : 'Order Parts'}
+              </button>
+            )}
+            {/* Already ordered indicator */}
+            {quote.partstech_ordered_at && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '6px 12px' }}>
+                <span style={{ fontSize: '14px' }}>✅</span>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#15803d' }}>Parts Ordered</div>
+                  <div style={{ fontSize: '10px', color: '#16a34a' }}>{new Date(quote.partstech_ordered_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                </div>
+              </div>
+            )}
             <div style={{ flex: 1 }} />
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => { setEditMode(!editMode); setRevMode(false); }} style={{
@@ -472,6 +518,35 @@ export default function MechanicalQuoteView({ code }) {
         )}
 
         {emailError && <div className="no-print" style={{ backgroundColor: '#fef2f2', padding: '8px 28px', fontSize: '12px', color: '#dc2626' }}>{emailError}</div>}
+
+        {/* Order error / unavailability banner */}
+        {orderError && (
+          <div className="no-print" style={{ backgroundColor: '#fef2f2', borderBottom: `1px solid #fecaca`, padding: '12px 28px' }}>
+            <div style={{ fontSize: '12px', fontWeight: '700', color: '#dc2626', marginBottom: unavailParts.length > 0 ? '6px' : '0' }}>{orderError}</div>
+            {unavailParts.length > 0 && (
+              <div style={{ fontSize: '11px', color: '#dc2626' }}>
+                Unavailable: {unavailParts.join(', ')}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Order confirmation banner */}
+        {(orderResult || quote.partstech_ordered_at) && !orderError && (
+          <div className="no-print" style={{ backgroundColor: '#f0fdf4', borderBottom: '1px solid #86efac', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '20px' }}>✅</span>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#15803d' }}>
+                Parts ordered successfully — {orderResult?.part_count || (quote.parts || []).filter((p) => p.source === 'partstech').length} part{((orderResult?.part_count || 0) !== 1) ? 's' : ''} from {orderResult?.order_count || '—'} supplier{((orderResult?.order_count || 0) !== 1) ? 's' : ''}
+              </div>
+              {(orderResult?.order_ids || quote.partstech_order_ids || []).length > 0 && (
+                <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '2px' }}>
+                  Order ID{(orderResult?.order_ids || quote.partstech_order_ids || []).length > 1 ? 's' : ''}: {(orderResult?.order_ids || quote.partstech_order_ids || []).join(', ')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mq-content" style={{ padding: '28px' }}>
 
