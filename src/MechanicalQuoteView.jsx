@@ -154,7 +154,83 @@ export default function MechanicalQuoteView({ code }) {
     });
   };
 
-  const handleDeletePart = (part_id) => managePart('delete', { part_id });
+  // handleDeletePart replaced by handleRemovePart below which handles both
+  // manual parts and PartsTech parts (syncs removal back to PT cart).
+
+  const handleRemovePart = async (part) => {
+    setSavingPart(true); setPartError('');
+    try {
+      const res  = await fetch(`${API_BASE}/partstech-remove-parts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key:                     API_KEY,
+          quote_id:                quote.quote_id,
+          store_id:                quote.store?.store_id,
+          part_id:                 part.part_id,
+          partstech_order_item_id: part.partstech_order_item_id || null,
+          partstech_session_id:    part.partstech_session_id    || null,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setQuote((prev) => ({
+          ...prev,
+          parts:   data.parts,
+          pricing: { ...prev.pricing, ...data.totals },
+        }));
+      } else {
+        setPartError(data.error || 'Failed to remove part');
+      }
+    } catch { setPartError('Network error'); }
+    setSavingPart(false);
+  };
+
+  const handleUpdatePartQty = async (part, newQty) => {
+    const qty = Math.max(1, Math.min(99, newQty));
+    if (part.source === 'partstech' && part.partstech_order_item_id) {
+      // PartsTech part — sync back to PT cart, then update DB
+      setSavingPart(true); setPartError('');
+      try {
+        // Collect all PartsTech parts for this session so PT doesn't drop any
+        const allSessionParts = (quote.parts || [])
+          .filter((p) => p.source === 'partstech' && p.partstech_session_id === part.partstech_session_id)
+          .map((p) => ({
+            partstech_order_item_id: p.partstech_order_item_id,
+            partstech_session_id:    p.partstech_session_id,
+            quantity:                p.part_id === part.part_id ? qty : p.quantity,
+          }));
+
+        const res  = await fetch(`${API_BASE}/partstech-update-cart`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            key:                     API_KEY,
+            quote_id:                quote.quote_id,
+            store_id:                quote.store?.store_id,
+            part_id:                 part.part_id,
+            partstech_order_item_id: part.partstech_order_item_id,
+            new_quantity:            qty,
+            all_session_parts:       allSessionParts,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setQuote((prev) => ({
+            ...prev,
+            parts:   data.parts,
+            pricing: { ...prev.pricing, ...data.totals },
+          }));
+        } else {
+          setPartError(data.error || 'Failed to update quantity');
+        }
+      } catch { setPartError('Network error'); }
+      setSavingPart(false);
+    } else {
+      // Manual part — use existing manage-mechanical-parts
+      managePart('update', { part_id: part.part_id, part: { quantity: qty } });
+    }
+  };
 
   // ── Save notes ───────────────────────────────────────────────────────────────
   // ── Save customer info ──────────────────────────────────────────────────────
@@ -537,31 +613,58 @@ export default function MechanicalQuoteView({ code }) {
               <div style={sectionLabel}>PARTS</div>
               {(quote.parts || []).length > 0 && (
                 <div style={{ border: `1px solid ${BORDER}`, borderRadius: '8px', overflow: 'hidden', marginBottom: editMode ? '12px' : '0' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 50px 80px 90px', backgroundColor: '#f8fafc', padding: '8px 14px', borderBottom: `1px solid ${BORDER}` }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 80px 80px 90px', backgroundColor: '#f8fafc', padding: '8px 14px', borderBottom: `1px solid ${BORDER}` }}>
                     {['PART #', 'DESCRIPTION', 'QTY', 'UNIT', 'TOTAL'].map((h) => (
                       <div key={h} style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', textAlign: h === 'PART #' || h === 'DESCRIPTION' ? 'left' : 'right' }}>{h}</div>
                     ))}
                   </div>
                   {(quote.parts || []).map((part, i) => (
                     <div key={part.part_id} style={{
-                      display: 'grid', gridTemplateColumns: '120px 1fr 50px 80px 90px',
+                      display: 'grid', gridTemplateColumns: '120px 1fr 80px 80px 90px',
                       padding: '10px 14px', borderBottom: i < quote.parts.length - 1 ? `1px solid ${BORDER}` : 'none',
                       backgroundColor: i % 2 === 0 ? 'white' : '#fafafa', alignItems: 'center',
                     }}>
                       <div style={{ fontSize: '11px', color: SLATE, fontFamily: 'monospace' }}>{part.part_number || '—'}</div>
-                      <div style={{ fontSize: '13px', fontWeight: '500', color: DARK, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {part.description}
-                        {part.is_revision && <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', letterSpacing: '0.5px' }}>ADDED</span>}
+                      <div style={{ fontSize: '13px', fontWeight: '500', color: DARK }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          {part.description}
+                          {part.is_revision && (
+                            <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', letterSpacing: '0.5px' }}>ADDED</span>
+                          )}
+                          {part.source === 'partstech' && (
+                            <span style={{ fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '4px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #7dd3fc', letterSpacing: '0.5px' }}>PT</span>
+                          )}
+                        </div>
+                        {part.is_revision && part.revision_auth && (
+                          <div style={{ fontSize: '10px', color: '#92400e', fontStyle: 'italic', marginTop: '2px' }}>Auth: {part.revision_auth}</div>
+                        )}
                       </div>
-                      {part.is_revision && part.revision_auth && (
-                        <div style={{ fontSize: '10px', color: '#92400e', fontStyle: 'italic' }}>Auth: {part.revision_auth}</div>
-                      )}
-                      <div style={{ fontSize: '13px', color: SLATE, textAlign: 'right' }}>{part.quantity}</div>
+                      {/* Quantity — stepper in edit mode, static otherwise */}
+                      <div style={{ textAlign: 'right' }}>
+                        {editMode ? (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                            <button
+                              onClick={() => handleUpdatePartQty(part, (part.quantity || 1) - 1)}
+                              disabled={savingPart || part.quantity <= 1}
+                              style={{ width: '22px', height: '22px', border: `1px solid ${BORDER}`, borderRadius: '4px', background: 'white', fontSize: '14px', cursor: part.quantity <= 1 ? 'not-allowed' : 'pointer', color: SLATE, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: DARK, minWidth: '20px', textAlign: 'center' }}>{part.quantity}</span>
+                            <button
+                              onClick={() => handleUpdatePartQty(part, (part.quantity || 1) + 1)}
+                              disabled={savingPart || part.quantity >= 99}
+                              style={{ width: '22px', height: '22px', border: `1px solid ${BORDER}`, borderRadius: '4px', background: 'white', fontSize: '14px', cursor: part.quantity >= 99 ? 'not-allowed' : 'pointer', color: SLATE, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '13px', color: SLATE }}>{part.quantity}</span>
+                        )}
+                      </div>
                       <div style={{ fontSize: '13px', color: SLATE, textAlign: 'right' }}>{formatCurrency(part.unit_price)}</div>
                       <div style={{ fontSize: '13px', fontWeight: '600', color: DARK, textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                         {formatCurrency(part.line_total)}
                         {editMode && (
-                          <button onClick={() => handleDeletePart(part.part_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', lineHeight: 1, padding: 0 }}>×</button>
+                          <button
+                            onClick={() => handleRemovePart(part)}
+                            disabled={savingPart}
+                            style={{ background: 'none', border: 'none', cursor: savingPart ? 'not-allowed' : 'pointer', color: '#94a3b8', fontSize: '16px', lineHeight: 1, padding: 0 }}>×</button>
                         )}
                       </div>
                     </div>
