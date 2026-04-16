@@ -773,16 +773,16 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       // Open PartsTech in new tab
       const ptTab = window.open(data.redirect_url, '_blank');
 
-      // PartsTech's us-communication.js sends a postMessage to the opener
-      // when the user clicks Submit Quote or Buy Now. Without a listener here,
-      // their script throws "[object Object] is not valid JSON" and aborts
-      // before firing the callback. This listener satisfies their requirement.
+      // PartsTech's us-communication.js sends postMessages to the opener window
+      // during normal operation. Without a listener here, their script throws
+      // "[object Object] is not valid JSON" and aborts the Submit Quote flow.
+      // The listener just needs to exist — we do NOT close the tab here since
+      // PartsTech sends messages on load too, not just on cart actions.
+      // Tab closing is handled by returnUrl pointing to partstech-close.html.
       const ptMessageHandler = (event) => {
         if (event.origin !== 'https://app.partstech.com') return;
-        // Message received — PartsTech tab communication is working.
-        // Close the tab if it's still open (belt-and-suspenders alongside returnUrl).
-        try { if (ptTab && !ptTab.closed) ptTab.close(); } catch (e) {}
-        window.removeEventListener('message', ptMessageHandler);
+        // Acknowledge the message — this prevents PartsTech's script from erroring.
+        // Do not close the tab here; returnUrl handles that after cart action.
       };
       window.addEventListener('message', ptMessageHandler);
 
