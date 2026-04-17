@@ -34,9 +34,10 @@ const formatPhone = (p) => {
 // ─── Print styles ─────────────────────────────────────────────────────────────
 const PRINT_STYLES = `
   @media print {
-    @page { size: portrait; margin: 0.25in; }
+    @page { size: portrait; margin: 0.5in; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .no-print { display: none !important; }
+    .print-only { display: block !important; }
     button { display: none !important; }
     .mq-outer { padding: 0 !important; background: white !important; }
     .mq-card  { max-width: 100% !important; border-radius: 0 !important; box-shadow: none !important; }
@@ -44,6 +45,7 @@ const PRINT_STYLES = `
     .mq-header img { height: 26px !important; }
     .mq-content { padding: 10px 14px !important; }
   }
+  .print-only { display: none; }
 `;
 
 export default function MechanicalQuoteView({ code }) {
@@ -518,8 +520,18 @@ export default function MechanicalQuoteView({ code }) {
       <div className="mq-card" style={{ maxWidth: '820px', margin: '0 auto', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
 
         {/* ── Header ── */}
-        <div className="mq-header" style={{ borderTop: `5px solid ${MAROON}`, backgroundColor: 'white', padding: '18px 28px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: `1px solid ${BORDER}` }}>
-          <img src={JL_LOGO} alt="Jiffy Lube Multicare" style={{ height: '42px' }} />
+        <div className="mq-header" style={{ borderTop: `5px solid ${MAROON}`, backgroundColor: 'white', padding: '18px 28px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', borderBottom: `1px solid ${BORDER}` }}>
+          <div>
+            <img src={JL_LOGO} alt="Jiffy Lube Multicare" style={{ height: '42px', display: 'block', marginBottom: '4px' }} />
+            {/* Store details — shown on print only */}
+            <div className="print-only" style={{ fontSize: '11px', color: DARK, lineHeight: '1.6', marginTop: '6px' }}>
+              <div style={{ fontWeight: '700' }}>{quote.store?.store_name}</div>
+              <div>P.C.J.L., Inc.</div>
+              {quote.store?.address && <div>{quote.store.address}</div>}
+              {quote.store?.city && <div>{quote.store.city}, {quote.store.state} {quote.store.zip}</div>}
+              {quote.store?.phone && <div>{formatPhone(quote.store.phone)}</div>}
+            </div>
+          </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '11px', fontWeight: '700', color: SLATE, letterSpacing: '1px' }}>MECHANICAL LABOR QUOTE</div>
             <div style={{ fontSize: '16px', fontWeight: '700', color: DARK }}>{quote.quote_number}</div>
@@ -529,6 +541,7 @@ export default function MechanicalQuoteView({ code }) {
                 : <>Valid through {formatDate(quote.expires_at)}</>
               }
             </div>
+            <div style={{ fontSize: '11px', color: SLATE, marginTop: '2px' }}>{formatDate(quote.created_at)}</div>
           </div>
         </div>
 
@@ -652,6 +665,56 @@ export default function MechanicalQuoteView({ code }) {
                   {quote.vehicle.config.engine_liter}L · {quote.vehicle.config.fuel_type_name || 'GAS'} · {quote.vehicle.config.drive_type_name}
                 </div>
               )}
+              {c?.license_plate && (
+                <div style={{ fontSize: '12px', color: SLATE, marginTop: '3px' }}>
+                  Plate: <strong>{c.license_state} {c.license_plate}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Print-only: Authorized By + Parts Returned + Revised Estimate ── */}
+          <div className="print-only" style={{ marginBottom: '24px' }}>
+
+            {/* Original Estimate / Authorized By */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '10px 14px' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>ORIGINAL ESTIMATE</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: DARK, marginBottom: '24px' }}>{formatCurrency(quote.pricing?.total || 0)}</div>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '32px' }}>AUTHORIZED BY</div>
+                <div style={{ borderTop: '1px solid #cbd5e1', paddingTop: '4px', fontSize: '10px', color: SLATE }}>Customer Signature</div>
+              </div>
+              <div style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '10px 14px' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>REVISED ESTIMATE</div>
+                {/* If revisions exist, show the revised total and auth info */}
+                {(quote.items || []).some(i => i.is_revision && !i.is_removed) || (quote.parts || []).some(p => p.is_revision && !p.is_removed) ? (
+                  <>
+                    <div style={{ fontSize: '18px', fontWeight: '700', color: DARK, marginBottom: '8px' }}>{formatCurrency(quote.pricing?.total || 0)}</div>
+                    <div style={{ fontSize: '10px', color: SLATE, marginBottom: '16px' }}>
+                      {[...(quote.items || []), ...(quote.parts || [])].find(x => x.is_revision && x.revision_auth)?.revision_auth || ''}
+                    </div>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '4px' }}>REASON FOR REVISED ESTIMATE</div>
+                    <div style={{ fontSize: '10px', color: SLATE }}>
+                      {[...(quote.items || []), ...(quote.parts || [])].filter(x => x.is_revision && !x.is_removed).map(x => x.motor_db_operation || x.description).join(', ')}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ height: '80px' }} />
+                )}
+              </div>
+            </div>
+
+            {/* Parts Returned */}
+            <div style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '10px 14px', marginBottom: '12px' }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '8px' }}>PARTS RETURNED</div>
+              <div style={{ display: 'flex', gap: '24px', fontSize: '11px', color: DARK }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <input type="checkbox" style={{ width: '14px', height: '14px' }} /> I REQUEST THE RETURN OF REPLACED PARTS.
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <input type="checkbox" defaultChecked style={{ width: '14px', height: '14px' }} /> I DO NOT WANT REPLACED PARTS RETURNED TO ME.
+                </label>
+              </div>
             </div>
           </div>
 
@@ -1050,11 +1113,11 @@ export default function MechanicalQuoteView({ code }) {
 
           {/* ── Footer disclaimer ── */}
           <div style={{ fontSize: '10px', color: '#94a3b8', lineHeight: '1.6', borderTop: `1px solid ${BORDER}`, paddingTop: '16px' }}>
-            <strong style={{ color: SLATE }}>IMPORTANT:</strong> This is an estimate for labor and parts based on the described services.
+            <strong style={{ color: SLATE }}>INFORMATIONAL QUOTE ONLY:</strong> This document is provided for informational purposes and is not an official BAR estimate.
+            An official written estimate will be provided by the Jiffy Lube Point of Sale System when your vehicle is checked in for service.
             Final charges may vary based on actual parts used and additional labor discovered during service.
-            Labor rates are based on MOTOR published estimated work times.
-            This estimate is valid through {formatDate(quote.expires_at)}.
-            Parts are estimated and subject to availability and current pricing.
+            Labor times are based on MOTOR published estimated work times. All parts are new unless otherwise specified.
+            No storage or storage fees apply. This quote is valid through {formatDate(quote.expires_at)}.
           </div>
         </div>
       </div>
