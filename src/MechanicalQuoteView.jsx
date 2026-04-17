@@ -73,6 +73,7 @@ export default function MechanicalQuoteView({ code }) {
   const [revParts,         setRevParts]         = useState([]);
   const [revRemoveItems,   setRevRemoveItems]   = useState([]);  // item_ids staged to REMOVE
   const [revRemoveParts,   setRevRemoveParts]   = useState([]);  // part_ids staged to REMOVE
+  const [revUpdateParts,   setRevUpdateParts]   = useState([]);  // { part_id, quantity } staged to UPDATE
   const [revPartForm,      setRevPartForm]      = useState({ part_number: '', description: '', quantity: 1, unit_price: '' });
   const [revPtLoading,     setRevPtLoading]     = useState(false);
   const [revPtPolling,     setRevPtPolling]     = useState(false);
@@ -300,8 +301,8 @@ export default function MechanicalQuoteView({ code }) {
   // ── Submit revision ──────────────────────────────────────────────────────────
   const handleSubmitRevision = async () => {
     if (!revAuth.trim() || revAuth.trim().length < 5) { setRevError('Authorization note is required'); return; }
-    const hasChanges = revItems.length > 0 || revParts.length > 0 || revRemoveItems.length > 0 || revRemoveParts.length > 0;
-    if (!hasChanges) { setRevError('Add or remove at least one item'); return; }
+    const hasChanges = revItems.length > 0 || revParts.length > 0 || revRemoveItems.length > 0 || revRemoveParts.length > 0 || revUpdateParts.length > 0;
+    if (!hasChanges) { setRevError('Add, remove, or update at least one item'); return; }
     setSavingRev(true); setRevError('');
     try {
       const res = await fetch(`${API_BASE}/add-mechanical-revision`, {
@@ -315,6 +316,7 @@ export default function MechanicalQuoteView({ code }) {
           parts:         revParts,
           remove_items:  revRemoveItems,
           remove_parts:  revRemoveParts,
+          update_parts:  revUpdateParts,
         }),
       });
       const data = await res.json();
@@ -328,6 +330,7 @@ export default function MechanicalQuoteView({ code }) {
         setRevParts([]);
         setRevRemoveItems([]);
         setRevRemoveParts([]);
+        setRevUpdateParts([]);
         setRevPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
         setRevPtSessionId(null);
         setRevPtPolling(false);
@@ -583,7 +586,7 @@ export default function MechanicalQuoteView({ code }) {
                 {editMode ? '✓ Done Editing' : '✏️ Edit Customer'}
               </button>
               {quote.status === 'presented' && !editMode && (
-                <button onClick={() => { const next = !revMode; setRevMode(next); setEditMode(false); if (!next) { setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}} style={{
+                <button onClick={() => { const next = !revMode; setRevMode(next); setEditMode(false); if (!next) { setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}} style={{
                   padding: '8px 16px', border: `2px solid ${revMode ? '#d97706' : BORDER}`,
                   borderRadius: '20px', backgroundColor: revMode ? '#fffbeb' : 'white',
                   color: revMode ? '#d97706' : SLATE, fontSize: '12px', fontWeight: '700', cursor: 'pointer',
@@ -883,12 +886,47 @@ export default function MechanicalQuoteView({ code }) {
                           <div style={{ fontSize: '10px', color: '#92400e', fontStyle: 'italic', marginTop: '2px' }}>Auth: {part.revision_auth}</div>
                         )}
                       </div>
+                      {/* Qty — stepper in revise mode, static otherwise */}
                       <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: '13px', color: SLATE }}>{part.quantity}</span>
+                        {revMode && !isMarkedForRemoval ? (() => {
+                          const pending = revUpdateParts.find(u => u.part_id === part.part_id);
+                          const currentQty = pending ? pending.quantity : part.quantity;
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>
+                              <button onClick={() => {
+                                const newQty = Math.max(1, currentQty - 1);
+                                if (newQty === part.quantity) {
+                                  setRevUpdateParts(prev => prev.filter(u => u.part_id !== part.part_id));
+                                } else {
+                                  setRevUpdateParts(prev => {
+                                    const existing = prev.find(u => u.part_id === part.part_id);
+                                    if (existing) return prev.map(u => u.part_id === part.part_id ? { ...u, quantity: newQty } : u);
+                                    return [...prev, { part_id: part.part_id, quantity: newQty }];
+                                  });
+                                }
+                              }} style={{ width: '20px', height: '20px', border: `1px solid ${BORDER}`, borderRadius: '3px', background: 'white', fontSize: '13px', cursor: currentQty <= 1 ? 'not-allowed' : 'pointer', color: SLATE, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                              <span style={{ fontSize: '12px', fontWeight: '700', color: pending ? '#d97706' : DARK, minWidth: '18px', textAlign: 'center' }}>{currentQty}</span>
+                              <button onClick={() => {
+                                const newQty = Math.min(99, currentQty + 1);
+                                setRevUpdateParts(prev => {
+                                  const existing = prev.find(u => u.part_id === part.part_id);
+                                  if (existing) return prev.map(u => u.part_id === part.part_id ? { ...u, quantity: newQty } : u);
+                                  return [...prev, { part_id: part.part_id, quantity: newQty }];
+                                });
+                              }} style={{ width: '20px', height: '20px', border: `1px solid ${BORDER}`, borderRadius: '3px', background: 'white', fontSize: '13px', cursor: currentQty >= 99 ? 'not-allowed' : 'pointer', color: SLATE, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                            </div>
+                          );
+                        })() : (
+                          <span style={{ fontSize: '13px', color: SLATE }}>{part.quantity}</span>
+                        )}
                       </div>
                       <div style={{ fontSize: '13px', color: SLATE, textAlign: 'right' }}>{formatCurrency(part.unit_price)}</div>
                       <div style={{ fontSize: '13px', fontWeight: '600', color: isMarkedForRemoval ? '#94a3b8' : DARK, textAlign: 'right', textDecoration: isMarkedForRemoval ? 'line-through' : 'none' }}>
-                        {formatCurrency(part.line_total)}
+                        {(() => {
+                          const pending = revUpdateParts.find(u => u.part_id === part.part_id);
+                          const qty = pending ? pending.quantity : part.quantity;
+                          return formatCurrency(qty * parseFloat(part.unit_price));
+                        })()}
                       </div>
                     </div>
                     );
@@ -940,6 +978,16 @@ export default function MechanicalQuoteView({ code }) {
                   {revRemoveParts.map(id => {
                     const part = (quote.parts || []).find(p => p.part_id === id);
                     return part ? <div key={id} style={{ fontSize: '11px', color: '#dc2626' }}>• {part.description}</div> : null;
+                  })}
+                </div>
+              )}
+
+              {revUpdateParts.length > 0 && (
+                <div style={{ marginBottom: '12px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '8px 12px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#92400e', marginBottom: '4px' }}>QTY CHANGES:</div>
+                  {revUpdateParts.map(u => {
+                    const part = (quote.parts || []).find(p => p.part_id === u.part_id);
+                    return part ? <div key={u.part_id} style={{ fontSize: '11px', color: '#92400e' }}>• {part.description}: {part.quantity} → {u.quantity}</div> : null;
                   })}
                 </div>
               )}
@@ -1057,7 +1105,7 @@ export default function MechanicalQuoteView({ code }) {
                   style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '20px', backgroundColor: !revAuth.trim() || revAuth.trim().length < 5 ? '#ccc' : '#d97706', color: 'white', fontSize: '13px', fontWeight: '700', cursor: !revAuth.trim() || revAuth.trim().length < 5 ? 'not-allowed' : 'pointer' }}>
                   {savingRev ? 'Saving…' : 'Submit Revision'}
                 </button>
-                <button onClick={() => { setRevMode(false); setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}
+                <button onClick={() => { setRevMode(false); setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}
                   style={{ padding: '10px 20px', border: `1px solid ${BORDER}`, borderRadius: '20px', backgroundColor: 'white', color: SLATE, fontSize: '13px', cursor: 'pointer' }}>
                   Cancel
                 </button>
