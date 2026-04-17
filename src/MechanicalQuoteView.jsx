@@ -120,6 +120,19 @@ export default function MechanicalQuoteView({ code }) {
             license_plate: cust.license_plate || '',
             license_state: cust.license_state || 'CA',
           });
+          // Mark as presented when staff opens the quote view —
+          // viewing = presenting. Only update if still draft.
+          if (d.quote.status === 'draft') {
+            const staffAuth = (() => { try { return JSON.parse(localStorage.getItem('jl_staff_auth') || '{}'); } catch { return {}; } })();
+            if (staffAuth.user_id) {
+              fetch(`${API_BASE}/present-mechanical-quote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: API_KEY, quote_id: d.quote.quote_id }),
+              }).catch(() => {});
+              setQuote(prev => ({ ...prev, status: 'presented', presented_at: new Date().toISOString() }));
+            }
+          }
         } else {
           setError(d.error || 'Quote not found');
         }
