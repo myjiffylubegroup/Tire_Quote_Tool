@@ -882,6 +882,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           email:         custEmail      || undefined,
           license_plate: custPlate      || undefined,
           license_state: custPlate ? custPlateState : undefined,
+          vin:           custVin        || undefined,
           data_source:   custDataSource,
         },
         vehicle: {

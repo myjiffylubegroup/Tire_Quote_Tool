@@ -6,7 +6,7 @@
 // CSAs can add/edit/delete parts and notes via inline edit mode.
 // =============================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY  = 'TIRES2026';
@@ -79,6 +79,7 @@ export default function MechanicalQuoteView({ code }) {
   const [revPtPolling,     setRevPtPolling]     = useState(false);
   const [revPtSessionId,   setRevPtSessionId]   = useState(null);
   const [revPtError,       setRevPtError]       = useState('');
+  const revPtIntervalRef   = useRef(null);
   const [savingRev,        setSavingRev]        = useState(false);
   const [revError,         setRevError]         = useState('');
 
@@ -346,24 +347,37 @@ export default function MechanicalQuoteView({ code }) {
   const handleRevPunchout = async () => {
     setRevPtLoading(true); setRevPtError('');
     try {
+      // Vehicle identification — VIN preferred, plate fallback, then year/make/model
+      const vin   = quote.customer?.vin;
+      const plate = quote.customer?.license_plate;
+      const plateState = quote.customer?.license_state;
+
+      const vehiclePayload: any = {
+        year:     quote.vehicle?.year,
+        make:     quote.vehicle?.make,
+        model:    quote.vehicle?.model,
+        submodel: quote.vehicle?.submodel,
+      };
+      if (vin) {
+        vehiclePayload.vin = vin;
+      } else if (plate && plateState) {
+        vehiclePayload.plate      = plate;
+        vehiclePayload.plateState = plateState;
+      }
+
       const res = await fetch(`${API_BASE}/partstech-punchout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           key:       API_KEY,
           store_id:  quote.store?.store_id,
-          vehicle:   {
-            vin:      quote.customer?.license_plate || undefined,
-            year:     quote.vehicle?.year,
-            make:     quote.vehicle?.make,
-            model:    quote.vehicle?.model,
-            submodel: quote.vehicle?.submodel,
-          },
-          po_number: quote.customer?.license_plate || quote.quote_number,
+          vehicle:   vehiclePayload,
+          po_number: vin || plate || quote.quote_number,
         }),
       });
       const data = await res.json();
       if (!data.success) { setRevPtError(data.error || 'Failed to open PartsTech'); setRevPtLoading(false); return; }
+
       window.open(data.redirect_url, '_blank');
       const ptMessageHandler = (event) => {
         if (event.origin !== 'https://app.partstech.com') return;
@@ -371,12 +385,16 @@ export default function MechanicalQuoteView({ code }) {
       window.addEventListener('message', ptMessageHandler);
       setRevPtSessionId(data.session_id);
       setRevPtPolling(true);
-      const pollInterval = setInterval(async () => {
+
+      // Store interval in ref so cancel can clear it reliably
+      if (revPtIntervalRef.current) clearInterval(revPtIntervalRef.current);
+      revPtIntervalRef.current = setInterval(async () => {
         try {
-          const pollRes = await fetch(`${API_BASE}/partstech-poll-session?session_id=${data.session_id}&key=${API_KEY}`);
+          const pollRes  = await fetch(`${API_BASE}/partstech-poll-session?session_id=${data.session_id}&key=${API_KEY}`);
           const pollData = await pollRes.json();
           if (pollData.ready) {
-            clearInterval(pollInterval);
+            clearInterval(revPtIntervalRef.current);
+            revPtIntervalRef.current = null;
             setRevPtPolling(false);
             setRevPtSessionId(null);
             window.removeEventListener('message', ptMessageHandler);
@@ -384,11 +402,12 @@ export default function MechanicalQuoteView({ code }) {
               setRevParts(prev => [...prev, ...pollData.parts]);
             }
           } else if (!pollData.success) {
-            clearInterval(pollInterval);
+            clearInterval(revPtIntervalRef.current);
+            revPtIntervalRef.current = null;
             setRevPtPolling(false);
             setRevPtError(pollData.error || 'PartsTech session error');
           }
-        } catch { /* keep polling */ }
+        } catch { /* keep polling on transient errors */ }
       }, 2000);
     } catch { setRevPtError('Network error'); }
     setRevPtLoading(false);
@@ -586,7 +605,7 @@ export default function MechanicalQuoteView({ code }) {
                 {editMode ? '✓ Done Editing' : '✏️ Edit Customer'}
               </button>
               {quote.status === 'presented' && !editMode && (
-                <button onClick={() => { const next = !revMode; setRevMode(next); setEditMode(false); if (!next) { setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}} style={{
+                <button onClick={() => { const next = !revMode; setRevMode(next); setEditMode(false); if (!next) { if (revPtIntervalRef.current) { clearInterval(revPtIntervalRef.current); revPtIntervalRef.current = null; } setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}} style={{
                   padding: '8px 16px', border: `2px solid ${revMode ? '#d97706' : BORDER}`,
                   borderRadius: '20px', backgroundColor: revMode ? '#fffbeb' : 'white',
                   color: revMode ? '#d97706' : SLATE, fontSize: '12px', fontWeight: '700', cursor: 'pointer',
@@ -1099,8 +1118,10 @@ export default function MechanicalQuoteView({ code }) {
                   <div style={{ padding: '10px', border: '2px solid #0369a1', borderRadius: '8px', backgroundColor: '#f0f9ff', textAlign: 'center' }}>
                     <div style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1', marginBottom: '4px' }}>⏳ Waiting for PartsTech…</div>
                     <div style={{ fontSize: '11px', color: SLATE, marginBottom: '8px' }}>Select parts in the PartsTech tab and click Submit Quote</div>
-                    <button onClick={() => { setRevPtPolling(false); setRevPtSessionId(null); }}
-                      style={{ padding: '4px 14px', border: `1px solid ${BORDER}`, borderRadius: '20px', background: 'white', fontSize: '11px', cursor: 'pointer', color: SLATE }}>Cancel</button>
+                    <button onClick={() => {
+                      if (revPtIntervalRef.current) { clearInterval(revPtIntervalRef.current); revPtIntervalRef.current = null; }
+                      setRevPtPolling(false); setRevPtSessionId(null);
+                    }} style={{ padding: '4px 14px', border: `1px solid ${BORDER}`, borderRadius: '20px', background: 'white', fontSize: '11px', cursor: 'pointer', color: SLATE }}>Cancel</button>
                   </div>
                 )}
                 {revPtError && <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px' }}>{revPtError}</div>}
@@ -1148,7 +1169,7 @@ export default function MechanicalQuoteView({ code }) {
                   style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '20px', backgroundColor: !revAuth.trim() || revAuth.trim().length < 5 ? '#ccc' : '#d97706', color: 'white', fontSize: '13px', fontWeight: '700', cursor: !revAuth.trim() || revAuth.trim().length < 5 ? 'not-allowed' : 'pointer' }}>
                   {savingRev ? 'Saving…' : 'Submit Revision'}
                 </button>
-                <button onClick={() => { setRevMode(false); setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}
+                <button onClick={() => { if (revPtIntervalRef.current) { clearInterval(revPtIntervalRef.current); revPtIntervalRef.current = null; } setRevMode(false); setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}
                   style={{ padding: '10px 20px', border: `1px solid ${BORDER}`, borderRadius: '20px', backgroundColor: 'white', color: SLATE, fontSize: '13px', cursor: 'pointer' }}>
                   Cancel
                 </button>
