@@ -539,7 +539,8 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
 
   // ── Advance from browse (labor) to parts step ──
   const handleGoToParts = () => {
-    setParts([]);
+    // Do NOT reset parts here — CSA may be coming back from labor edit
+    // and PartsTech parts should persist. Only reset punchout session state.
     setPtSessionId(null);
     setPtPolling(false);
     setPtError('');
@@ -808,7 +809,15 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   // Quote generation
   // ─────────────────────────────────────────────────────────────────────────
   const cartTotal = cart.reduce((sum, op) => sum + Number(op.labor_price) * (op.quantity || 1), 0);
-  const partsTotal = parts.reduce((sum, p) => sum + (p.unit_price * p.quantity), 0);
+  const partsTotal = parts.reduce((sum, p) => sum + ((p.unit_price || 0) * p.quantity), 0);
+
+  // Tax rates by store — matches quote_config tax_rates values
+  const STORE_TAX_RATES = {
+    609:  0.0875, 1002: 0.0875, 1257: 0.0875,
+    1270: 0.0875, 1396: 0.0925, 1932: 0.0875,
+    2911: 0.0875, 4182: 0.0925,
+  };
+  const storeTaxRate = STORE_TAX_RATES[Number(selectedStore)] || 0.0875;
 
   const handleSubmitRevision = async () => {
     if (cart.length === 0) { setRevisionError('Add at least one service'); return; }
@@ -1699,10 +1708,15 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                   <span>Parts ({parts.length} item{parts.length !== 1 ? 's' : ''})</span>
                   <span style={{ fontWeight: '600', color: DARK }}>{formatCurrency(partsTotal)}</span>
                 </div>
-                <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '10px' }}>+ tax on parts calculated at checkout</div>
+                {partsTotal > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>
+                    <span>Tax ({(storeTaxRate * 100).toFixed(2)}%) on parts</span>
+                    <span style={{ fontWeight: '600', color: DARK }}>{formatCurrency(partsTotal * storeTaxRate)}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '700', color: DARK, borderTop: `1px solid ${BORDER}`, paddingTop: '10px', marginBottom: '14px' }}>
-                  <span>Est. Total (pre-tax)</span>
-                  <span style={{ color: PURPLE }}>{formatCurrency(cartTotal + partsTotal)}</span>
+                  <span>Est. Total</span>
+                  <span style={{ color: PURPLE }}>{formatCurrency(cartTotal + partsTotal + (partsTotal * storeTaxRate))}</span>
                 </div>
 
                 <PurpleButton onClick={handleGenerateQuote} disabled={cart.length === 0 || loading || !selectedEmployee}>
