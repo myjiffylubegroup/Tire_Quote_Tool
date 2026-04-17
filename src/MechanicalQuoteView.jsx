@@ -1095,7 +1095,16 @@ export default function MechanicalQuoteView({ code }) {
                     quote_id:         quote.quote_id,
                     short_code:       quote.short_code,
                     base_vehicle_id:  quote.vehicle?.base_vehicle_id,
-                    engine_config_id: quote.vehicle?.config?.engine_config_id,
+                    // Prefer top-level vehicle_id / engine_config_id (Sub-phase 2B+).
+                    // Fall back to the legacy nested config path for quotes created
+                    // before these columns existed — those quotes have NULL in the
+                    // top-level columns but still have engine_config_id inside config.
+                    // vehicle_id has no legacy fallback; quotes without it skip xref
+                    // filtering during revision (same as pre-2A behavior).
+                    vehicle_id:       quote.vehicle?.vehicle_id ?? null,
+                    engine_config_id: quote.vehicle?.engine_config_id
+                                       ?? quote.vehicle?.config?.engine_config_id
+                                       ?? null,
                     vehicle_display:  quote.vehicle?.display,
                     config_label:     quote.vehicle?.config
                       ? `${quote.vehicle.config.engine_liter}L · ${quote.vehicle.config.fuel_type_name || 'GAS'} · ${quote.vehicle.config.drive_type_name}`
