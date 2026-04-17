@@ -386,14 +386,34 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           setRevisionContext(parsed);
           setRevisionMode(true);
           sessionStorage.removeItem('jl_revision_context');
-          // Build synthetic selConfig so the browse panel renders
-          // (we skipped the normal vehicle selection flow in revision mode)
+
+          // Parse config_label ("6.2L · GAS · 4WD") into engine_liter and
+          // drive_type_name for the vehicle-banner display strip. Only used
+          // cosmetically — the authoritative vehicle info is shown via
+          // revisionContext.vehicle_display on the right side of the banner.
+          const labelParts     = (parsed.config_label || '').split('·').map((s) => s.trim());
+          const literMatch     = labelParts[0]?.match(/^([\d.]+)L/);
+          const engineLiter    = literMatch ? literMatch[1] : '';
+          const driveTypeName  = labelParts[2] || '';
+
+          // Synthesize a minimal selConfig. This is the key missing piece: the
+          // browse-step UI checks selConfig truthiness before rendering the
+          // tree/operations panels, and the operations-fetch useEffect bails
+          // out early if selConfig is null. Without this synth, revision mode
+          // shows step 4 highlighted but a blank page below it.
+          //
+          // We intentionally do NOT populate selYear/selMake/selModel/selSubmodel
+          // because the cascading useEffects on those state values reset
+          // selConfig back to null. revisionContext.vehicle_display handles the
+          // full vehicle label display in the banner.
           setSelConfig({
             base_vehicle_id:  parsed.base_vehicle_id,
-            vehicle_id:       parsed.vehicle_id       || null,
-            engine_config_id: parsed.engine_config_id || null,
-            config_label:     parsed.config_label     || '',
+            engine_config_id: parsed.engine_config_id ?? null,
+            vehicle_id:       parsed.vehicle_id       ?? null,
+            engine_liter:     engineLiter,
+            drive_type_name:  driveTypeName,
           });
+
           if (parsed.base_vehicle_id) {
             const params = new URLSearchParams({ key: API_KEY, base_vehicle_id: parsed.base_vehicle_id, mode: 'tree' });
             if (parsed.engine_config_id) params.set('engine_config_id', String(parsed.engine_config_id));
