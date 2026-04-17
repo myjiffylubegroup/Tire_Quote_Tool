@@ -738,7 +738,6 @@ export default function MechanicalQuoteView({ code }) {
                   display: 'grid', gridTemplateColumns: revMode ? '24px 1fr 80px 80px 90px' : '1fr 80px 80px 90px',
                   padding: '12px 14px', borderBottom: i < quote.items.length - 1 ? `1px solid ${BORDER}` : 'none',
                   backgroundColor: item.is_removed ? '#fef2f2' : isMarkedForRemoval ? '#fff1f1' : i % 2 === 0 ? 'white' : '#fafafa',
-                  opacity: item.is_removed ? 0.75 : 1,
                 }}>
                   {revMode && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -839,7 +838,7 @@ export default function MechanicalQuoteView({ code }) {
           )}
 
           {/* ── Parts ── */}
-          {(quote.parts || []).filter(p => !p.is_removed).length > 0 && (
+          {(quote.parts || []).length > 0 && (
             <div style={{ marginBottom: '24px' }}>
               <div style={sectionLabel}>PARTS</div>
               {true && (
@@ -849,8 +848,30 @@ export default function MechanicalQuoteView({ code }) {
                       <div key={h} style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', textAlign: h === 'PART #' || h === 'DESCRIPTION' ? 'left' : 'right' }}>{h}</div>
                     ))}
                   </div>
-                  {(quote.parts || []).filter(p => !p.is_removed).map((part, i, arr) => {
+                  {(quote.parts || []).map((part, i, arr) => {
                     const isMarkedForRemoval = revRemoveParts.includes(part.part_id);
+                    // Hide removed parts on screen; show them on print for audit trail
+                    if (part.is_removed && !isMarkedForRemoval) {
+                      return (
+                        <div key={part.part_id} className="print-only" style={{
+                          display: 'grid', gridTemplateColumns: '120px 1fr 80px 80px 90px',
+                          padding: '10px 14px', borderBottom: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none',
+                          backgroundColor: '#fef2f2', alignItems: 'center', opacity: 0.75,
+                        }}>
+                          <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>{part.part_number || '—'}</div>
+                          <div>
+                            <div style={{ fontSize: '13px', color: '#94a3b8', textDecoration: 'line-through', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              {part.description}
+                              <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef2f2', color: '#dc2626', letterSpacing: '0.5px', textDecoration: 'none' }}>REMOVED</span>
+                            </div>
+                            {part.removal_auth && <div style={{ fontSize: '10px', color: '#dc2626', fontStyle: 'italic', marginTop: '2px' }}>Removed: {part.removal_auth}</div>}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right', textDecoration: 'line-through' }}>{part.quantity}</div>
+                          <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right', textDecoration: 'line-through' }}>{formatCurrency(part.unit_price)}</div>
+                          <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right', textDecoration: 'line-through' }}>{formatCurrency(part.line_total)}</div>
+                        </div>
+                      );
+                    }
                     return (
                     <div key={part.part_id} style={{
                       display: 'grid', gridTemplateColumns: revMode ? '24px 120px 1fr 80px 80px 90px' : '120px 1fr 80px 80px 90px',
