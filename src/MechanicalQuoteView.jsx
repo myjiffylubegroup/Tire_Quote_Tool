@@ -37,7 +37,7 @@ const PRINT_STYLES = `
     @page { size: portrait; margin: 0.5in; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .no-print { display: none !important; }
-    .print-only { display: block !important; }
+    .print-only { display: grid !important; }
     button { display: none !important; }
     .mq-outer { padding: 0 !important; background: white !important; }
     .mq-card  { max-width: 100% !important; border-radius: 0 !important; box-shadow: none !important; }
@@ -690,20 +690,34 @@ export default function MechanicalQuoteView({ code }) {
               <div style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '10px 14px' }}>
                 <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>REVISED ESTIMATE</div>
                 {/* If revisions exist, show the revised total and auth info */}
-                {(quote.items || []).some(i => i.is_revision && !i.is_removed) || (quote.parts || []).some(p => p.is_revision && !p.is_removed) ? (
-                  <>
-                    <div style={{ fontSize: '18px', fontWeight: '700', color: DARK, marginBottom: '8px' }}>{formatCurrency(quote.pricing?.total || 0)}</div>
-                    <div style={{ fontSize: '10px', color: SLATE, marginBottom: '16px' }}>
-                      {[...(quote.items || []), ...(quote.parts || [])].find(x => x.is_revision && x.revision_auth)?.revision_auth || ''}
-                    </div>
-                    <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '4px' }}>REASON FOR REVISED ESTIMATE</div>
-                    <div style={{ fontSize: '10px', color: SLATE }}>
-                      {[...(quote.items || []), ...(quote.parts || [])].filter(x => x.is_revision && !x.is_removed).map(x => x.motor_db_operation || x.description).join(', ')}
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ height: '80px' }} />
-                )}
+                {(() => {
+                  // Show revised estimate block if anything was added OR removed via revision
+                  const hasRevisions = (quote.items || []).some(i => i.is_revision || i.is_removed) ||
+                                       (quote.parts || []).some(p => p.is_revision || p.is_removed);
+                  if (!hasRevisions) return <div style={{ height: '80px' }} />;
+
+                  // Collect auth note — from revision additions first, then removals
+                  const authNote = [...(quote.items || []), ...(quote.parts || [])]
+                    .find(x => x.revision_auth || x.removal_auth);
+                  const noteText = authNote?.revision_auth || authNote?.removal_auth || '';
+
+                  // Describe what changed
+                  const added   = [...(quote.items || []), ...(quote.parts || [])].filter(x => x.is_revision && !x.is_removed).map(x => x.motor_db_operation || x.description);
+                  const removed = [...(quote.items || []), ...(quote.parts || [])].filter(x => x.is_removed).map(x => x.motor_db_operation || x.description);
+                  const changes = [
+                    added.length   > 0 ? `Added: ${added.join(', ')}`   : '',
+                    removed.length > 0 ? `Removed: ${removed.join(', ')}` : '',
+                  ].filter(Boolean).join(' · ');
+
+                  return (
+                    <>
+                      <div style={{ fontSize: '18px', fontWeight: '700', color: DARK, marginBottom: '8px' }}>{formatCurrency(quote.pricing?.total || 0)}</div>
+                      {noteText && <div style={{ fontSize: '10px', color: SLATE, marginBottom: '10px' }}>{noteText}</div>}
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '4px' }}>REASON FOR REVISED ESTIMATE</div>
+                      <div style={{ fontSize: '10px', color: SLATE }}>{changes}</div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
 
@@ -850,19 +864,19 @@ export default function MechanicalQuoteView({ code }) {
                   </div>
                   {(quote.parts || []).map((part, i, arr) => {
                     const isMarkedForRemoval = revRemoveParts.includes(part.part_id);
-                    // Hide removed parts on screen; show them on print for audit trail
+                    // Removed parts: hidden on screen, shown on print for audit trail
                     if (part.is_removed && !isMarkedForRemoval) {
                       return (
                         <div key={part.part_id} className="print-only" style={{
                           display: 'grid', gridTemplateColumns: '120px 1fr 80px 80px 90px',
                           padding: '10px 14px', borderBottom: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none',
-                          backgroundColor: '#fef2f2', alignItems: 'center', opacity: 0.75,
+                          backgroundColor: '#fef2f2', alignItems: 'center',
                         }}>
                           <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>{part.part_number || '—'}</div>
                           <div>
-                            <div style={{ fontSize: '13px', color: '#94a3b8', textDecoration: 'line-through', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              {part.description}
-                              <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef2f2', color: '#dc2626', letterSpacing: '0.5px', textDecoration: 'none' }}>REMOVED</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '13px', color: '#94a3b8', textDecoration: 'line-through' }}>{part.description}</span>
+                              <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef2f2', color: '#dc2626', letterSpacing: '0.5px' }}>REMOVED</span>
                             </div>
                             {part.removal_auth && <div style={{ fontSize: '10px', color: '#dc2626', fontStyle: 'italic', marginTop: '2px' }}>Removed: {part.removal_auth}</div>}
                           </div>
