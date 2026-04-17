@@ -693,7 +693,7 @@ export default function MechanicalQuoteView({ code }) {
                 {(() => {
                   // Show revised estimate block if anything was added OR removed via revision
                   const hasRevisions = (quote.items || []).some(i => i.is_revision || i.is_removed) ||
-                                       (quote.parts || []).some(p => p.is_revision || p.is_removed);
+                                       (quote.parts || []).some(p => p.is_revision || p.is_removed || p.previous_quantity != null);
                   if (!hasRevisions) return <div style={{ height: '80px' }} />;
 
                   // Collect auth note — from revision additions first, then removals
@@ -702,11 +702,13 @@ export default function MechanicalQuoteView({ code }) {
                   const noteText = authNote?.revision_auth || authNote?.removal_auth || '';
 
                   // Describe what changed
-                  const added   = [...(quote.items || []), ...(quote.parts || [])].filter(x => x.is_revision && !x.is_removed).map(x => x.motor_db_operation || x.description);
-                  const removed = [...(quote.items || []), ...(quote.parts || [])].filter(x => x.is_removed).map(x => x.motor_db_operation || x.description);
+                  const added    = [...(quote.items || []), ...(quote.parts || [])].filter(x => x.is_revision && !x.is_removed).map(x => x.motor_db_operation || x.description);
+                  const removed  = [...(quote.items || []), ...(quote.parts || [])].filter(x => x.is_removed).map(x => x.motor_db_operation || x.description);
+                  const qtyChg   = (quote.parts || []).filter(x => x.previous_quantity != null).map(x => `${x.description} qty ${x.previous_quantity}→${x.quantity}`);
                   const changes = [
-                    added.length   > 0 ? `Added: ${added.join(', ')}`   : '',
+                    added.length   > 0 ? `Added: ${added.join(', ')}`     : '',
                     removed.length > 0 ? `Removed: ${removed.join(', ')}` : '',
+                    qtyChg.length  > 0 ? `Qty changed: ${qtyChg.join(', ')}` : '',
                   ].filter(Boolean).join(' · ');
 
                   return (
@@ -910,6 +912,9 @@ export default function MechanicalQuoteView({ code }) {
                           {part.is_revision && (
                             <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', letterSpacing: '0.5px' }}>ADDED</span>
                           )}
+                          {part.previous_quantity != null && (
+                            <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#eff6ff', color: '#1d4ed8', letterSpacing: '0.5px' }}>QTY CHANGED</span>
+                          )}
                           {part.source === 'partstech' && (
                             <span style={{ fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '4px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #7dd3fc', letterSpacing: '0.5px' }}>PT</span>
                           )}
@@ -919,6 +924,9 @@ export default function MechanicalQuoteView({ code }) {
                         </div>
                         {part.is_revision && part.revision_auth && (
                           <div style={{ fontSize: '10px', color: '#92400e', fontStyle: 'italic', marginTop: '2px' }}>Auth: {part.revision_auth}</div>
+                        )}
+                        {part.previous_quantity != null && part.qty_change_auth && (
+                          <div style={{ fontSize: '10px', color: '#1d4ed8', fontStyle: 'italic', marginTop: '2px' }}>Qty: {part.previous_quantity} → {part.quantity} · {part.qty_change_auth}</div>
                         )}
                       </div>
                       {/* Qty — stepper in revise mode, static otherwise */}
@@ -1018,11 +1026,11 @@ export default function MechanicalQuoteView({ code }) {
               )}
 
               {revUpdateParts.length > 0 && (
-                <div style={{ marginBottom: '12px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '8px 12px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#92400e', marginBottom: '4px' }}>QTY CHANGES:</div>
+                <div style={{ marginBottom: '12px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '8px 12px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#1d4ed8', marginBottom: '4px' }}>QTY CHANGES:</div>
                   {revUpdateParts.map(u => {
                     const part = (quote.parts || []).find(p => p.part_id === u.part_id);
-                    return part ? <div key={u.part_id} style={{ fontSize: '11px', color: '#92400e' }}>• {part.description}: {part.quantity} → {u.quantity}</div> : null;
+                    return part ? <div key={u.part_id} style={{ fontSize: '11px', color: '#1d4ed8' }}>• {part.description}: {part.quantity} → {u.quantity}</div> : null;
                   })}
                 </div>
               )}
