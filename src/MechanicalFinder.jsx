@@ -386,6 +386,14 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           setRevisionContext(parsed);
           setRevisionMode(true);
           sessionStorage.removeItem('jl_revision_context');
+          // Build synthetic selConfig so the browse panel renders
+          // (we skipped the normal vehicle selection flow in revision mode)
+          setSelConfig({
+            base_vehicle_id:  parsed.base_vehicle_id,
+            vehicle_id:       parsed.vehicle_id       || null,
+            engine_config_id: parsed.engine_config_id || null,
+            config_label:     parsed.config_label     || '',
+          });
           if (parsed.base_vehicle_id) {
             const params = new URLSearchParams({ key: API_KEY, base_vehicle_id: parsed.base_vehicle_id, mode: 'tree' });
             if (parsed.engine_config_id) params.set('engine_config_id', String(parsed.engine_config_id));
