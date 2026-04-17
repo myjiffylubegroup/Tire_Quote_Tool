@@ -65,13 +65,19 @@ export default function MechanicalQuoteView({ code }) {
   const [custError,     setCustError]     = useState('');
 
   // Revision state
-  const [revMode,       setRevMode]       = useState(false);
-  const [revAuth,       setRevAuth]       = useState('');
-  const [revItems,      setRevItems]      = useState([]);  // labor items staged for revision
-  const [revParts,      setRevParts]      = useState([]);  // parts staged for revision
-  const [revPartForm,   setRevPartForm]   = useState({ part_number: '', description: '', quantity: 1, unit_price: '' });
-  const [savingRev,     setSavingRev]     = useState(false);
-  const [revError,      setRevError]      = useState('');
+  const [revMode,          setRevMode]          = useState(false);
+  const [revAuth,          setRevAuth]          = useState('');
+  const [revItems,         setRevItems]         = useState([]);
+  const [revParts,         setRevParts]         = useState([]);
+  const [revRemoveItems,   setRevRemoveItems]   = useState([]);  // item_ids staged to REMOVE
+  const [revRemoveParts,   setRevRemoveParts]   = useState([]);  // part_ids staged to REMOVE
+  const [revPartForm,      setRevPartForm]      = useState({ part_number: '', description: '', quantity: 1, unit_price: '' });
+  const [revPtLoading,     setRevPtLoading]     = useState(false);
+  const [revPtPolling,     setRevPtPolling]     = useState(false);
+  const [revPtSessionId,   setRevPtSessionId]   = useState(null);
+  const [revPtError,       setRevPtError]       = useState('');
+  const [savingRev,        setSavingRev]        = useState(false);
+  const [revError,         setRevError]         = useState('');
 
   // SMS consent modal
   const [showSmsModal, setShowSmsModal] = useState(false);
@@ -292,7 +298,8 @@ export default function MechanicalQuoteView({ code }) {
   // ── Submit revision ──────────────────────────────────────────────────────────
   const handleSubmitRevision = async () => {
     if (!revAuth.trim() || revAuth.trim().length < 5) { setRevError('Authorization note is required'); return; }
-    if (revItems.length === 0 && revParts.length === 0) { setRevError('Add at least one labor item or part'); return; }
+    const hasChanges = revItems.length > 0 || revParts.length > 0 || revRemoveItems.length > 0 || revRemoveParts.length > 0;
+    if (!hasChanges) { setRevError('Add or remove at least one item'); return; }
     setSavingRev(true); setRevError('');
     try {
       const res = await fetch(`${API_BASE}/add-mechanical-revision`, {
@@ -304,11 +311,12 @@ export default function MechanicalQuoteView({ code }) {
           revision_auth: revAuth.trim(),
           items:         revItems,
           parts:         revParts,
+          remove_items:  revRemoveItems,
+          remove_parts:  revRemoveParts,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        // Re-fetch full quote to get updated items/parts/totals
         const refreshRes = await fetch(`${API_BASE}/get-mechanical-quote?short_code=${quote.short_code}&key=${API_KEY}`);
         const refreshData = await refreshRes.json();
         if (refreshData.success) setQuote(refreshData.quote);
@@ -316,12 +324,69 @@ export default function MechanicalQuoteView({ code }) {
         setRevAuth('');
         setRevItems([]);
         setRevParts([]);
+        setRevRemoveItems([]);
+        setRevRemoveParts([]);
         setRevPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
+        setRevPtSessionId(null);
+        setRevPtPolling(false);
+        setRevPtError('');
       } else {
         setRevError(data.error || 'Failed to submit revision');
       }
     } catch { setRevError('Network error'); }
     setSavingRev(false);
+  };
+
+  // ── PartsTech punchout for revision ──────────────────────────────────────────
+  const handleRevPunchout = async () => {
+    setRevPtLoading(true); setRevPtError('');
+    try {
+      const res = await fetch(`${API_BASE}/partstech-punchout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key:       API_KEY,
+          store_id:  quote.store?.store_id,
+          vehicle:   {
+            vin:      quote.customer?.license_plate || undefined,
+            year:     quote.vehicle?.year,
+            make:     quote.vehicle?.make,
+            model:    quote.vehicle?.model,
+            submodel: quote.vehicle?.submodel,
+          },
+          po_number: quote.customer?.license_plate || quote.quote_number,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) { setRevPtError(data.error || 'Failed to open PartsTech'); setRevPtLoading(false); return; }
+      window.open(data.redirect_url, '_blank');
+      const ptMessageHandler = (event) => {
+        if (event.origin !== 'https://app.partstech.com') return;
+      };
+      window.addEventListener('message', ptMessageHandler);
+      setRevPtSessionId(data.session_id);
+      setRevPtPolling(true);
+      const pollInterval = setInterval(async () => {
+        try {
+          const pollRes = await fetch(`${API_BASE}/partstech-poll-session?session_id=${data.session_id}&key=${API_KEY}`);
+          const pollData = await pollRes.json();
+          if (pollData.ready) {
+            clearInterval(pollInterval);
+            setRevPtPolling(false);
+            setRevPtSessionId(null);
+            window.removeEventListener('message', ptMessageHandler);
+            if (pollData.parts && pollData.parts.length > 0) {
+              setRevParts(prev => [...prev, ...pollData.parts]);
+            }
+          } else if (!pollData.success) {
+            clearInterval(pollInterval);
+            setRevPtPolling(false);
+            setRevPtError(pollData.error || 'PartsTech session error');
+          }
+        } catch { /* keep polling */ }
+      }, 2000);
+    } catch { setRevPtError('Network error'); }
+    setRevPtLoading(false);
   };
 
   // ── Email ────────────────────────────────────────────────────────────────────
@@ -502,15 +567,15 @@ export default function MechanicalQuoteView({ code }) {
                 borderRadius: '20px', backgroundColor: editMode ? '#fff5f5' : 'white',
                 color: editMode ? MAROON : SLATE, fontSize: '12px', fontWeight: '700', cursor: 'pointer',
               }}>
-                {editMode ? '✓ Done Editing' : '✏️ Edit Customer & Parts'}
+                {editMode ? '✓ Done Editing' : '✏️ Edit Customer'}
               </button>
               {quote.status === 'presented' && !editMode && (
-                <button onClick={() => { setRevMode(!revMode); setEditMode(false); }} style={{
+                <button onClick={() => { const next = !revMode; setRevMode(next); setEditMode(false); if (!next) { setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}} style={{
                   padding: '8px 16px', border: `2px solid ${revMode ? '#d97706' : BORDER}`,
                   borderRadius: '20px', backgroundColor: revMode ? '#fffbeb' : 'white',
                   color: revMode ? '#d97706' : SLATE, fontSize: '12px', fontWeight: '700', cursor: 'pointer',
                 }}>
-                  {revMode ? '✓ Cancel Revision' : '⚠️ Add Revision'}
+                  {revMode ? '✓ Cancel Revision' : '✏️ Revise Quote'}
                 </button>
               )}
             </div>
@@ -600,37 +665,62 @@ export default function MechanicalQuoteView({ code }) {
                   <div key={h} style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', textAlign: h === 'SERVICE' ? 'left' : 'right' }}>{h}</div>
                 ))}
               </div>
-              {(quote.items || []).map((item, i) => (
+              {(quote.items || []).map((item, i) => {
+                const isMarkedForRemoval = revRemoveItems.includes(item.item_id);
+                return (
                 <div key={item.item_id} style={{
-                  display: 'grid', gridTemplateColumns: '1fr 80px 80px 90px',
+                  display: 'grid', gridTemplateColumns: revMode ? '24px 1fr 80px 80px 90px' : '1fr 80px 80px 90px',
                   padding: '12px 14px', borderBottom: i < quote.items.length - 1 ? `1px solid ${BORDER}` : 'none',
-                  backgroundColor: i % 2 === 0 ? 'white' : '#fafafa',
+                  backgroundColor: item.is_removed ? '#fef2f2' : isMarkedForRemoval ? '#fff1f1' : i % 2 === 0 ? 'white' : '#fafafa',
+                  opacity: item.is_removed ? 0.75 : 1,
                 }}>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: '600', color: DARK, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      {item.motor_db_operation}
-                      {item.qualifier_description && <span style={{ color: SLATE, fontWeight: '400' }}> · {item.qualifier_description}</span>}
-                      {item.is_revision && (
-                        <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', letterSpacing: '0.5px' }}>ADDED</span>
+                  {revMode && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {!item.is_removed && (
+                        <input type="checkbox" checked={isMarkedForRemoval}
+                          onChange={(e) => {
+                            if (e.target.checked) setRevRemoveItems(prev => [...prev, item.item_id]);
+                            else setRevRemoveItems(prev => prev.filter(id => id !== item.item_id));
+                          }}
+                          style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: '#dc2626' }} />
                       )}
                     </div>
-                    {item.motor_db_description && (
+                  )}
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: item.is_removed ? '#94a3b8' : DARK, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', textDecoration: item.is_removed || isMarkedForRemoval ? 'line-through' : 'none' }}>
+                      {item.motor_db_operation}
+                      {item.qualifier_description && <span style={{ color: SLATE, fontWeight: '400' }}> · {item.qualifier_description}</span>}
+                      {item.is_revision && !item.is_removed && (
+                        <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', letterSpacing: '0.5px' }}>ADDED</span>
+                      )}
+                      {item.is_removed && (
+                        <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef2f2', color: '#dc2626', letterSpacing: '0.5px' }}>REMOVED</span>
+                      )}
+                      {isMarkedForRemoval && !item.is_removed && (
+                        <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef2f2', color: '#dc2626', letterSpacing: '0.5px' }}>WILL REMOVE</span>
+                      )}
+                    </div>
+                    {item.motor_db_description && !item.is_removed && (
                       <div style={{ fontSize: '11px', color: SLATE, marginTop: '1px' }}>{item.motor_db_description}</div>
                     )}
-                    {item.is_revision && item.revision_auth && (
+                    {item.is_revision && item.revision_auth && !item.is_removed && (
                       <div style={{ fontSize: '10px', color: '#92400e', marginTop: '2px', fontStyle: 'italic' }}>Auth: {item.revision_auth}</div>
                     )}
-                    {item.motor_db_footnote && (
+                    {item.is_removed && item.removal_auth && (
+                      <div style={{ fontSize: '10px', color: '#dc2626', marginTop: '2px', fontStyle: 'italic' }}>Removed: {item.removal_auth}</div>
+                    )}
+                    {item.motor_db_footnote && !item.is_removed && (
                       <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>ℹ️ {item.motor_db_footnote}</div>
                     )}
                   </div>
-                  <div style={{ fontSize: '13px', color: SLATE, textAlign: 'right', paddingTop: '1px' }}>{item.motor_time}h</div>
-                  <div style={{ fontSize: '13px', color: SLATE, textAlign: 'right', paddingTop: '1px' }}>{item.quantity}</div>
-                  <div style={{ fontSize: '13px', fontWeight: '600', color: DARK, textAlign: 'right', paddingTop: '1px' }}>
+                  <div style={{ fontSize: '13px', color: item.is_removed ? '#94a3b8' : SLATE, textAlign: 'right', paddingTop: '1px' }}>{item.motor_time}h</div>
+                  <div style={{ fontSize: '13px', color: item.is_removed ? '#94a3b8' : SLATE, textAlign: 'right', paddingTop: '1px' }}>{item.quantity}</div>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: item.is_removed ? '#94a3b8' : DARK, textAlign: 'right', paddingTop: '1px', textDecoration: item.is_removed ? 'line-through' : 'none' }}>
                     {formatCurrency(parseFloat(item.labor_price) * (item.quantity || 1))}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -683,25 +773,38 @@ export default function MechanicalQuoteView({ code }) {
           )}
 
           {/* ── Parts ── */}
-          {((quote.parts || []).length > 0 || editMode) && (
+          {(quote.parts || []).filter(p => !p.is_removed).length > 0 && (
             <div style={{ marginBottom: '24px' }}>
               <div style={sectionLabel}>PARTS</div>
-              {(quote.parts || []).length > 0 && (
-                <div style={{ border: `1px solid ${BORDER}`, borderRadius: '8px', overflow: 'hidden', marginBottom: editMode ? '12px' : '0' }}>
+              {true && (
+                <div style={{ border: `1px solid ${BORDER}`, borderRadius: '8px', overflow: 'hidden', marginBottom: '0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 80px 80px 90px', backgroundColor: '#f8fafc', padding: '8px 14px', borderBottom: `1px solid ${BORDER}` }}>
                     {['PART #', 'DESCRIPTION', 'QTY', 'UNIT', 'TOTAL'].map((h) => (
                       <div key={h} style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', textAlign: h === 'PART #' || h === 'DESCRIPTION' ? 'left' : 'right' }}>{h}</div>
                     ))}
                   </div>
-                  {(quote.parts || []).map((part, i) => (
+                  {(quote.parts || []).filter(p => !p.is_removed).map((part, i, arr) => {
+                    const isMarkedForRemoval = revRemoveParts.includes(part.part_id);
+                    return (
                     <div key={part.part_id} style={{
-                      display: 'grid', gridTemplateColumns: '120px 1fr 80px 80px 90px',
-                      padding: '10px 14px', borderBottom: i < quote.parts.length - 1 ? `1px solid ${BORDER}` : 'none',
-                      backgroundColor: i % 2 === 0 ? 'white' : '#fafafa', alignItems: 'center',
+                      display: 'grid', gridTemplateColumns: revMode ? '24px 120px 1fr 80px 80px 90px' : '120px 1fr 80px 80px 90px',
+                      padding: '10px 14px', borderBottom: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none',
+                      backgroundColor: isMarkedForRemoval ? '#fff1f1' : i % 2 === 0 ? 'white' : '#fafafa', alignItems: 'center',
                     }}>
+                      {/* Revision mode removal checkbox */}
+                      {revMode && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <input type="checkbox" checked={isMarkedForRemoval}
+                            onChange={(e) => {
+                              if (e.target.checked) setRevRemoveParts(prev => [...prev, part.part_id]);
+                              else setRevRemoveParts(prev => prev.filter(id => id !== part.part_id));
+                            }}
+                            style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: '#dc2626' }} />
+                        </div>
+                      )}
                       <div style={{ fontSize: '11px', color: SLATE, fontFamily: 'monospace' }}>{part.part_number || '—'}</div>
-                      <div style={{ fontSize: '13px', fontWeight: '500', color: DARK }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: '13px', fontWeight: '500', color: isMarkedForRemoval ? '#94a3b8' : DARK }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', textDecoration: isMarkedForRemoval ? 'line-through' : 'none' }}>
                           {part.description}
                           {part.is_revision && (
                             <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', letterSpacing: '0.5px' }}>ADDED</span>
@@ -709,69 +812,27 @@ export default function MechanicalQuoteView({ code }) {
                           {part.source === 'partstech' && (
                             <span style={{ fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '4px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #7dd3fc', letterSpacing: '0.5px' }}>PT</span>
                           )}
+                          {isMarkedForRemoval && (
+                            <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef2f2', color: '#dc2626', letterSpacing: '0.5px' }}>WILL REMOVE</span>
+                          )}
                         </div>
                         {part.is_revision && part.revision_auth && (
                           <div style={{ fontSize: '10px', color: '#92400e', fontStyle: 'italic', marginTop: '2px' }}>Auth: {part.revision_auth}</div>
                         )}
                       </div>
-                      {/* Quantity — stepper in edit mode, static otherwise */}
                       <div style={{ textAlign: 'right' }}>
-                        {editMode ? (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                            <button
-                              onClick={() => handleUpdatePartQty(part, (part.quantity || 1) - 1)}
-                              disabled={savingPart || part.quantity <= 1}
-                              style={{ width: '22px', height: '22px', border: `1px solid ${BORDER}`, borderRadius: '4px', background: 'white', fontSize: '14px', cursor: part.quantity <= 1 ? 'not-allowed' : 'pointer', color: SLATE, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                            <span style={{ fontSize: '13px', fontWeight: '600', color: DARK, minWidth: '20px', textAlign: 'center' }}>{part.quantity}</span>
-                            <button
-                              onClick={() => handleUpdatePartQty(part, (part.quantity || 1) + 1)}
-                              disabled={savingPart || part.quantity >= 99}
-                              style={{ width: '22px', height: '22px', border: `1px solid ${BORDER}`, borderRadius: '4px', background: 'white', fontSize: '14px', cursor: part.quantity >= 99 ? 'not-allowed' : 'pointer', color: SLATE, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '13px', color: SLATE }}>{part.quantity}</span>
-                        )}
+                        <span style={{ fontSize: '13px', color: SLATE }}>{part.quantity}</span>
                       </div>
                       <div style={{ fontSize: '13px', color: SLATE, textAlign: 'right' }}>{formatCurrency(part.unit_price)}</div>
-                      <div style={{ fontSize: '13px', fontWeight: '600', color: DARK, textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: isMarkedForRemoval ? '#94a3b8' : DARK, textAlign: 'right', textDecoration: isMarkedForRemoval ? 'line-through' : 'none' }}>
                         {formatCurrency(part.line_total)}
-                        {editMode && (
-                          <button
-                            onClick={() => handleRemovePart(part)}
-                            disabled={savingPart}
-                            style={{ background: 'none', border: 'none', cursor: savingPart ? 'not-allowed' : 'pointer', color: '#94a3b8', fontSize: '16px', lineHeight: 1, padding: 0 }}>×</button>
-                        )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
-              {/* Add part form (edit mode only) */}
-              {editMode && (
-                <div style={{ border: `1px dashed ${BORDER}`, borderRadius: '8px', padding: '14px', backgroundColor: '#f8fafc' }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '10px' }}>ADD PART</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 60px 90px auto', gap: '8px', alignItems: 'end' }}>
-                    <input type="text" placeholder="Part #" value={partForm.part_number}
-                      onChange={(e) => setPartForm((p) => ({ ...p, part_number: e.target.value }))}
-                      style={inputStyle} />
-                    <input type="text" placeholder="Description *" value={partForm.description}
-                      onChange={(e) => setPartForm((p) => ({ ...p, description: e.target.value }))}
-                      style={inputStyle} />
-                    <input type="number" placeholder="Qty" min="1" value={partForm.quantity}
-                      onChange={(e) => setPartForm((p) => ({ ...p, quantity: Math.max(1, parseInt(e.target.value) || 1) }))}
-                      style={{ ...inputStyle, textAlign: 'center' }} />
-                    <input type="number" placeholder="Unit Price *" min="0" step="0.01" value={partForm.unit_price}
-                      onChange={(e) => setPartForm((p) => ({ ...p, unit_price: e.target.value }))}
-                      style={inputStyle} />
-                    <button onClick={handleAddPart} disabled={savingPart || !partForm.description.trim() || !partForm.unit_price}
-                      style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', backgroundColor: !partForm.description.trim() || !partForm.unit_price ? '#ccc' : MAROON, color: 'white', fontSize: '12px', fontWeight: '700', cursor: !partForm.description.trim() || !partForm.unit_price ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
-                      {savingPart ? '…' : '+ Add'}
-                    </button>
-                  </div>
-                  {partError && <div style={{ color: '#dc2626', fontSize: '11px', marginTop: '6px' }}>{partError}</div>}
-                </div>
-              )}
             </div>
           )}
 
@@ -799,21 +860,36 @@ export default function MechanicalQuoteView({ code }) {
 
           {/* ── Revision panel (presented quotes, staff only) ── */}
           {revMode && isStaff && (
-            <div style={{ marginBottom: '24px', border: '2px solid #f59e0b', borderRadius: '8px', padding: '16px', backgroundColor: '#fffbeb' }}>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', marginBottom: '12px' }}>⚠️ ADD REVISED ITEMS</div>
-              <p style={{ fontSize: '12px', color: '#92400e', marginBottom: '12px', lineHeight: '1.5' }}>
-                Items added here will appear on the quote as <strong>ADDED</strong> with your authorization note. This satisfies California BAR requirements for revised estimates.
+            <div style={{ marginBottom: '24px', border: '2px solid #d97706', borderRadius: '8px', padding: '16px', backgroundColor: '#fffbeb' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', marginBottom: '4px' }}>✏️ REVISE QUOTE</div>
+              <p style={{ fontSize: '11px', color: '#92400e', marginBottom: '14px', lineHeight: '1.5', margin: '0 0 14px 0' }}>
+                Check items above to remove them, or add new labor/parts below. All changes require an authorization note.
               </p>
 
-              {/* Staged revision items */}
+              {/* Summary of staged changes */}
+              {(revRemoveItems.length > 0 || revRemoveParts.length > 0) && (
+                <div style={{ marginBottom: '12px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '8px 12px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#dc2626', marginBottom: '4px' }}>REMOVING:</div>
+                  {revRemoveItems.map(id => {
+                    const item = (quote.items || []).find(i => i.item_id === id);
+                    return item ? <div key={id} style={{ fontSize: '11px', color: '#dc2626' }}>• {item.motor_db_operation}{item.qualifier_description ? ` · ${item.qualifier_description}` : ''}</div> : null;
+                  })}
+                  {revRemoveParts.map(id => {
+                    const part = (quote.parts || []).find(p => p.part_id === id);
+                    return part ? <div key={id} style={{ fontSize: '11px', color: '#dc2626' }}>• {part.description}</div> : null;
+                  })}
+                </div>
+              )}
+
+              {/* Staged labor items to add */}
               {revItems.length > 0 && (
                 <div style={{ marginBottom: '10px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>STAGED LABOR</div>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>ADDING LABOR:</div>
                   {revItems.map((item, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: 'white', borderRadius: '6px', marginBottom: '4px', border: `1px solid ${BORDER}` }}>
                       <div>
-                        <div style={{ fontSize: '12px', fontWeight: '600', color: DARK }}>{item.motor_db_operation} {item.qualifier_description ? `· ${item.qualifier_description}` : ''}</div>
-                        <div style={{ fontSize: '11px', color: SLATE }}>{item.motor_time}h × ${parseFloat(item.labor_price).toFixed(2)} × qty {item.quantity}</div>
+                        <div style={{ fontSize: '12px', fontWeight: '600', color: DARK }}>{item.motor_db_operation}{item.qualifier_description ? ` · ${item.qualifier_description}` : ''}</div>
+                        <div style={{ fontSize: '11px', color: SLATE }}>{item.motor_time}h × {formatCurrency(item.labor_price)} × qty {item.quantity}</div>
                       </div>
                       <button onClick={() => setRevItems(prev => prev.filter((_, idx) => idx !== i))}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '18px', lineHeight: 1 }}>×</button>
@@ -822,9 +898,10 @@ export default function MechanicalQuoteView({ code }) {
                 </div>
               )}
 
+              {/* Staged parts to add */}
               {revParts.length > 0 && (
                 <div style={{ marginBottom: '10px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>STAGED PARTS</div>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>ADDING PARTS:</div>
                   {revParts.map((part, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: 'white', borderRadius: '6px', marginBottom: '4px', border: `1px solid ${BORDER}` }}>
                       <div>
@@ -838,37 +915,47 @@ export default function MechanicalQuoteView({ code }) {
                 </div>
               )}
 
-              {/* Add labor to revision — navigates to MechanicalFinder in revision mode */}
+              {/* Add labor button */}
               <div style={{ marginBottom: '10px' }}>
                 <button onClick={() => {
-                  // Store revision context for MechanicalFinder to pick up
                   sessionStorage.setItem('jl_revision_context', JSON.stringify({
-                    quote_id:        quote.quote_id,
-                    short_code:      quote.short_code,
-                    base_vehicle_id: quote.vehicle?.base_vehicle_id,
+                    quote_id:         quote.quote_id,
+                    short_code:       quote.short_code,
+                    base_vehicle_id:  quote.vehicle?.base_vehicle_id,
                     engine_config_id: quote.vehicle?.config?.engine_config_id,
-                    vehicle_display: quote.vehicle?.display,
-                    config_label:    quote.vehicle?.config
+                    vehicle_display:  quote.vehicle?.display,
+                    config_label:     quote.vehicle?.config
                       ? `${quote.vehicle.config.engine_liter}L · ${quote.vehicle.config.fuel_type_name || 'GAS'} · ${quote.vehicle.config.drive_type_name}`
                       : '',
                   }));
                   window.location.hash = '#/mechanical?mode=revision';
-                }} style={{
-                  width: '100%', padding: '10px', border: '2px dashed #92400e',
-                  borderRadius: '8px', backgroundColor: 'white', color: '#92400e',
-                  fontSize: '13px', fontWeight: '700', cursor: 'pointer', textAlign: 'center',
-                }}>
-                  🔧 Add Labor Services to Revision
+                }} style={{ width: '100%', padding: '10px', border: '2px dashed #92400e', borderRadius: '8px', backgroundColor: 'white', color: '#92400e', fontSize: '13px', fontWeight: '700', cursor: 'pointer', textAlign: 'center' }}>
+                  🔧 Add Labor Services
                 </button>
-                <div style={{ fontSize: '10px', color: '#92400e', textAlign: 'center', marginTop: '4px' }}>
-                  Opens service browser with vehicle pre-loaded
-                </div>
               </div>
 
-              {/* Add revised part form */}
+              {/* PartsTech punchout for revision */}
+              <div style={{ marginBottom: '10px' }}>
+                {!revPtPolling ? (
+                  <button onClick={handleRevPunchout} disabled={revPtLoading}
+                    style={{ width: '100%', padding: '10px', border: '2px dashed #0369a1', borderRadius: '8px', backgroundColor: 'white', color: '#0369a1', fontSize: '13px', fontWeight: '700', cursor: revPtLoading ? 'not-allowed' : 'pointer', textAlign: 'center' }}>
+                    {revPtLoading ? '⏳ Opening PartsTech…' : '📦 Find Parts on PartsTech'}
+                  </button>
+                ) : (
+                  <div style={{ padding: '10px', border: '2px solid #0369a1', borderRadius: '8px', backgroundColor: '#f0f9ff', textAlign: 'center' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1', marginBottom: '4px' }}>⏳ Waiting for PartsTech…</div>
+                    <div style={{ fontSize: '11px', color: SLATE, marginBottom: '8px' }}>Select parts in the PartsTech tab and click Submit Quote</div>
+                    <button onClick={() => { setRevPtPolling(false); setRevPtSessionId(null); }}
+                      style={{ padding: '4px 14px', border: `1px solid ${BORDER}`, borderRadius: '20px', background: 'white', fontSize: '11px', cursor: 'pointer', color: SLATE }}>Cancel</button>
+                  </div>
+                )}
+                {revPtError && <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px' }}>{revPtError}</div>}
+              </div>
+
+              {/* Manual add part form */}
               <div style={{ backgroundColor: 'white', borderRadius: '6px', padding: '10px', border: `1px solid ${BORDER}`, marginBottom: '12px' }}>
-                <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '8px' }}>ADD PART TO REVISION</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 60px 90px auto', gap: '6px', alignItems: 'end' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '8px' }}>ADD PART MANUALLY</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 50px 80px auto', gap: '6px', alignItems: 'end' }}>
                   <input type="text" placeholder="Part #" value={revPartForm.part_number}
                     onChange={(e) => setRevPartForm(p => ({ ...p, part_number: e.target.value }))}
                     style={inputStyle} />
@@ -887,28 +974,27 @@ export default function MechanicalQuoteView({ code }) {
                     setRevPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
                   }} disabled={!revPartForm.description.trim() || !revPartForm.unit_price}
                     style={{ padding: '8px 12px', border: 'none', borderRadius: '6px', backgroundColor: !revPartForm.description.trim() || !revPartForm.unit_price ? '#ccc' : '#92400e', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    + Part
+                    + Add
                   </button>
                 </div>
               </div>
 
               {/* Authorization note */}
               <div style={{ marginBottom: '10px' }}>
-                <label style={{ fontSize: '10px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>AUTHORIZATION NOTE * (required)</label>
+                <label style={{ fontSize: '10px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>AUTHORIZATION NOTE * (required for all changes)</label>
                 <input type="text" value={revAuth} onChange={(e) => setRevAuth(e.target.value)}
-                  placeholder='e.g. "Authorized by customer via phone at 2:15pm"'
+                  placeholder='e.g. "Customer authorized brake line repair via phone at 2:15pm"'
                   style={{ ...inputStyle, borderColor: '#f59e0b' }} />
-                <div style={{ fontSize: '10px', color: '#92400e', marginTop: '4px' }}>This note will appear on the customer quote and satisfies CA BAR revised estimate requirements.</div>
               </div>
 
               {revError && <div style={{ color: '#dc2626', fontSize: '11px', marginBottom: '8px' }}>{revError}</div>}
 
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={handleSubmitRevision} disabled={savingRev || (!revAuth.trim()) || (revItems.length === 0 && revParts.length === 0)}
-                  style={{ padding: '10px 24px', border: 'none', borderRadius: '20px', backgroundColor: !revAuth.trim() || (revItems.length === 0 && revParts.length === 0) ? '#ccc' : '#92400e', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
-                  {savingRev ? 'Saving…' : 'Authorize & Submit Revision'}
+                <button onClick={handleSubmitRevision} disabled={savingRev || !revAuth.trim() || revAuth.trim().length < 5}
+                  style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '20px', backgroundColor: !revAuth.trim() || revAuth.trim().length < 5 ? '#ccc' : '#d97706', color: 'white', fontSize: '13px', fontWeight: '700', cursor: !revAuth.trim() || revAuth.trim().length < 5 ? 'not-allowed' : 'pointer' }}>
+                  {savingRev ? 'Saving…' : 'Submit Revision'}
                 </button>
-                <button onClick={() => { setRevMode(false); setRevItems([]); setRevParts([]); setRevAuth(''); setRevError(''); }}
+                <button onClick={() => { setRevMode(false); setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}
                   style={{ padding: '10px 20px', border: `1px solid ${BORDER}`, borderRadius: '20px', backgroundColor: 'white', color: SLATE, fontSize: '13px', cursor: 'pointer' }}>
                   Cancel
                 </button>
