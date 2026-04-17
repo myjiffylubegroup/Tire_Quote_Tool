@@ -352,7 +352,7 @@ export default function MechanicalQuoteView({ code }) {
       const plate = quote.customer?.license_plate;
       const plateState = quote.customer?.license_state;
 
-      const vehiclePayload: any = {
+      const vehiclePayload = {
         year:     quote.vehicle?.year,
         make:     quote.vehicle?.make,
         model:    quote.vehicle?.model,
