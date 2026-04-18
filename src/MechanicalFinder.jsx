@@ -312,6 +312,13 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   const [operations,  setOperations]  = useState([]);
   const [cart,        setCart]        = useState([]);
 
+  // ── Manual labor form ──
+  // CSA-entered misc labor (diagnostic, skid plate removal, shop labor — anything
+  // MOTOR's catalog doesn't cover). On "+ Add" it's pushed into cart with
+  // is_manual=true and a client_id for React key + stepper/remove targeting
+  // (since mechanical_estimating_id is null for manual items).
+  const [manualLaborForm, setManualLaborForm] = useState({ description: '', hours: '0.50' });
+
   // ── Step 5: Parts ──
   const [parts,    setParts]    = useState([]);
   const [partForm, setPartForm] = useState({ part_number: '', description: '', quantity: 1, unit_price: '' });
@@ -584,7 +591,11 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   };
 
   const isInCart = (id) => cart.some((c) => c.mechanical_estimating_id === id);
-  const addToCart = (op, qty = 1) => setCart((prev) => [...prev, { ...op, quantity: qty }]);
+  // Every cart item gets a stable client_id on add. Used for React keys and
+  // stepper/remove targeting. Needed because manual items have null
+  // mechanical_estimating_id — can't key off that.
+  const nextClientId = () => Math.random().toString(36).slice(2, 10);
+  const addToCart = (op, qty = 1) => setCart((prev) => [...prev, { ...op, quantity: qty, client_id: nextClientId() }]);
   const handleAddClick = (op) => {
     if (isInCart(op.mechanical_estimating_id)) {
       setCart((prev) => prev.filter((c) => c.mechanical_estimating_id !== op.mechanical_estimating_id));
@@ -889,6 +900,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           quote_id:      revisionContext.quote_id,
           revision_auth: revisionAuth.trim(),
           items: cart.map((op) => ({
+            is_manual:                op.is_manual === true,
             mechanical_estimating_id: op.mechanical_estimating_id,
             motor_db_section:         op.motor_db_section,
             motor_db_group:           op.motor_db_group,
@@ -964,6 +976,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           partstech_store_id:       p.partstech_store_id       || undefined,
         })),
         items: cart.map((op) => ({
+          is_manual:                op.is_manual === true,
           mechanical_estimating_id: op.mechanical_estimating_id,
           motor_db_section:         op.motor_db_section,
           motor_db_group:           op.motor_db_group,
@@ -1006,6 +1019,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setSelSection(''); setSelGroup(''); setSelSubgroup('');
     setSearchTerm('');
     setParts([]); setPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
+    setManualLaborForm({ description: '', hours: '0.50' });
     setPtSessionId(null); setPtPolling(false); setPtError('');
     setCustFirstName(''); setCustLastName(''); setCustPhone('');
     setCustEmail(''); setCustPlate(''); setCustPlateState('CA');
@@ -1434,30 +1448,35 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                   ) : (
                     <>
                       {cart.map((op) => (
-                        <React.Fragment key={op.mechanical_estimating_id}>
+                        <React.Fragment key={op.client_id ?? op.mechanical_estimating_id}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: `1px solid ${BORDER}`, gap: '8px' }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: '12px', fontWeight: '600', color: DARK, lineHeight: '1.3' }}>
                                 {op.motor_db_operation}
                                 {op.qualifier_description && <span style={{ color: '#94a3b8', fontWeight: '400' }}> · {op.qualifier_description}</span>}
+                                {op.is_manual && (
+                                  <span style={{ marginLeft: '6px', display: 'inline-block', backgroundColor: AMBER, color: 'white', fontSize: '9px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.5px', verticalAlign: 'middle' }}>MANUAL</span>
+                                )}
                               </div>
                               {op.motor_db_description && <div style={{ fontSize: '10px', color: '#475569' }}>{op.motor_db_description}</div>}
-                              <div style={{ fontSize: '10px', color: '#94a3b8' }}>{op.motor_time} hrs ea.</div>
+                              <div style={{ fontSize: '10px', color: '#94a3b8' }}>{op.motor_time} hrs{op.is_manual ? '' : ' ea.'}</div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${BORDER}`, borderRadius: '20px', overflow: 'hidden' }}>
-                                <button onClick={() => setCart((prev) => prev.map((c) => c.mechanical_estimating_id === op.mechanical_estimating_id ? { ...c, quantity: Math.max(1, (c.quantity || 1) - 1) } : c))}
-                                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px 8px', fontSize: '14px', color: '#64748b', lineHeight: 1 }}>−</button>
-                                <span style={{ fontSize: '12px', fontWeight: '700', color: DARK, minWidth: '16px', textAlign: 'center' }}>{op.quantity || 1}</span>
-                                <button onClick={() => setCart((prev) => prev.map((c) => c.mechanical_estimating_id === op.mechanical_estimating_id ? { ...c, quantity: (c.quantity || 1) + 1 } : c))}
-                                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px 8px', fontSize: '14px', color: '#64748b', lineHeight: 1 }}>+</button>
-                              </div>
+                              {!op.is_manual && (
+                                <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${BORDER}`, borderRadius: '20px', overflow: 'hidden' }}>
+                                  <button onClick={() => setCart((prev) => prev.map((c) => c.client_id === op.client_id ? { ...c, quantity: Math.max(1, (c.quantity || 1) - 1) } : c))}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px 8px', fontSize: '14px', color: '#64748b', lineHeight: 1 }}>−</button>
+                                  <span style={{ fontSize: '12px', fontWeight: '700', color: DARK, minWidth: '16px', textAlign: 'center' }}>{op.quantity || 1}</span>
+                                  <button onClick={() => setCart((prev) => prev.map((c) => c.client_id === op.client_id ? { ...c, quantity: (c.quantity || 1) + 1 } : c))}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px 8px', fontSize: '14px', color: '#64748b', lineHeight: 1 }}>+</button>
+                                </div>
+                              )}
                               <span style={{ fontSize: '13px', fontWeight: '700', color: DARK, minWidth: '60px', textAlign: 'right' }}>{formatCurrency(Number(op.labor_price) * (op.quantity || 1))}</span>
-                              <button onClick={() => setCart((prev) => prev.filter((c) => c.mechanical_estimating_id !== op.mechanical_estimating_id))}
+                              <button onClick={() => setCart((prev) => prev.filter((c) => c.client_id !== op.client_id))}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', lineHeight: 1, padding: '0' }}>×</button>
                             </div>
                           </div>
-                          {isEachOperation(op) && (op.quantity||1) === 1 && (
+                          {!op.is_manual && isEachOperation(op) && (op.quantity||1) === 1 && (
                             <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '6px 10px', margin: '4px 0', fontSize: '10px', color: '#92400e' }}>
                               ⚠️ Priced per unit — confirm quantity is correct
                             </div>
@@ -1471,6 +1490,74 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                       <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>Labor is not taxed · Add parts next</div>
                     </>
                   )}
+
+                  {/* ── Add Manual Labor form ──────────────────────────────
+                      Always visible — even with empty cart — so CSA can add
+                      misc labor without first picking a MOTOR operation.
+                      Sanitizes description to alphanumeric + space + common
+                      punctuation (same sanitization server-side).
+                      Hours dropdown: 15-min increments, 0.25 to 3.0. */}
+                  <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: '12px', marginTop: '12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                      Add Manual Labor
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+                      <input type="text" placeholder="Description (e.g. Remove aftermarket skid plate) *"
+                        value={manualLaborForm.description}
+                        onChange={(e) => setManualLaborForm((f) => ({
+                          ...f,
+                          description: e.target.value.replace(/[^A-Za-z0-9 \-\/\.&()]/g, '').slice(0, 120),
+                        }))}
+                        maxLength={120}
+                        style={{ ...inputStyle, flex: 1 }}
+                        onFocus={(e) => e.target.style.borderColor = PURPLE}
+                        onBlur={(e) => e.target.style.borderColor = BORDER}
+                      />
+                      <select
+                        value={manualLaborForm.hours}
+                        onChange={(e) => setManualLaborForm((f) => ({ ...f, hours: e.target.value }))}
+                        style={{ ...inputStyle, width: '90px' }}
+                        onFocus={(e) => e.target.style.borderColor = PURPLE}
+                        onBlur={(e) => e.target.style.borderColor = BORDER}
+                      >
+                        {['0.25','0.50','0.75','1.00','1.25','1.50','1.75','2.00','2.25','2.50','2.75','3.00'].map((h) => (
+                          <option key={h} value={h}>{h} hr</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const desc = manualLaborForm.description.trim();
+                        const hrs  = parseFloat(manualLaborForm.hours);
+                        if (!desc || !hrs) return;
+                        // Display price only — server recomputes from quote_config on save
+                        const displayLaborRate = 189.99;
+                        setCart((prev) => [...prev, {
+                          client_id:                nextClientId(),
+                          is_manual:                true,
+                          mechanical_estimating_id: null,
+                          motor_db_section:         'MANUAL',
+                          motor_db_group:           'MANUAL LABOR',
+                          motor_db_subgroup:        'MANUAL LABOR',
+                          motor_db_operation:       desc,
+                          qualifier_description:    null,
+                          motor_time:               hrs,
+                          labor_price:              Math.round(hrs * displayLaborRate * 100) / 100,
+                          is_additional_operation:  false,
+                          quantity:                 1,
+                        }]);
+                        setManualLaborForm({ description: '', hours: '0.50' });
+                      }}
+                      disabled={!manualLaborForm.description.trim()}
+                      style={{
+                        width: '100%', padding: '8px', border: `2px solid ${BORDER}`, borderRadius: '6px',
+                        backgroundColor: !manualLaborForm.description.trim() ? '#f5f5f5' : LIGHT,
+                        color: !manualLaborForm.description.trim() ? '#94a3b8' : PURPLE,
+                        fontSize: '12px', fontWeight: '700',
+                        cursor: !manualLaborForm.description.trim() ? 'not-allowed' : 'pointer',
+                      }}
+                    >+ Add Manual Labor</button>
+                  </div>
                 </div>
 
                 {/* Revision mode submit */}
@@ -1534,10 +1621,13 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                   </button>
                 </div>
                 {cart.map((op) => (
-                  <div key={op.mechanical_estimating_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${BORDER}`, fontSize: '12px' }}>
+                  <div key={op.client_id ?? op.mechanical_estimating_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${BORDER}`, fontSize: '12px' }}>
                     <span style={{ color: DARK, fontWeight: '600' }}>
                       {op.motor_db_operation}
                       {op.qualifier_description && <span style={{ color: '#94a3b8', fontWeight: '400' }}> · {op.qualifier_description}</span>}
+                      {op.is_manual && (
+                        <span style={{ marginLeft: '6px', display: 'inline-block', backgroundColor: AMBER, color: 'white', fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', letterSpacing: '0.5px', verticalAlign: 'middle' }}>MANUAL</span>
+                      )}
                       {(op.quantity || 1) > 1 && <span style={{ color: PURPLE, fontWeight: '700' }}> ×{op.quantity}</span>}
                     </span>
                     <span style={{ fontWeight: '700', color: DARK, flexShrink: 0, marginLeft: '12px' }}>{formatCurrency(Number(op.labor_price) * (op.quantity || 1))}</span>

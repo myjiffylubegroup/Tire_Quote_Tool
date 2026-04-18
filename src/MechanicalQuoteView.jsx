@@ -75,6 +75,9 @@ export default function MechanicalQuoteView({ code }) {
   const [revRemoveParts,   setRevRemoveParts]   = useState([]);  // part_ids staged to REMOVE
   const [revUpdateParts,   setRevUpdateParts]   = useState([]);  // { part_id, quantity } staged to UPDATE
   const [revPartForm,      setRevPartForm]      = useState({ part_number: '', description: '', quantity: 1, unit_price: '' });
+  // Manual labor form for revision mode — mirrors MechanicalFinder. On Add,
+  // pushes a manual item into revItems with is_manual=true.
+  const [revManualLaborForm, setRevManualLaborForm] = useState({ description: '', hours: '0.50' });
   const [revPtLoading,     setRevPtLoading]     = useState(false);
   const [revPtPolling,     setRevPtPolling]     = useState(false);
   const [revPtSessionId,   setRevPtSessionId]   = useState(null);
@@ -346,6 +349,7 @@ export default function MechanicalQuoteView({ code }) {
         setRevRemoveParts([]);
         setRevUpdateParts([]);
         setRevPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
+        setRevManualLaborForm({ description: '', hours: '0.50' });
         setRevPtSessionId(null);
         setRevPtPolling(false);
         setRevPtError('');
@@ -618,7 +622,7 @@ export default function MechanicalQuoteView({ code }) {
                 {editMode ? '✓ Done Editing' : '✏️ Edit Customer'}
               </button>
               {quote.status === 'presented' && !editMode && (
-                <button onClick={() => { const next = !revMode; setRevMode(next); setEditMode(false); if (!next) { if (revPtIntervalRef.current) { clearInterval(revPtIntervalRef.current); revPtIntervalRef.current = null; } setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}} style={{
+                <button onClick={() => { const next = !revMode; setRevMode(next); setEditMode(false); if (!next) { if (revPtIntervalRef.current) { clearInterval(revPtIntervalRef.current); revPtIntervalRef.current = null; } setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevManualLaborForm({ description: '', hours: '0.50' }); setRevPtSessionId(null); setRevPtPolling(false); }}} style={{
                   padding: '8px 16px', border: `2px solid ${revMode ? '#d97706' : BORDER}`,
                   borderRadius: '20px', backgroundColor: revMode ? '#fffbeb' : 'white',
                   color: revMode ? '#d97706' : SLATE, fontSize: '12px', fontWeight: '700', cursor: 'pointer',
@@ -803,6 +807,9 @@ export default function MechanicalQuoteView({ code }) {
                     <div style={{ fontSize: '13px', fontWeight: '600', color: item.is_removed ? '#94a3b8' : DARK, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', textDecoration: item.is_removed || isMarkedForRemoval ? 'line-through' : 'none' }}>
                       {item.motor_db_operation}
                       {item.qualifier_description && <span style={{ color: SLATE, fontWeight: '400' }}> · {item.qualifier_description}</span>}
+                      {!item.mechanical_estimating_id && !item.is_removed && (
+                        <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', letterSpacing: '0.5px' }}>MANUAL</span>
+                      )}
                       {item.is_revision && !item.is_removed && (
                         <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', letterSpacing: '0.5px' }}>ADDED</span>
                       )}
@@ -1074,7 +1081,12 @@ export default function MechanicalQuoteView({ code }) {
                   {revItems.map((item, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: 'white', borderRadius: '6px', marginBottom: '4px', border: `1px solid ${BORDER}` }}>
                       <div>
-                        <div style={{ fontSize: '12px', fontWeight: '600', color: DARK }}>{item.motor_db_operation}{item.qualifier_description ? ` · ${item.qualifier_description}` : ''}</div>
+                        <div style={{ fontSize: '12px', fontWeight: '600', color: DARK }}>
+                          {item.motor_db_operation}{item.qualifier_description ? ` · ${item.qualifier_description}` : ''}
+                          {item.is_manual && (
+                            <span style={{ marginLeft: '6px', display: 'inline-block', backgroundColor: '#f59e0b', color: 'white', fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', letterSpacing: '0.5px', verticalAlign: 'middle' }}>MANUAL</span>
+                          )}
+                        </div>
                         <div style={{ fontSize: '11px', color: SLATE }}>{item.motor_time}h × {formatCurrency(item.labor_price)} × qty {item.quantity}</div>
                       </div>
                       <button onClick={() => setRevItems(prev => prev.filter((_, idx) => idx !== i))}
@@ -1149,6 +1161,60 @@ export default function MechanicalQuoteView({ code }) {
                 {revPtError && <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px' }}>{revPtError}</div>}
               </div>
 
+              {/* Manual add labor form — CSA-entered misc labor for revisions.
+                  Mirrors the add-labor flow from MechanicalFinder with the
+                  same sanitization + 15-minute dropdown (0.25-3.0 hr). On Add,
+                  pushes into revItems with is_manual=true. Server recomputes
+                  labor_price from labor rate — client-side number is display only. */}
+              <div style={{ backgroundColor: 'white', borderRadius: '6px', padding: '10px', border: `1px solid ${BORDER}`, marginBottom: '12px' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '8px' }}>ADD MANUAL LABOR</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px auto', gap: '6px', alignItems: 'end' }}>
+                  <input type="text" placeholder="Description (e.g. Remove aftermarket skid plate) *"
+                    value={revManualLaborForm.description}
+                    onChange={(e) => setRevManualLaborForm(f => ({
+                      ...f,
+                      description: e.target.value.replace(/[^A-Za-z0-9 \-\/\.&()]/g, '').slice(0, 120),
+                    }))}
+                    maxLength={120}
+                    style={inputStyle} />
+                  <select
+                    value={revManualLaborForm.hours}
+                    onChange={(e) => setRevManualLaborForm(f => ({ ...f, hours: e.target.value }))}
+                    style={inputStyle}
+                  >
+                    {['0.25','0.50','0.75','1.00','1.25','1.50','1.75','2.00','2.25','2.50','2.75','3.00'].map((h) => (
+                      <option key={h} value={h}>{h} hr</option>
+                    ))}
+                  </select>
+                  <button onClick={() => {
+                    const desc = revManualLaborForm.description.trim();
+                    const hrs  = parseFloat(revManualLaborForm.hours);
+                    if (!desc || !hrs) return;
+                    // Display labor_price only — server recomputes from quote_config on save
+                    const displayLaborRate = 189.99;
+                    setRevItems(prev => [...prev, {
+                      is_manual:                true,
+                      mechanical_estimating_id: null,
+                      motor_db_section:         'MANUAL',
+                      motor_db_group:           'MANUAL LABOR',
+                      motor_db_subgroup:        'MANUAL LABOR',
+                      motor_db_operation:       desc,
+                      qualifier_description:    null,
+                      motor_time:               hrs,
+                      labor_price:              Math.round(hrs * displayLaborRate * 100) / 100,
+                      motor_db_description:     null,
+                      motor_db_footnote:        null,
+                      is_additional_operation:  false,
+                      quantity:                 1,
+                    }]);
+                    setRevManualLaborForm({ description: '', hours: '0.50' });
+                  }} disabled={!revManualLaborForm.description.trim()}
+                    style={{ padding: '8px 12px', border: 'none', borderRadius: '6px', backgroundColor: !revManualLaborForm.description.trim() ? '#ccc' : '#92400e', color: 'white', fontSize: '11px', fontWeight: '700', cursor: !revManualLaborForm.description.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                    + Add
+                  </button>
+                </div>
+              </div>
+
               {/* Manual add part form */}
               <div style={{ backgroundColor: 'white', borderRadius: '6px', padding: '10px', border: `1px solid ${BORDER}`, marginBottom: '12px' }}>
                 <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '8px' }}>ADD PART MANUALLY</div>
@@ -1191,7 +1257,7 @@ export default function MechanicalQuoteView({ code }) {
                   style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '20px', backgroundColor: !revAuth.trim() || revAuth.trim().length < 5 ? '#ccc' : '#d97706', color: 'white', fontSize: '13px', fontWeight: '700', cursor: !revAuth.trim() || revAuth.trim().length < 5 ? 'not-allowed' : 'pointer' }}>
                   {savingRev ? 'Saving…' : 'Submit Revision'}
                 </button>
-                <button onClick={() => { if (revPtIntervalRef.current) { clearInterval(revPtIntervalRef.current); revPtIntervalRef.current = null; } setRevMode(false); setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevPtSessionId(null); setRevPtPolling(false); }}
+                <button onClick={() => { if (revPtIntervalRef.current) { clearInterval(revPtIntervalRef.current); revPtIntervalRef.current = null; } setRevMode(false); setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevManualLaborForm({ description: '', hours: '0.50' }); setRevPtSessionId(null); setRevPtPolling(false); }}
                   style={{ padding: '10px 20px', border: `1px solid ${BORDER}`, borderRadius: '20px', backgroundColor: 'white', color: SLATE, fontSize: '13px', cursor: 'pointer' }}>
                   Cancel
                 </button>
