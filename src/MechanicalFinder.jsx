@@ -453,7 +453,22 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   // ─────────────────────────────────────────────────────────────────────────
   // Cascading vehicle selects
   // ─────────────────────────────────────────────────────────────────────────
+  // Shared mount guard for the cascading YMMS useEffects below. All three
+  // fire on initial mount and unconditionally clear selConfig / configs /
+  // submodels. That's fine behavior when a user is actively picking a
+  // vehicle (each dropdown change should reset downstream state) — but it's
+  // destructive during revision-mode init, which runs first and synthesizes
+  // selConfig from the stored quote context. The cascades then clobber that
+  // work and leave the browse step with no selConfig, rendering blank.
+  //
+  // This ref starts true. Each of the three cascade effects reads it on its
+  // first fire and bails out before touching state. A separate mount-only
+  // effect flips it to false afterwards, so normal user-driven cascading
+  // behavior resumes unchanged.
+  const isInitialMount = useRef(true);
+
   useEffect(() => {
+    if (isInitialMount.current) return;
     if (!selMake) {
       setModels([]); setSelModel('');
       setSubmodels([]); setSelSubmodel('');
@@ -466,6 +481,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   }, [selYear]);
 
   useEffect(() => {
+    if (isInitialMount.current) return;
     if (!selModel) {
       setSubmodels([]); setSelSubmodel('');
       setSelConfig(null); setConfigs([]);
@@ -477,6 +493,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   }, [selMake, pendingModel]);
 
   useEffect(() => {
+    if (isInitialMount.current) return;
     setSelSubmodel(''); setSubmodels([]);
     setSelConfig(null); setConfigs([]);
     if (!selYear || !selMake || !selModel) return;
@@ -490,6 +507,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   }, [selModel]);
 
   useEffect(() => {
+    if (isInitialMount.current) return;
     setSelConfig(null); setConfigs([]);
     if (!selYear || !selMake || !selModel || !selSubmodel) return;
     setLoading(true);
@@ -500,6 +518,13 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
         setLoading(false);
       });
   }, [selSubmodel]);
+
+  // Release the mount guard after the initial render cycle completes. Empty
+  // deps + no cleanup means this fires exactly once, right after the first
+  // pass of mount-time effects. From here on, cascade effects behave normally.
+  useEffect(() => {
+    isInitialMount.current = false;
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Load operation tree when config selected
