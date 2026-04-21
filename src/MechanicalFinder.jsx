@@ -370,6 +370,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
 
   // ── Generated quote ──
   const [generatedQuote, setGeneratedQuote] = useState(null);
+  const [showPlateVinWarning, setShowPlateVinWarning] = useState(false);
 
   // ── Auth ──
   const auth = (() => {
@@ -719,10 +720,13 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
         setCustVin(vin);
         await applyLookupResult(data.customer, data.source);
       } else {
+        // VIN not found in system — still capture it so PartsTech gets vehicle pre-population
+        setCustVin(vin);
         setLookupResult('not_found');
       }
     } catch (e) {
       console.error('VIN lookup error:', e);
+      setCustVin(vin); // capture even on error
       setLookupResult('not_found');
     }
     setLookupLoading(false);
@@ -930,9 +934,15 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     }
   };
 
-  const handleGenerateQuote = async () => {
+  const handleGenerateQuote = async (skipPlateVinCheck = false) => {
     if (cart.length === 0) return;
     if (!selectedEmployee) { setError('Please select an employee'); return; }
+    // Soft gate — require plate or VIN for PartsTech pre-population
+    if (!skipPlateVinCheck && !custPlate && !custVin) {
+      setShowPlateVinWarning(true);
+      return;
+    }
+    setShowPlateVinWarning(false);
     setLoading(true);
     setError('');
     try {
@@ -1063,6 +1073,33 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px 20px' }}>
+
+        {/* ── Plate/VIN soft gate modal ── */}
+        {showPlateVinWarning && (
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '28px', maxWidth: '420px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <div style={{ fontSize: '28px', textAlign: 'center', marginBottom: '12px' }}>🪪</div>
+              <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', fontWeight: '700', color: DARK, textAlign: 'center' }}>No Plate or VIN Captured</h3>
+              <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748b', textAlign: 'center', lineHeight: '1.5' }}>
+                A license plate or VIN is needed to pre-load the vehicle in PartsTech when ordering parts. Enter one now, or skip for phone-in customers.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button onClick={() => setShowPlateVinWarning(false)} style={{
+                  padding: '12px', border: `2px solid ${PURPLE}`, borderRadius: '25px',
+                  backgroundColor: LIGHT, color: PURPLE, fontSize: '13px', fontWeight: '700', cursor: 'pointer',
+                }}>
+                  ← Enter Plate or VIN
+                </button>
+                <button onClick={() => { setShowPlateVinWarning(false); handleGenerateQuote(true); }} style={{
+                  padding: '12px', border: `1px solid ${BORDER}`, borderRadius: '25px',
+                  backgroundColor: 'white', color: '#64748b', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+                }}>
+                  Skip — Phone-in Customer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {eachModalOp && (
           <EachModal
