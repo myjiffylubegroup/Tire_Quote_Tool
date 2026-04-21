@@ -815,11 +815,13 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
 
     try {
       const vehiclePayload = {
-        year:     selYear     ? Number(selYear) : undefined,
-        make:     selMake     || undefined,
-        model:    selModel    || undefined,
-        submodel: selSubmodel || undefined,
-        vin:      custVin     || undefined,
+        year:       selYear     ? Number(selYear) : undefined,
+        make:       selMake     || undefined,
+        model:      selModel    || undefined,
+        submodel:   selSubmodel || undefined,
+        vin:        custVin     || undefined,
+        plate:      custPlate   || undefined,
+        plateState: custPlate   ? custPlateState : undefined,
       };
 
       const res = await fetch(`${API_BASE}/partstech-punchout-session`, {
