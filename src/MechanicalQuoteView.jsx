@@ -500,8 +500,8 @@ export default function MechanicalQuoteView({ code }) {
       const data = await res.json();
       if (data.success) {
         setShowOrderConfirm(false);
-        setOrderResult({ ordered_at: data.ordered_at, order_ids: data.order_ids, ordered_count: data.ordered_count, skipped_parts: data.skipped_parts });
-        setQuote((prev) => ({ ...prev, partstech_ordered_at: data.ordered_at, partstech_order_ids: data.order_ids }));
+        setOrderResult({ ordered_at: data.ordered_at, order_ids: data.order_ids, order_url: data.order_url, ordered_count: data.ordered_count, skipped_parts: data.skipped_parts });
+        setQuote((prev) => ({ ...prev, partstech_ordered_at: data.ordered_at, partstech_order_ids: data.order_ids, partstech_order_url: data.order_url }));
         if (data.skipped_parts?.length > 0) setUnavailParts(data.skipped_parts);
       } else {
         setOrderError(data.error || 'Order failed — please try again');
@@ -751,6 +751,12 @@ export default function MechanicalQuoteView({ code }) {
             <div>
               <div style={{ fontSize: '12px', fontWeight: '700', color: '#15803d' }}>
                 Parts ordered successfully — {orderResult?.ordered_count || (quote.parts || []).filter((p) => p.source === 'partstech' && !p.is_removed).length} part{((orderResult?.ordered_count || 0) !== 1) ? 's' : ''} from {orderResult?.order_ids?.length || '—'} supplier{((orderResult?.order_ids?.length || 0) !== 1) ? 's' : ''}
+                {(orderResult?.order_url || quote.partstech_order_url) && (
+                  <a href={orderResult?.order_url || quote.partstech_order_url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'inline-block', marginTop: '4px', fontSize: '11px', color: '#16a34a', fontWeight: '600', textDecoration: 'underline' }}>
+                    View Order on PartsTech →
+                  </a>
+                )}
               </div>
               {(orderResult?.order_ids || quote.partstech_order_ids || []).length > 0 && (
                 <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '2px' }}>
