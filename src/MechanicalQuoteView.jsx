@@ -750,7 +750,7 @@ export default function MechanicalQuoteView({ code }) {
             <span style={{ fontSize: '20px' }}>✅</span>
             <div>
               <div style={{ fontSize: '12px', fontWeight: '700', color: '#15803d' }}>
-                Parts ordered successfully — {orderResult?.part_count || (quote.parts || []).filter((p) => p.source === 'partstech').length} part{((orderResult?.part_count || 0) !== 1) ? 's' : ''} from {orderResult?.order_count || '—'} supplier{((orderResult?.order_count || 0) !== 1) ? 's' : ''}
+                Parts ordered successfully — {orderResult?.ordered_count || (quote.parts || []).filter((p) => p.source === 'partstech' && !p.is_removed).length} part{((orderResult?.ordered_count || 0) !== 1) ? 's' : ''} from {orderResult?.order_ids?.length || '—'} supplier{((orderResult?.order_ids?.length || 0) !== 1) ? 's' : ''}
               </div>
               {(orderResult?.order_ids || quote.partstech_order_ids || []).length > 0 && (
                 <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '2px' }}>
