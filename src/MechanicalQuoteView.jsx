@@ -100,10 +100,13 @@ export default function MechanicalQuoteView({ code }) {
   const [emailError,   setEmailError]   = useState('');
 
   // PartsTech order state
-  const [ordering,     setOrdering]     = useState(false);
-  const [orderError,   setOrderError]   = useState('');
-  const [orderResult,  setOrderResult]  = useState(null);
-  const [unavailParts, setUnavailParts] = useState([]);
+  const [ordering,          setOrdering]          = useState(false);
+  const [orderError,        setOrderError]        = useState('');
+  const [orderResult,       setOrderResult]       = useState(null);
+  const [unavailParts,      setUnavailParts]      = useState([]);
+  const [orderCheckData,    setOrderCheckData]    = useState(null);   // availability check result
+  const [showOrderConfirm,  setShowOrderConfirm]  = useState(false);  // confirmation modal
+  const [confirming,        setConfirming]        = useState(false);  // placing order
 
   // ── Load quote ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -465,27 +468,46 @@ export default function MechanicalQuoteView({ code }) {
     setSmsSending(false);
   };
 
-  // ── Place PartsTech order ─────────────────────────────────────────────────
+  // ── Phase 1: Check availability + pricing ────────────────────────────────
   const handlePlaceOrder = async () => {
-    setOrdering(true); setOrderError(""); setUnavailParts([]);
+    setOrdering(true); setOrderError(''); setUnavailParts([]); setOrderCheckData(null);
     try {
       const res  = await fetch(`${API_BASE}/partstech-place-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: API_KEY, quote_id: quote.quote_id, store_id: quote.store?.store_id }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: API_KEY, quote_id: quote.quote_id, store_id: quote.store?.store_id, action: 'check' }),
       });
       const data = await res.json();
       if (data.success) {
-        setOrderResult({ ordered_at: data.ordered_at, order_ids: data.order_ids, part_count: data.part_count });
-        setQuote((prev) => ({ ...prev, partstech_ordered_at: data.ordered_at, partstech_order_ids: data.order_ids }));
-      } else if (data.unavailable) {
-        setUnavailParts(data.unavailable_parts || []);
-        setOrderError(data.error || "Some parts are unavailable");
+        setOrderCheckData(data);
+        setShowOrderConfirm(true);
       } else {
-        setOrderError(data.error || "Order failed — please try again");
+        setOrderError(data.error || 'Availability check failed — please try again');
       }
-    } catch { setOrderError("Network error — please try again"); }
+    } catch { setOrderError('Network error — please try again'); }
     setOrdering(false);
+  };
+
+  // ── Phase 2: Confirm and place order ─────────────────────────────────────
+  const handleConfirmOrder = async () => {
+    setConfirming(true); setOrderError('');
+    try {
+      const res  = await fetch(`${API_BASE}/partstech-place-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: API_KEY, quote_id: quote.quote_id, store_id: quote.store?.store_id, action: 'order' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowOrderConfirm(false);
+        setOrderResult({ ordered_at: data.ordered_at, order_ids: data.order_ids, ordered_count: data.ordered_count, skipped_parts: data.skipped_parts });
+        setQuote((prev) => ({ ...prev, partstech_ordered_at: data.ordered_at, partstech_order_ids: data.order_ids }));
+        if (data.skipped_parts?.length > 0) setUnavailParts(data.skipped_parts);
+      } else {
+        setOrderError(data.error || 'Order failed — please try again');
+      }
+    } catch { setOrderError('Network error — please try again'); }
+    setConfirming(false);
   };
 
   // ── Loading / error states ───────────────────────────────────────────────────
@@ -526,6 +548,80 @@ export default function MechanicalQuoteView({ code }) {
   return (
     <div className="mq-outer" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", backgroundColor: '#f1f5f9', minHeight: '100vh', padding: '20px' }}>
       <style>{PRINT_STYLES}</style>
+
+      {/* ── Order Parts confirmation modal ── */}
+      {showOrderConfirm && orderCheckData && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '28px', maxWidth: '540px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '17px', fontWeight: '700', color: DARK }}>📦 Confirm Parts Order</h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: SLATE }}>
+              Review availability and pricing before placing the order.
+              {orderCheckData.unavailable_count > 0 && <span style={{ color: '#dc2626', fontWeight: '600' }}> {orderCheckData.unavailable_count} part{orderCheckData.unavailable_count !== 1 ? 's' : ''} unavailable — will be skipped.</span>}
+              {orderCheckData.price_changes > 0 && <span style={{ color: '#d97706', fontWeight: '600' }}> {orderCheckData.price_changes} price change{orderCheckData.price_changes !== 1 ? 's' : ''} since quote.</span>}
+            </p>
+
+            {/* Parts table */}
+            <div style={{ border: `1px solid ${BORDER}`, borderRadius: '8px', overflow: 'hidden', marginBottom: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 50px 80px 80px 90px', padding: '8px 12px', backgroundColor: '#f8fafc', borderBottom: `1px solid ${BORDER}`, gap: '8px' }}>
+                {['PART', 'QTY', 'QUOTED', 'CURRENT', 'STATUS'].map(h => (
+                  <div key={h} style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '0.5px' }}>{h}</div>
+                ))}
+              </div>
+              {(orderCheckData.parts || []).map((part, i, arr) => (
+                <div key={part.part_id} style={{
+                  display: 'grid', gridTemplateColumns: '1fr 50px 80px 80px 90px',
+                  padding: '10px 12px', gap: '8px', alignItems: 'center',
+                  borderBottom: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none',
+                  backgroundColor: !part.available ? '#fef2f2' : i % 2 === 0 ? 'white' : '#fafafa',
+                }}>
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: part.available ? DARK : '#94a3b8', textDecoration: part.available ? 'none' : 'line-through' }}>{part.description}</div>
+                    {part.part_number && <div style={{ fontSize: '10px', color: SLATE, fontFamily: 'monospace' }}>{part.part_number}</div>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: SLATE, textAlign: 'right' }}>{part.quantity}</div>
+                  <div style={{ fontSize: '12px', color: SLATE, textAlign: 'right' }}>{formatCurrency(part.quoted_cost_price)}</div>
+                  <div style={{ fontSize: '12px', fontWeight: '600', textAlign: 'right',
+                    color: part.current_cost_price == null ? SLATE : part.price_diff > 0 ? '#dc2626' : part.price_diff < 0 ? '#16a34a' : DARK }}>
+                    {part.current_cost_price != null ? formatCurrency(part.current_cost_price) : '—'}
+                    {part.price_diff != null && Math.abs(part.price_diff) >= 0.01 && (
+                      <div style={{ fontSize: '9px', fontWeight: '700' }}>
+                        {part.price_diff > 0 ? '▲' : '▼'} {formatCurrency(Math.abs(part.price_diff))}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    {part.available
+                      ? <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#f0fdf4', color: '#16a34a' }}>AVAILABLE</span>
+                      : <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef2f2', color: '#dc2626' }}>UNAVAILABLE</span>
+                    }
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {orderError && <div style={{ fontSize: '12px', color: '#dc2626', marginBottom: '12px', fontWeight: '600' }}>{orderError}</div>}
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {orderCheckData.can_order && (
+                <button onClick={handleConfirmOrder} disabled={confirming} style={{
+                  flex: 1, padding: '12px', borderRadius: '25px', border: 'none',
+                  backgroundColor: confirming ? '#93c5fd' : '#0369a1', color: 'white',
+                  fontSize: '13px', fontWeight: '700', cursor: confirming ? 'default' : 'pointer',
+                }}>
+                  {confirming ? '⏳ Placing Order…' : `✅ Place Order${orderCheckData.unavailable_count > 0 ? ` (${orderCheckData.available_count} of ${orderCheckData.parts?.length} parts)` : ''}`}
+                </button>
+              )}
+              <button onClick={() => { setShowOrderConfirm(false); setOrderError(''); }} style={{
+                flex: orderCheckData.can_order ? 0 : 1, padding: '12px 20px', borderRadius: '25px',
+                border: `1px solid ${BORDER}`, backgroundColor: 'white',
+                color: SLATE, fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+              }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SMS modal */}
       {showSmsModal && (
