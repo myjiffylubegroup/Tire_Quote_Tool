@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Navbar from './Navbar';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
@@ -12,15 +13,6 @@ const STORES = [
   { id: 1932, name: 'Atascadero' },
   { id: 2911, name: 'Paso Robles' },
   { id: 4182, name: 'Santa Barbara (Upper State)' },
-];
-
-const NAV_ITEMS = [
-  { label: 'TIRE FINDER',         href: '#/' },
-  { label: 'MECHANICAL',          href: '#/mechanical', active: true },
-  { label: 'STORE INVENTORY',     href: '#/inventory' },
-  { label: 'RETRIEVE QUOTE',      href: '#/quotes' },
-  { label: 'ENTERPRISE',          href: '#/enterprise' },
-  { label: 'FLEET',               href: '#/fleet' },
 ];
 
 const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
@@ -215,62 +207,6 @@ const AdvancedSearchModal = ({ onSelect, onClose }) => {
     </div>
   );
 };
-
-// ─── Header ───────────────────────────────────────────────────────────────────
-
-const Header = ({ selectedStore, onStoreChange }) => (
-  <>
-    <header style={{ backgroundColor: 'white', borderBottom: '1px solid #eee', padding: '15px 0' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-        <a href="#/">
-          <img
-            src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png"
-            alt="Jiffy Lube Multicare"
-            style={{ height: '50px' }}
-          />
-        </a>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '1px' }}>STORE:</span>
-          <select
-            value={selectedStore}
-            onChange={(e) => onStoreChange(e.target.value)}
-            style={{
-              padding: '8px 30px 8px 12px', border: `2px solid ${PURPLE}`,
-              borderRadius: '20px', fontSize: '13px', fontWeight: '600',
-              color: '#333', cursor: 'pointer', outline: 'none', appearance: 'none',
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center',
-              backgroundColor: 'white',
-            }}
-          >
-            {STORES.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-    </header>
-    <nav style={{ backgroundColor: DARK, padding: '0' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px', display: 'flex', gap: '0', overflowX: 'auto' }}>
-        {NAV_ITEMS.map((item) => (
-          <a
-            key={item.label}
-            href={item.href}
-            style={{
-              color: item.active ? PURPLE : '#94a3b8',
-              textDecoration: 'none', fontSize: '11px', fontWeight: '700',
-              letterSpacing: '1px', padding: '14px 16px',
-              borderBottom: item.active ? `3px solid ${PURPLE}` : '3px solid transparent',
-              whiteSpace: 'nowrap', transition: 'color 0.2s',
-            }}
-          >
-            {item.label}
-          </a>
-        ))}
-      </div>
-    </nav>
-  </>
-);
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -1072,7 +1008,11 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", minHeight: '100vh', backgroundColor: '#f1f5f9' }}>
-      <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
+      <Navbar
+        currentPage="mechanical"
+        selectedStore={selectedStore}
+        onStoreChange={setSelectedStore}
+      />
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px 20px' }}>
 
