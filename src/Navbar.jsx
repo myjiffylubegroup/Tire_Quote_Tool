@@ -70,7 +70,16 @@ const readAuth = () => {
   }
 };
 
-export default function Navbar({ currentPage, selectedStore, onStoreChange }) {
+export default function Navbar({
+  currentPage,
+  selectedStore,
+  onStoreChange,
+  // When true, the store dropdown includes a "Select Store" placeholder option.
+  // Used by pages where "no store selected" is a meaningful state (e.g. StoreInventory,
+  // where CSAs intentionally pick which store to inspect rather than auto-loading
+  // their own store's data).
+  showStorePlaceholder = false,
+}) {
   // ── Auth state (read from localStorage; refreshed via page reload after login) ──
   const [auth, setAuth] = useState(() => readAuth());
   const isAuthenticated = !!auth;
@@ -86,17 +95,7 @@ export default function Navbar({ currentPage, selectedStore, onStoreChange }) {
   }, []);
 
   // ── Login modal ──
-  // Owned by Navbar. Pages that want to trigger the modal from somewhere other
-  // than the navbar button (e.g. an inline "Staff? Sign in" hint) can dispatch:
-  //   window.dispatchEvent(new Event('jl:open-staff-login'))
-  // This avoids prop-drilling or context for what is otherwise a very simple need.
   const [loginModalOpen, setLoginModalOpen] = useState(false);
-
-  useEffect(() => {
-    const open = () => setLoginModalOpen(true);
-    window.addEventListener('jl:open-staff-login', open);
-    return () => window.removeEventListener('jl:open-staff-login', open);
-  }, []);
 
   // ── BUSINESS ACCOUNTS dropdown ──
   const [businessOpen, setBusinessOpen] = useState(false);
@@ -182,6 +181,9 @@ export default function Navbar({ currentPage, selectedStore, onStoreChange }) {
                   backgroundPosition: 'right 10px center',
                 }}
               >
+                {showStorePlaceholder && (
+                  <option value="">Select Store</option>
+                )}
                 {STORES.map((store) => (
                   <option key={store.id} value={store.id}>
                     {store.id} - {store.name}

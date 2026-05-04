@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Navbar from './Navbar';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
@@ -13,15 +14,6 @@ const STORES = [
   { id: 1932, name: 'Atascadero' },
   { id: 2911, name: 'Paso Robles' },
   { id: 4182, name: 'Santa Barbara (Upper State)' },
-];
-
-// Navigation items - consistent across all pages
-const NAV_ITEMS = [
-  { label: 'TIRE FINDER', href: '#/', active: false },
-  { label: 'STORE INVENTORY', href: '#/inventory', active: true },
-  { label: 'RETRIEVE QUOTE', href: '#/quotes', active: false },
-  { label: 'ENTERPRISE RENT-A-CAR', href: '#/enterprise', active: false },
-  { label: 'FLEET NEGOTIATED', href: '#/fleet', active: false },
 ];
 
 // Summary card component
@@ -170,67 +162,12 @@ export default function StoreInventory() {
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      {/* Header - matches TireFinder exactly */}
-      <header style={{ backgroundColor: 'white', borderBottom: '1px solid #eee', padding: '15px 0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-          <img 
-            src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png"
-            alt="Jiffy Lube Multicare"
-            style={{ height: '50px' }}
-          />
-          {/* Store Selector in Header - matches TireFinder */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '1px' }}>STORE:</span>
-            <select
-              value={selectedStore}
-              onChange={(e) => setSelectedStore(e.target.value)}
-              style={{
-                padding: '8px 30px 8px 12px',
-                border: '2px solid #9b59b6',
-                borderRadius: '20px',
-                backgroundColor: 'white',
-                color: '#333',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                outline: 'none',
-                appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 10px center',
-              }}
-            >
-              <option value="">Select Store</option>
-              {STORES.map(store => (
-                <option key={store.id} value={store.id}>{store.id} - {store.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </header>
-
-      {/* Purple Nav Bar - matches TireFinder exactly */}
-      <nav style={{ backgroundColor: '#9b59b6', padding: '12px 0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
-          {NAV_ITEMS.map((item) => (
-            <a
-              key={item.label}
-              href={item.href}
-              style={{
-                color: 'white',
-                textDecoration: 'none',
-                fontSize: '12px',
-                fontWeight: '600',
-                letterSpacing: '1px',
-                padding: '5px 10px',
-                borderBottom: item.active ? '2px solid white' : '2px solid transparent',
-              }}
-            >
-              {item.label}
-            </a>
-          ))}
-        </div>
-      </nav>
+      <Navbar
+        currentPage="inventory"
+        selectedStore={selectedStore}
+        onStoreChange={setSelectedStore}
+        showStorePlaceholder={true}
+      />
 
       {/* Hero Banner - matches TireFinder */}
       <div style={{
