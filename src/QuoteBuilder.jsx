@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Navbar from './Navbar';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
@@ -28,15 +29,6 @@ const PROMOS = [
 ];
 
 // Nexen rebate config is loaded from quote_config at runtime (key: nexen_rebate_2026)
-
-// Navigation items - consistent across all pages
-const NAV_ITEMS = [
-  { label: 'TIRE FINDER', href: '#/' },
-  { label: 'STORE INVENTORY', href: '#/inventory' },
-  { label: 'RETRIEVE QUOTE', href: '#/quotes' },
-  { label: 'ENTERPRISE RENT-A-CAR', href: '#/enterprise' },
-  { label: 'FLEET NEGOTIATED', href: '#/fleet' },
-];
 
 // Updated thresholds: 0-4 red, 5-6 yellow, 7+ green
 const getTreadColor = (val) => {
@@ -650,72 +642,6 @@ const CustomerSearchModal = ({ isOpen, onClose, onSelectCustomer }) => {
     </div>
   );
 };
-
-// Header Component - matches TireFinder
-const Header = ({ selectedStore, onStoreChange }) => (
-  <>
-    <header style={{ backgroundColor: 'white', borderBottom: '1px solid #eee', padding: '15px 0' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-        <a href="#/">
-          <img 
-            src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png"
-            alt="Jiffy Lube Multicare"
-            style={{ height: '50px' }}
-          />
-        </a>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '1px' }}>STORE:</span>
-          <select
-            value={selectedStore}
-            onChange={(e) => onStoreChange(e.target.value)}
-            style={{
-              padding: '8px 30px 8px 12px',
-              border: '2px solid #9b59b6',
-              borderRadius: '20px',
-              backgroundColor: 'white',
-              color: '#333',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              outline: 'none',
-              appearance: 'none',
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 10px center',
-            }}
-          >
-            {STORES.map(store => (
-              <option key={store.id} value={store.id}>{store.id} - {store.name}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-    </header>
-
-    {/* Purple Nav Bar */}
-    <nav style={{ backgroundColor: '#9b59b6', padding: '12px 0' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
-        {NAV_ITEMS.map((item) => (
-          <a
-            key={item.label}
-            href={item.href}
-            style={{
-              color: 'white',
-              textDecoration: 'none',
-              fontSize: '12px',
-              fontWeight: '600',
-              letterSpacing: '1px',
-              padding: '5px 10px',
-              borderBottom: '2px solid transparent',
-            }}
-          >
-            {item.label}
-          </a>
-        ))}
-      </div>
-    </nav>
-  </>
-);
 
 // Footer Component
 const Footer = () => (
@@ -1345,7 +1271,11 @@ export default function QuoteBuilder() {
     if (isCustomMode) {
       return (
         <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-          <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
+          <Navbar
+            currentPage="builder"
+            selectedStore={selectedStore}
+            onStoreChange={setSelectedStore}
+          />
           <div style={{ maxWidth: '650px', margin: '0 auto', padding: '40px 20px' }}>
             <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '40px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
               <h2 style={{ color: '#9b59b6', fontSize: '24px', fontWeight: '700', textAlign: 'center', marginBottom: '5px', letterSpacing: '2px' }}>
@@ -1501,7 +1431,11 @@ export default function QuoteBuilder() {
     // Normal mode: no tire selected
     return (
       <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-        <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
+        <Navbar
+          currentPage="builder"
+          selectedStore={selectedStore}
+          onStoreChange={setSelectedStore}
+        />
         <div style={{ maxWidth: '600px', margin: '0 auto', padding: '60px 20px', textAlign: 'center' }}>
           <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '50px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
             <div style={{ fontSize: '60px', marginBottom: '20px' }}>🛞</div>
@@ -1517,7 +1451,11 @@ export default function QuoteBuilder() {
 
   return (
     <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <Header selectedStore={selectedStore} onStoreChange={setSelectedStore} />
+      <Navbar
+        currentPage="builder"
+        selectedStore={selectedStore}
+        onStoreChange={setSelectedStore}
+      />
 
       {/* Advanced Search Modal */}
       <CustomerSearchModal 
