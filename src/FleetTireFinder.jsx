@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Navbar from './Navbar';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
@@ -19,15 +20,6 @@ const STORES = [
   { id: 1932, name: 'Atascadero', warehouse: 'fresno' },
   { id: 2911, name: 'Paso Robles', warehouse: 'fresno' },
   { id: 4182, name: 'Santa Barbara (Upper State)', warehouse: 'santa_clarita' },
-];
-
-// Navigation items
-const NAV_ITEMS = [
-  { label: 'TIRE FINDER', href: '#/', active: false },
-  { label: 'STORE INVENTORY', href: '#/inventory', active: false },
-  { label: 'RETRIEVE QUOTE', href: '#/quotes', active: false },
-  { label: 'ENTERPRISE RENT-A-CAR', href: '#/enterprise', active: false },
-  { label: 'FLEET NEGOTIATED', href: '#/fleet', active: true },
 ];
 
 // Quantity options
@@ -834,70 +826,12 @@ export default function FleetTireFinder() {
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", minHeight: '100vh', backgroundColor: '#f5f7fa' }}>
-      {/* Header - Fleet Style */}
-      <header style={{ backgroundColor: FLEET_DARK_BLUE, borderBottom: `3px solid ${FLEET_BLUE}`, padding: '15px 0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            {/* Fleet Care Logo */}
-            <img 
-              src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_FleetCare_Horizontal.png"
-              alt="Jiffy Lube Fleet Care"
-              style={{ height: '45px' }}
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
-          </div>
-          {/* Store Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: '#ccc', letterSpacing: '1px' }}>STORE:</span>
-            <select
-              value={selectedStore}
-              onChange={(e) => setSelectedStore(e.target.value)}
-              style={{
-                padding: '8px 30px 8px 12px',
-                border: `2px solid ${FLEET_BLUE}`,
-                borderRadius: '20px',
-                backgroundColor: 'white',
-                color: '#333',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                outline: 'none',
-                appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%232748f9' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 10px center',
-              }}
-            >
-              {STORES.map(store => (
-                <option key={store.id} value={store.id}>{store.id} - {store.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </header>
-
-      {/* Blue Nav Bar */}
-      <nav style={{ backgroundColor: FLEET_BLUE, padding: '12px 0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
-          {NAV_ITEMS.map((item) => (
-            <a
-              key={item.label}
-              href={item.href}
-              style={{
-                color: 'white',
-                textDecoration: 'none',
-                fontSize: '12px',
-                fontWeight: '600',
-                letterSpacing: '1px',
-                padding: '5px 10px',
-                borderBottom: item.active ? '2px solid white' : '2px solid transparent',
-              }}
-            >
-              {item.label}
-            </a>
-          ))}
-        </div>
-      </nav>
+      <Navbar
+        currentPage="fleet"
+        theme="fleet"
+        selectedStore={selectedStore}
+        onStoreChange={setSelectedStore}
+      />
 
       {/* Hero Banner with road/sky background */}
       <div style={{

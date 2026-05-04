@@ -59,6 +59,54 @@ const PURPLE = '#9b59b6';
 const MAX_WIDTH = '1400px';
 const STORAGE_KEY = 'jl_staff_auth';
 
+// Image URLs (centralized so themes can pick the right logo)
+const LOGO_BLACK = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png';
+const LOGO_WHITE = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzwhite.png';
+const LOGO_FLEETCARE = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_FleetCare_Horizontal.png';
+const LOGO_ENTERPRISE = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/logo-enterprise.png';
+
+// Theme tokens. Adding a new theme = add a new entry here.
+// `arrowColorHex` is the hex (no #) used inside the SVG data URL for the
+// store selector's dropdown arrow.
+const THEMES = {
+  default: {
+    headerBg:           'white',
+    headerBorder:       '1px solid #eee',
+    headerLabelColor:   '#666',
+    navBg:              PURPLE,
+    accentColor:        PURPLE,
+    arrowColorHex:      '9b59b6',
+    logoSrc:            LOGO_BLACK,
+    logoHeight:         '50px',
+    coBrandLogoSrc:     null,
+    coBrandLogoHeight:  null,
+  },
+  enterprise: {
+    headerBg:           '#231F20',
+    headerBorder:       '3px solid #009750',
+    headerLabelColor:   '#ccc',
+    navBg:              '#009750',
+    accentColor:        '#009750',
+    arrowColorHex:      '009750',
+    logoSrc:            LOGO_WHITE,
+    logoHeight:         '35px',
+    coBrandLogoSrc:     LOGO_ENTERPRISE,
+    coBrandLogoHeight:  '40px',
+  },
+  fleet: {
+    headerBg:           '#031781',
+    headerBorder:       '3px solid #2748f9',
+    headerLabelColor:   '#ccc',
+    navBg:              '#2748f9',
+    accentColor:        '#2748f9',
+    arrowColorHex:      '2748f9',
+    logoSrc:            LOGO_FLEETCARE,
+    logoHeight:         '45px',
+    coBrandLogoSrc:     null,
+    coBrandLogoHeight:  null,
+  },
+};
+
 // Helper: read auth from localStorage safely
 const readAuth = () => {
   if (typeof window === 'undefined') return null;
@@ -79,7 +127,14 @@ export default function Navbar({
   // where CSAs intentionally pick which store to inspect rather than auto-loading
   // their own store's data).
   showStorePlaceholder = false,
+  // Theme key — see THEMES above. 'default' is the standard purple branding.
+  // 'enterprise' (black/green) and 'fleet' (dark blue/blue) are co-branded
+  // workflows where the visual signal is a safety feature: a customer who
+  // sees the page must immediately recognize it is NOT consumer pricing.
+  theme = 'default',
 }) {
+  const t = THEMES[theme] || THEMES.default;
+
   // ── Auth state (read from localStorage; refreshed via page reload after login) ──
   const [auth, setAuth] = useState(() => readAuth());
   const isAuthenticated = !!auth;
@@ -131,8 +186,12 @@ export default function Navbar({
 
   return (
     <>
-      {/* ── White Header: logo + store selector ────────────────────────────── */}
-      <header style={{ backgroundColor: 'white', borderBottom: '1px solid #eee', padding: '15px 0' }}>
+      {/* ── Header: logo(s) + store selector ──────────────────────────────── */}
+      <header style={{
+        backgroundColor: t.headerBg,
+        borderBottom: t.headerBorder,
+        padding: '15px 0',
+      }}>
         <div style={{
           maxWidth: MAX_WIDTH,
           margin: '0 auto',
@@ -143,11 +202,23 @@ export default function Navbar({
           flexWrap: 'wrap',
           gap: '15px',
         }}>
-          <a href="#/" style={{ display: 'inline-block' }}>
+          <a href="#/" style={{ display: 'inline-flex', alignItems: 'center', gap: '20px', textDecoration: 'none' }}>
+            {t.coBrandLogoSrc && (
+              <>
+                <img
+                  src={t.coBrandLogoSrc}
+                  alt="Co-brand"
+                  style={{ height: t.coBrandLogoHeight, display: 'block' }}
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+                <span style={{ height: '30px', width: '1px', backgroundColor: '#444', display: 'inline-block' }} />
+              </>
+            )}
             <img
-              src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png"
+              src={t.logoSrc}
               alt="Jiffy Lube Multicare"
-              style={{ height: '50px', display: 'block' }}
+              style={{ height: t.logoHeight, display: 'block' }}
+              onError={(e) => { e.target.style.display = 'none'; }}
             />
           </a>
 
@@ -157,7 +228,7 @@ export default function Navbar({
               <span style={{
                 fontSize: '11px',
                 fontWeight: '600',
-                color: '#666',
+                color: t.headerLabelColor,
                 letterSpacing: '1px',
               }}>
                 STORE:
@@ -167,7 +238,7 @@ export default function Navbar({
                 onChange={(e) => onStoreChange(e.target.value)}
                 style={{
                   padding: '8px 30px 8px 12px',
-                  border: `2px solid ${PURPLE}`,
+                  border: `2px solid ${t.accentColor}`,
                   borderRadius: '20px',
                   backgroundColor: 'white',
                   color: '#333',
@@ -176,7 +247,7 @@ export default function Navbar({
                   cursor: 'pointer',
                   outline: 'none',
                   appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239b59b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23${t.arrowColorHex}' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
                   backgroundRepeat: 'no-repeat',
                   backgroundPosition: 'right 10px center',
                 }}
@@ -195,8 +266,8 @@ export default function Navbar({
         </div>
       </header>
 
-      {/* ── Purple Nav Bar ─────────────────────────────────────────────────── */}
-      <nav style={{ backgroundColor: PURPLE, padding: '12px 0' }}>
+      {/* ── Nav Bar (themed background) ────────────────────────────────────── */}
+      <nav style={{ backgroundColor: t.navBg, padding: '12px 0' }}>
         <div style={{
           maxWidth: MAX_WIDTH,
           margin: '0 auto',
@@ -266,12 +337,12 @@ export default function Navbar({
                             style={{
                               display: 'block',
                               padding: '10px 16px',
-                              color: childActive ? PURPLE : '#333',
+                              color: childActive ? t.accentColor : '#333',
                               textDecoration: 'none',
                               fontSize: '12px',
                               fontWeight: childActive ? '700' : '600',
                               letterSpacing: '0.5px',
-                              backgroundColor: childActive ? '#f7f0fa' : 'transparent',
+                              backgroundColor: childActive ? '#f5f5f5' : 'transparent',
                             }}
                             onMouseEnter={(e) => {
                               if (!childActive) e.currentTarget.style.backgroundColor = '#f5f5f5';
