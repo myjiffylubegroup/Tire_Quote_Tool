@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import StaffLoginModal from './StaffLoginModal';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
@@ -830,13 +831,30 @@ export default function TireFinder() {
   const [vinInput, setVinInput] = useState('');
   const [vinLookupLoading, setVinLookupLoading] = useState(false);
   const [vinLookupError, setVinLookupError] = useState(null);
-  const [isAuthenticated] = useState(() => {
+
+  // Auth state: now read fresh from localStorage so login modal can update without app reload.
+  // Also exposes the display name for the navbar badge.
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
     if (typeof window !== 'undefined') {
-      const auth = localStorage.getItem('jl_staff_auth');
-      return !!auth;
+      return !!localStorage.getItem('jl_staff_auth');
     }
     return false;
   });
+  const [staffDisplayName, setStaffDisplayName] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('jl_staff_auth');
+        if (raw) {
+          const a = JSON.parse(raw);
+          return a.display_name || a.first_name || '';
+        }
+      } catch { /* ignore */ }
+    }
+    return '';
+  });
+
+  // Login modal visibility
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
 
   const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
 
@@ -1723,7 +1741,7 @@ export default function TireFinder() {
 
       {/* Purple Nav Bar */}
       <nav style={{ backgroundColor: '#9b59b6', padding: '12px 0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '30px', flexWrap: 'wrap' }}>
           {NAV_ITEMS.map((item) => (
             <a
               key={item.label}
@@ -1741,6 +1759,41 @@ export default function TireFinder() {
               {item.label}
             </a>
           ))}
+
+          {/* Staff Login / Staff Badge — appended at end of nav */}
+          {!isAuthenticated ? (
+            <button
+              onClick={() => setLoginModalOpen(true)}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                color: 'white',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+                padding: '5px 14px',
+                borderRadius: '14px',
+                fontSize: '12px',
+                fontWeight: '700',
+                letterSpacing: '1px',
+                cursor: 'pointer',
+              }}
+            >
+              🔒 STAFF LOGIN
+            </button>
+          ) : (
+            <span
+              style={{
+                color: 'white',
+                fontSize: '12px',
+                fontWeight: '600',
+                letterSpacing: '1px',
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                padding: '5px 14px',
+                borderRadius: '14px',
+              }}
+              title="Logged in"
+            >
+              ✓ STAFF{staffDisplayName ? `: ${staffDisplayName.toUpperCase()}` : ''}
+            </span>
+          )}
         </div>
       </nav>
 
@@ -1827,29 +1880,60 @@ export default function TireFinder() {
             TIRE FINDER
           </p>
 
-          {/* Customer Vehicle Lookup - Only visible when authenticated */}
-          {isAuthenticated && (
-            <div style={{
-              backgroundColor: '#f0fdf4',
-              border: '2px solid #22c55e',
-              borderRadius: '12px',
-              padding: '20px',
-              marginBottom: '25px',
+          {/* Customer Vehicle Lookup — visible to all. PII hidden inside result when not authenticated. */}
+          <div style={{
+            backgroundColor: '#f0fdf4',
+            border: '2px solid #22c55e',
+            borderRadius: '12px',
+            padding: '20px',
+            marginBottom: '25px',
+          }}>
+            <h3 style={{
+              color: '#16a34a',
+              fontSize: '13px',
+              fontWeight: '700',
+              textTransform: 'uppercase',
+              letterSpacing: '2px',
+              marginBottom: '12px',
+              textAlign: 'center',
             }}>
-              <h3 style={{
-                color: '#16a34a',
-                fontSize: '13px',
-                fontWeight: '700',
-                textTransform: 'uppercase',
-                letterSpacing: '2px',
-                marginBottom: '12px',
+              🚗 Customer Vehicle Lookup
+            </h3>
+            <p style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginBottom: '15px' }}>
+              Look up a vehicle by license plate or VIN
+            </p>
+
+            {/* Inline staff-login hint when not authenticated */}
+            {!isAuthenticated && (
+              <p style={{
                 textAlign: 'center',
+                fontSize: '11px',
+                color: '#16a34a',
+                marginTop: '-8px',
+                marginBottom: '15px',
+                fontStyle: 'italic',
               }}>
-                🚗 Customer Vehicle Lookup
-              </h3>
-              <p style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginBottom: '15px' }}>
-                Look up a vehicle by license plate or VIN
+                Staff?{' '}
+                <button
+                  type="button"
+                  onClick={() => setLoginModalOpen(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#16a34a',
+                    fontWeight: '700',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    padding: 0,
+                    fontSize: '11px',
+                    fontStyle: 'italic',
+                  }}
+                >
+                  Sign in
+                </button>
+                {' '}to see customer details on lookup results.
               </p>
+            )}
               
               {/* Plate row */}
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -2050,8 +2134,9 @@ export default function TireFinder() {
                   <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
                     {plateLookupResult.vehicle.display}
                   </div>
-                  {/* Customer/plate detail line — only when we have a Turbo match */}
-                  {plateLookupResult.source !== 'vin-nhtsa' && (
+                  {/* Customer/plate detail line — only when we have a Turbo match AND user is authenticated.
+                      Public users see vehicle Y/M/M only; PII is hidden. */}
+                  {isAuthenticated && plateLookupResult.source !== 'vin-nhtsa' && (
                     <div style={{ fontSize: '12px', color: '#64748b', marginTop: '5px' }}>
                       {plateLookupResult.customer.license_plate && (
                         <span>
@@ -2081,7 +2166,6 @@ export default function TireFinder() {
                 </div>
               )}
             </div>
-          )}
 
           {/* Three Column Layout */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flexWrap: 'wrap' }}>
@@ -2736,6 +2820,12 @@ export default function TireFinder() {
           </p>
         </div>
       </footer>
+
+      {/* Staff Login Modal — overlay, openable from navbar or inline hint */}
+      <StaffLoginModal
+        isOpen={loginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+      />
     </div>
   );
 }
