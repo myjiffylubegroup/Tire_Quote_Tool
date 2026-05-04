@@ -132,6 +132,12 @@ export default function Navbar({
   // workflows where the visual signal is a safety feature: a customer who
   // sees the page must immediately recognize it is NOT consumer pricing.
   theme = 'default',
+  // Optional JSX rendered on the right side of the header in place of the
+  // store selector. Used by pages where the user does not pick a store but
+  // we still want to show context (e.g. Reports shows "All Stores — Corporate
+  // View" or the user's locked store). Precedence: headerRight > store
+  // selector (when onStoreChange given) > nothing.
+  headerRight = null,
 }) {
   const t = THEMES[theme] || THEMES.default;
 
@@ -222,8 +228,13 @@ export default function Navbar({
             />
           </a>
 
-          {/* Store selector — only renders if a handler is provided */}
-          {onStoreChange && (
+          {/* Right side of header. Precedence:
+              1. headerRight (explicit JSX from page) — e.g. Reports' scope label
+              2. Store selector (when onStoreChange is given)
+              3. Nothing */}
+          {headerRight ? (
+            headerRight
+          ) : onStoreChange ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{
                 fontSize: '11px',
@@ -262,7 +273,7 @@ export default function Navbar({
                 ))}
               </select>
             </div>
-          )}
+          ) : null}
         </div>
       </header>
 

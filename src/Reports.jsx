@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Navbar from './Navbar';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
@@ -12,16 +13,6 @@ const STORES = [
   { id: 1932, name: 'Atascadero',                 number: 1932 },
   { id: 2911, name: 'Paso Robles',                number: 2911 },
   { id: 4182, name: 'Santa Barbara (Upper State)',number: 4182 },
-];
-
-// Navigation items - consistent across all pages
-const NAV_ITEMS = [
-  { label: 'TIRE FINDER',          href: '#/'          },
-  { label: 'STORE INVENTORY',      href: '#/inventory' },
-  { label: 'RETRIEVE QUOTE',       href: '#/quotes'    },
-  { label: 'ENTERPRISE RENT-A-CAR',href: '#/enterprise'},
-  { label: 'FLEET NEGOTIATED',     href: '#/fleet'     },
-  { label: 'REPORTS',              href: '#/reports'   },
 ];
 
 const formatCurrency = (v) =>
@@ -306,36 +297,14 @@ export default function Reports() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#fafafa', fontFamily: "'Inter', -apple-system, sans-serif" }}>
 
-      {/* Header */}
-      <header style={{ backgroundColor: 'white', borderBottom: '1px solid #eee', padding: '15px 0' }}>
-        <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-          <a href="#/">
-            <img
-              src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png"
-              alt="Jiffy Lube Multicare"
-              style={{ height: '50px' }}
-            />
-          </a>
+      <Navbar
+        currentPage="reports"
+        headerRight={
           <div style={{ fontSize: '13px', color: '#888', fontWeight: '600' }}>
             {isCorporate ? 'All Stores — Corporate View' : `Store ${authStoreId} — ${STORES.find(s => s.id === authStoreId)?.name || ''}`}
           </div>
-        </div>
-      </header>
-
-      {/* Purple Nav */}
-      <nav style={{ backgroundColor: '#9b59b6', padding: '12px 0' }}>
-        <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '0 20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
-          {NAV_ITEMS.map((item) => (
-            <a key={item.label} href={item.href} style={{
-              color: 'white', textDecoration: 'none', fontSize: '12px', fontWeight: '600',
-              letterSpacing: '1px', padding: '5px 10px',
-              borderBottom: item.href === '#/reports' ? '2px solid white' : '2px solid transparent',
-            }}>
-              {item.label}
-            </a>
-          ))}
-        </div>
-      </nav>
+        }
+      />
 
       {/* Page Body */}
       <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '30px 20px' }}>
