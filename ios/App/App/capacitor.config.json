@@ -1,0 +1,10 @@
+{
+	"appId": "com.myjiffylube.tirefinder",
+	"appName": "MYJL Tires",
+	"webDir": "dist",
+	"server": {
+		"url": "https://tires.myjiffylube.ai",
+		"cleartext": false
+	},
+	"packageClassList": []
+}
