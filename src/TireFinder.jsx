@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
+import CustomerVehicleLookup from './CustomerVehicleLookup';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
@@ -809,31 +810,11 @@ export default function TireFinder() {
   // Part number search
   const [partNumber, setPartNumber] = useState('');
 
-  // Customer Vehicle Lookup (plate search)
-  const [plateLookupPlate, setPlateLookupPlate] = useState('');
-  const [plateLookupState, setPlateLookupState] = useState('CA');
-  const [plateLookupLoading, setPlateLookupLoading] = useState(false);
+  // Customer Vehicle Lookup result (plate or VIN). The CustomerVehicleLookup
+  // component owns the input/loading/error state internally; it surfaces the
+  // result here via onLookupSuccess so the page can use it for handleContinueToQuote
+  // (sessionStorage writes) and the TireSpecsResults vehicle label.
   const [plateLookupResult, setPlateLookupResult] = useState(null);
-  const [plateLookupError, setPlateLookupError] = useState(null);
-
-  // VIN lookup (parallel input state; result reuses plateLookupResult so
-  // the rest of the file (session save, JSX, TireSpecsResults) sees a unified
-  // result regardless of which path produced it)
-  const [vinInput, setVinInput] = useState('');
-  const [vinLookupLoading, setVinLookupLoading] = useState(false);
-  const [vinLookupError, setVinLookupError] = useState(null);
-
-  // Auth state — still read here because other parts of the page conditionally
-  // render based on it (VIN customer details, inline staff hint, etc.).
-  // The navbar reads its own copy independently from localStorage.
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !!localStorage.getItem('jl_staff_auth');
-    }
-    return false;
-  });
-
-  const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
 
   // Results
   const [tireSpecs, setTireSpecs] = useState(null); // Now an array of specs
@@ -918,219 +899,37 @@ export default function TireFinder() {
     setReQuoteData(null);
   };
 
-  // Plate lookup handler
-  const handlePlateLookup = async () => {
-    if (!plateLookupPlate.trim()) return;
-    
-    setPlateLookupLoading(true);
-    setPlateLookupError(null);
-    setPlateLookupResult(null);
-    setTireSpecs(null);
+  // ── Customer Vehicle Lookup callbacks ─────────────────────────────────────
+  // The CustomerVehicleLookup component handles all input, network, and error
+  // state internally. These callbacks let it surface its result so the rest of
+  // the page (handleContinueToQuote, TireSpecsResults vehicle label) can use it.
+
+  // Called after a successful plate or VIN lookup. The component has already
+  // fetched tire specs for the resolved Y/M/M; we just store both for reuse.
+  const handleLookupSuccess = (result, specs) => {
+    setPlateLookupResult(result);
+    setTireSpecs(specs);
     setInventoryResults(null);
-    
-    // Clear YMM selections since we're using plate lookup
+    // Clear YMM selections — user is now in lookup mode
     setSelectedYear('');
     setSelectedMake('');
     setSelectedModel('');
     setSelectedSubmodel('');
-    
-    try {
-      // Step 1: Look up customer/vehicle by plate
-      const lookupRes = await fetch(
-        `${API_BASE}/customer-lookup?plate=${encodeURIComponent(plateLookupPlate)}&state=${plateLookupState}&key=${API_KEY}`
-      );
-      const lookupData = await lookupRes.json();
-      
-      if (!lookupData.success || !lookupData.found) {
-        setPlateLookupError('No vehicle found for this plate. Try searching by vehicle or tire size below.');
-        setPlateLookupLoading(false);
-        return;
-      }
-      
-      const customer = lookupData.customer;
-      
-      // Use MOTOR-mapped names for tire spec lookup (fall back to Turbo names for display)
-      const motorMake = customer.motor_make || null;
-      const motorModel = customer.motor_model || null;
-      
-      // Store the full result for display and sessionStorage
-      // Display uses Turbo names (what's on record), but include MOTOR names for lookups
-      setPlateLookupResult({
-        vehicle: {
-          year: customer.vehicle_year,
-          make: customer.vehicle_make,
-          model: customer.vehicle_model,
-          display: customer.vehicle_ymm || `${customer.vehicle_year} ${customer.vehicle_make} ${customer.vehicle_model}`,
-          motor_make: motorMake,
-          motor_model: motorModel,
-        },
-        customer: {
-          first_name: customer.first_name,
-          last_name: customer.last_name,
-          full_name: customer.full_name,
-          phone: customer.phone,
-          phone_raw: customer.phone_raw,
-          email: customer.email,
-          license_plate: customer.license_plate,
-          license_state: customer.license_state
-        }
-      });
-      
-      // Step 2: Get all tire sizes for this Y/M/M
-      // Use MOTOR names if available (they match tt_smart_vehicles), fall back to Turbo names
-      const lookupMake = motorMake || customer.vehicle_make;
-      const lookupModel = motorModel || customer.vehicle_model;
-      
-      if (customer.vehicle_year && lookupMake && lookupModel) {
-        const tiresRes = await fetch(
-          `${API_BASE}/vehicle-tires?year=${customer.vehicle_year}&make=${encodeURIComponent(lookupMake)}&model=${encodeURIComponent(lookupModel)}&key=${API_KEY}`
-        );
-        const tiresData = await tiresRes.json();
-        
-        if (tiresData.success && tiresData.data && tiresData.data.length > 0) {
-          setTireSpecs(tiresData.data);
-          
-          // If only one tire size, auto-search inventory with OE spec for safety filtering
-          if (tiresData.data.length === 1) {
-            searchInventory(tiresData.data[0].tire_size, tiresData.data[0]);
-          }
-        } else {
-          setPlateLookupError(
-            `Found ${customer.vehicle_ymm || 'vehicle'} but no tire specs in our database. Select a tire size below.`
-          );
-        }
-      }
-      
-    } catch (e) {
-      console.error('Plate lookup failed:', e);
-      setPlateLookupError('Lookup failed. Please try again or search manually.');
-    }
-    
-    setPlateLookupLoading(false);
   };
 
-  const handleClearPlateLookup = () => {
-    setPlateLookupPlate('');
-    setPlateLookupResult(null);
-    setPlateLookupError(null);
-    setVinInput('');
-    setVinLookupError(null);
-    setTireSpecs(null);
-    setInventoryResults(null);
+  // Called when exactly one tire spec was found for the resolved Y/M/M.
+  // Auto-search inventory just like the old inline handler did.
+  const handleLookupSingleSpec = (spec) => {
+    searchInventory(spec.tire_size, spec);
   };
 
-  // VIN format helper: strips non-VIN characters, uppercases, blocks I/O/Q,
-  // caps at 17 chars. Used in onChange to keep input clean as the user types.
-  const sanitizeVinInput = (raw) => {
-    return raw
-      .toUpperCase()
-      .replace(/[IOQ]/g, '')          // I/O/Q never appear in real VINs
-      .replace(/[^A-Z0-9]/g, '')      // strip non-alphanumeric
-      .slice(0, 17);
-  };
-
-  // VIN lookup handler. Mirrors handlePlateLookup's flow:
-  //   1) Call customer-lookup with search_type=vin
-  //   2) On success, write into shared plateLookupResult so the rest of the
-  //      file (session save, result display, TireSpecsResults) is unchanged.
-  //   3) Fetch tire specs for the resolved Y/M/M, auto-search if exactly one.
-  // Sources distinguished via lookupResult.source:
-  //   - 'vin-turbo': customer match in our DB (returning customer)
-  //   - 'vin-nhtsa': decoded via NHTSA only (new/unknown customer)
-  const handleVinLookup = async () => {
-    const vin = vinInput.trim().toUpperCase();
-    if (vin.length !== 17) {
-      setVinLookupError('VIN must be exactly 17 characters.');
-      return;
-    }
-
-    setVinLookupLoading(true);
-    setVinLookupError(null);
-    setPlateLookupError(null);
+  // Called when the user clicks CLEAR inside the lookup card.
+  const handleLookupClear = () => {
     setPlateLookupResult(null);
     setTireSpecs(null);
     setInventoryResults(null);
-
-    // Clear YMM selections since we're using VIN lookup
-    setSelectedYear('');
-    setSelectedMake('');
-    setSelectedModel('');
-    setSelectedSubmodel('');
-
-    try {
-      const lookupRes = await fetch(
-        `${API_BASE}/customer-lookup?search_type=vin&vin=${encodeURIComponent(vin)}&key=${API_KEY}`
-      );
-      const lookupData = await lookupRes.json();
-
-      if (!lookupData.success || !lookupData.found) {
-        setVinLookupError('VIN not found in customer records and could not be decoded. Try searching by vehicle or tire size below.');
-        setVinLookupLoading(false);
-        return;
-      }
-
-      const customer = lookupData.customer;
-      const isCustomerMatch = lookupData.source === 'turbo';
-
-      const motorMake  = customer.motor_make  || null;
-      const motorModel = customer.motor_model || null;
-
-      // Reuse plateLookupResult shape so the rest of the component is unchanged.
-      // For NHTSA-decoded VINs, customer fields come back blank from the Edge
-      // Function, so we still pass them through (display logic checks emptiness).
-      setPlateLookupResult({
-        source: isCustomerMatch ? 'vin-turbo' : 'vin-nhtsa',
-        vehicle: {
-          year: customer.vehicle_year,
-          make: customer.vehicle_make,
-          model: customer.vehicle_model,
-          display: customer.vehicle_ymm || `${customer.vehicle_year} ${customer.vehicle_make} ${customer.vehicle_model}`,
-          motor_make: motorMake,
-          motor_model: motorModel,
-        },
-        customer: {
-          first_name:    customer.first_name    || '',
-          last_name:     customer.last_name     || '',
-          full_name:     customer.full_name     || '',
-          phone:         customer.phone         || '',
-          phone_raw:     customer.phone_raw     || '',
-          email:         customer.email         || '',
-          license_plate: customer.license_plate || '',
-          license_state: customer.license_state || '',
-          vin:           customer.vin || vin,
-        },
-      });
-
-      // Step 2: Fetch tire specs for resolved Y/M/M (same logic as plate lookup)
-      const lookupMake  = motorMake  || customer.vehicle_make;
-      const lookupModel = motorModel || customer.vehicle_model;
-
-      if (customer.vehicle_year && lookupMake && lookupModel) {
-        const tiresRes = await fetch(
-          `${API_BASE}/vehicle-tires?year=${customer.vehicle_year}&make=${encodeURIComponent(lookupMake)}&model=${encodeURIComponent(lookupModel)}&key=${API_KEY}`
-        );
-        const tiresData = await tiresRes.json();
-
-        if (tiresData.success && tiresData.data && tiresData.data.length > 0) {
-          setTireSpecs(tiresData.data);
-
-          // If only one tire size, auto-search inventory with OE spec
-          if (tiresData.data.length === 1) {
-            searchInventory(tiresData.data[0].tire_size, tiresData.data[0]);
-          }
-        } else {
-          setVinLookupError(
-            `Found ${customer.vehicle_ymm || 'vehicle'} but no tire specs in our database. Select a tire size below.`
-          );
-        }
-      }
-    } catch (e) {
-      console.error('VIN lookup failed:', e);
-      setVinLookupError('Lookup failed. Please try again or search manually.');
-    }
-
-    setVinLookupLoading(false);
   };
+
 
   // Handle continue to quote - save chosen tire + alternatives to sessionStorage
   const handleContinueToQuote = () => {
@@ -1767,292 +1566,16 @@ export default function TireFinder() {
             TIRE FINDER
           </p>
 
-          {/* Customer Vehicle Lookup — visible to all. PII hidden inside result when not authenticated. */}
-          <div style={{
-            backgroundColor: '#f0fdf4',
-            border: '2px solid #22c55e',
-            borderRadius: '12px',
-            padding: '20px',
-            marginBottom: '25px',
-          }}>
-            <h3 style={{
-              color: '#16a34a',
-              fontSize: '13px',
-              fontWeight: '700',
-              textTransform: 'uppercase',
-              letterSpacing: '2px',
-              marginBottom: '12px',
-              textAlign: 'center',
-            }}>
-              🚗 Customer Vehicle Lookup
-            </h3>
-            <p style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginBottom: '15px' }}>
-              Look up a vehicle by license plate or VIN
-            </p>
+          {/* Customer Vehicle Lookup — extracted to shared component.
+              The component owns input state, error display, result display,
+              and reads localStorage.jl_staff_auth to gate PII display. */}
+          <CustomerVehicleLookup
+            onLookupSuccess={handleLookupSuccess}
+            onClear={handleLookupClear}
+            onSingleSpecResolved={handleLookupSingleSpec}
+            tireSpecsCount={tireSpecs ? tireSpecs.length : 0}
+          />
 
-            {/* Inline staff-login hint when not authenticated */}
-            {!isAuthenticated && (
-              <p style={{
-                textAlign: 'center',
-                fontSize: '11px',
-                color: '#16a34a',
-                marginTop: '-8px',
-                marginBottom: '15px',
-                fontStyle: 'italic',
-              }}>
-                Staff?{' '}
-                <button
-                  type="button"
-                  onClick={() => window.dispatchEvent(new Event('jl:open-staff-login'))}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#16a34a',
-                    fontWeight: '700',
-                    textDecoration: 'underline',
-                    cursor: 'pointer',
-                    padding: 0,
-                    fontSize: '11px',
-                    fontStyle: 'italic',
-                  }}
-                >
-                  Sign in
-                </button>
-                {' '}to see customer details on lookup results.
-              </p>
-            )}
-              
-              {/* Plate row */}
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
-                {/* State Dropdown */}
-                <select
-                  value={plateLookupState}
-                  onChange={(e) => setPlateLookupState(e.target.value)}
-                  style={{
-                    padding: '10px 12px',
-                    border: '2px solid #22c55e',
-                    borderRadius: '25px',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    width: '80px',
-                    textAlign: 'center',
-                    outline: 'none',
-                  }}
-                >
-                  {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                
-                {/* Plate Input */}
-                <input
-                  type="text"
-                  value={plateLookupPlate}
-                  onChange={(e) => setPlateLookupPlate(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handlePlateLookup(); }}
-                  placeholder="LICENSE PLATE"
-                  style={{
-                    padding: '10px 15px',
-                    border: '2px solid #22c55e',
-                    borderRadius: '25px',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    letterSpacing: '2px',
-                    textTransform: 'uppercase',
-                    textAlign: 'center',
-                    width: '180px',
-                    outline: 'none',
-                  }}
-                />
-                
-                {/* Look Up Button */}
-                <button
-                  onClick={handlePlateLookup}
-                  disabled={!plateLookupPlate.trim() || plateLookupLoading}
-                  style={{
-                    backgroundColor: plateLookupPlate.trim() && !plateLookupLoading ? '#22c55e' : '#ccc',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '25px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    letterSpacing: '1px',
-                    cursor: plateLookupPlate.trim() && !plateLookupLoading ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  {plateLookupLoading ? 'SEARCHING...' : 'LOOK UP'}
-                </button>
-                
-                {/* Clear button */}
-                {plateLookupResult && (
-                  <button
-                    onClick={handleClearPlateLookup}
-                    style={{
-                      backgroundColor: 'transparent',
-                      color: '#999',
-                      border: '1px solid #ccc',
-                      padding: '10px 15px',
-                      borderRadius: '25px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    CLEAR
-                  </button>
-                )}
-              </div>
-
-              {/* OR divider */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                margin: '12px 0',
-                gap: '10px',
-              }}>
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#bbf7d0' }} />
-                <span style={{ color: '#16a34a', fontSize: '10px', fontWeight: '700', letterSpacing: '2px' }}>OR</span>
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#bbf7d0' }} />
-              </div>
-
-              {/* VIN row */}
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
-                {/* VIN Input */}
-                <input
-                  type="text"
-                  value={vinInput}
-                  onChange={(e) => setVinInput(sanitizeVinInput(e.target.value))}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleVinLookup(); }}
-                  placeholder="VIN (17 CHARACTERS)"
-                  maxLength={17}
-                  style={{
-                    padding: '10px 15px',
-                    border: '2px solid #22c55e',
-                    borderRadius: '25px',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    letterSpacing: '1px',
-                    textTransform: 'uppercase',
-                    textAlign: 'center',
-                    width: '280px',
-                    outline: 'none',
-                    fontFamily: 'monospace',
-                  }}
-                />
-
-                {/* VIN counter */}
-                <span style={{
-                  color: vinInput.length === 17 ? '#16a34a' : '#94a3b8',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  minWidth: '38px',
-                  textAlign: 'center',
-                }}>
-                  {vinInput.length}/17
-                </span>
-
-                {/* VIN Look Up Button */}
-                <button
-                  onClick={handleVinLookup}
-                  disabled={vinInput.length !== 17 || vinLookupLoading}
-                  style={{
-                    backgroundColor: (vinInput.length === 17 && !vinLookupLoading) ? '#22c55e' : '#ccc',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '25px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    letterSpacing: '1px',
-                    cursor: (vinInput.length === 17 && !vinLookupLoading) ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  {vinLookupLoading ? 'SEARCHING...' : 'LOOK UP'}
-                </button>
-              </div>
-
-              {/* Error Messages */}
-              {plateLookupError && (
-                <p style={{ color: '#d97706', textAlign: 'center', marginTop: '12px', fontSize: '12px', fontWeight: '500' }}>
-                  {plateLookupError}
-                </p>
-              )}
-              {vinLookupError && (
-                <p style={{ color: '#d97706', textAlign: 'center', marginTop: '12px', fontSize: '12px', fontWeight: '500' }}>
-                  {vinLookupError}
-                </p>
-              )}
-              
-              {/* Success Result */}
-              {plateLookupResult && (
-                <div style={{
-                  backgroundColor: 'white',
-                  border: '1px solid #22c55e',
-                  borderRadius: '10px',
-                  padding: '15px',
-                  marginTop: '15px',
-                  textAlign: 'center',
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    marginBottom: '5px',
-                    flexWrap: 'wrap',
-                  }}>
-                    <span style={{ color: '#16a34a', fontWeight: '700', fontSize: '11px', letterSpacing: '1px' }}>
-                      ✓ VEHICLE FOUND
-                    </span>
-                    {plateLookupResult.source === 'vin-nhtsa' && (
-                      <span style={{
-                        backgroundColor: '#fef3c7',
-                        color: '#b45309',
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        letterSpacing: '1px',
-                        padding: '2px 8px',
-                        borderRadius: '10px',
-                        border: '1px solid #fde68a',
-                      }}>
-                        NEW CUSTOMER
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
-                    {plateLookupResult.vehicle.display}
-                  </div>
-                  {/* Customer/plate detail line — only when we have a Turbo match AND user is authenticated.
-                      Public users see vehicle Y/M/M only; PII is hidden. */}
-                  {isAuthenticated && plateLookupResult.source !== 'vin-nhtsa' && (
-                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '5px' }}>
-                      {plateLookupResult.customer.license_plate && (
-                        <span>
-                          Plate: {plateLookupResult.customer.license_plate}
-                          {plateLookupResult.customer.license_state && ` (${plateLookupResult.customer.license_state})`}
-                        </span>
-                      )}
-                      {plateLookupResult.customer.full_name && (
-                        <span>
-                          {plateLookupResult.customer.license_plate ? ' • ' : ''}
-                          {plateLookupResult.customer.full_name}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {/* For NHTSA-decoded VINs, show the decoded VIN */}
-                  {plateLookupResult.source === 'vin-nhtsa' && plateLookupResult.customer.vin && (
-                    <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '5px', fontFamily: 'monospace', letterSpacing: '1px' }}>
-                      VIN: {plateLookupResult.customer.vin}
-                    </div>
-                  )}
-                  {tireSpecs && tireSpecs.length > 1 && (
-                    <div style={{ fontSize: '11px', color: '#9b59b6', marginTop: '8px', fontWeight: '600' }}>
-                      ↓ Select a tire size below
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
 
           {/* Three Column Layout */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flexWrap: 'wrap' }}>
