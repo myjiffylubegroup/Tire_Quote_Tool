@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
+import CustomerVehicleLookup from './CustomerVehicleLookup';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const API_KEY = 'TIRES2026';
@@ -565,6 +566,34 @@ export default function EnterpriseTireFinder() {
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Customer/vehicle lookup result (plate or VIN). The CustomerVehicleLookup
+  // component owns its own input/loading/error state; we just keep the result
+  // here so handleQuote can pre-populate customer + vehicle data on
+  // click-through to QuoteBuilder.
+  const [lookupResult, setLookupResult] = useState(null);
+
+  // ── Lookup callbacks ──
+  const handleLookupSuccess = (result, specs) => {
+    setLookupResult(result);
+    setTireSpecs(specs);
+    setInventoryResults(null);
+    // Clear YMM selections — user is now in lookup mode
+    setSelectedYear('');
+    setSelectedMake('');
+    setSelectedModel('');
+    setSelectedSubmodel('');
+  };
+
+  const handleLookupSingleSpec = (spec) => {
+    searchInventory(spec.tire_size, spec);
+  };
+
+  const handleLookupClear = () => {
+    setLookupResult(null);
+    setTireSpecs(null);
+    setInventoryResults(null);
+  };
+
   // Handle selecting a specific tire size from multiple options
   const handleSelectTireSize = (spec) => {
     setTireSpecs([spec]);
@@ -576,8 +605,20 @@ export default function EnterpriseTireFinder() {
     sessionStorage.setItem('jl_quote_tire', JSON.stringify(tire));
     sessionStorage.setItem('jl_quote_qty', qtyNeeded.toString());
     sessionStorage.setItem('jl_quote_customer_type', 'enterprise');
-    
-    if (selectedYear && selectedMake && selectedModel) {
+
+    // Vehicle data: prefer lookup result (richer — includes motor_make/model);
+    // fall back to YMM dropdowns when no lookup was performed.
+    if (lookupResult?.vehicle) {
+      const v = lookupResult.vehicle;
+      const vehicleData = {
+        year: parseInt(v.year),
+        make: v.make,
+        model: v.model,
+        submodel: null,
+        display: v.display,
+      };
+      sessionStorage.setItem('jl_quote_vehicle', JSON.stringify(vehicleData));
+    } else if (selectedYear && selectedMake && selectedModel) {
       const vehicleData = {
         year: parseInt(selectedYear),
         make: selectedMake,
@@ -589,7 +630,14 @@ export default function EnterpriseTireFinder() {
     } else {
       sessionStorage.removeItem('jl_quote_vehicle');
     }
-    
+
+    // Customer data: only if a lookup was performed
+    if (lookupResult?.customer) {
+      sessionStorage.setItem('jl_quote_customer', JSON.stringify(lookupResult.customer));
+    } else {
+      sessionStorage.removeItem('jl_quote_customer');
+    }
+
     window.location.hash = '#/quote/build';
   };
 
@@ -891,6 +939,16 @@ export default function EnterpriseTireFinder() {
           }}>
             PRE-NEGOTIATED PRICING
           </p>
+
+          {/* Customer Vehicle Lookup — staff-gated page so the inline
+              "Staff? Sign in" hint is suppressed. */}
+          <CustomerVehicleLookup
+            onLookupSuccess={handleLookupSuccess}
+            onClear={handleLookupClear}
+            onSingleSpecResolved={handleLookupSingleSpec}
+            tireSpecsCount={tireSpecs ? tireSpecs.length : 0}
+            hideStaffSigninHint={true}
+          />
 
           {/* Three Column Layout */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flexWrap: 'wrap' }}>
