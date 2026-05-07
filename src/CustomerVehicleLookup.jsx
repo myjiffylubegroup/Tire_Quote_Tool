@@ -36,6 +36,10 @@ import React, { useState } from 'react';
  *                                                 When > 1, shows "↓ Select a tire size below" hint.
  *   hideStaffSigninHint    (boolean,  optional) — suppress the "Staff? Sign in" hint
  *                                                 (use on staff-gated pages where it's irrelevant)
+ *   storeId                (string|number, required) — the active store ID. Required for plate
+ *                                                      lookup because the Edge Function uses it to
+ *                                                      authenticate against PartsTech for the
+ *                                                      external plate decode fallback.
  */
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
@@ -70,6 +74,7 @@ export default function CustomerVehicleLookup({
   onSingleSpecResolved,
   tireSpecsCount = 0,
   hideStaffSigninHint = false,
+  storeId,
 }) {
   // ── Input state ──
   const [plate, setPlate] = useState('');
@@ -114,6 +119,13 @@ export default function CustomerVehicleLookup({
   const handlePlateLookup = async () => {
     if (!plate.trim()) return;
 
+    // storeId is required for plate lookup — the Edge Function uses it to
+    // authenticate against PartsTech for the external plate decode fallback.
+    if (!storeId) {
+      setPlateError('Please select a store before performing a plate lookup.');
+      return;
+    }
+
     setPlateLoading(true);
     setPlateError(null);
     setVinError(null);
@@ -121,7 +133,7 @@ export default function CustomerVehicleLookup({
 
     try {
       const lookupRes = await fetch(
-        `${API_BASE}/customer-lookup?plate=${encodeURIComponent(plate)}&state=${stateCode}&key=${API_KEY}`
+        `${API_BASE}/customer-lookup?plate=${encodeURIComponent(plate)}&state=${stateCode}&store_id=${encodeURIComponent(storeId)}&key=${API_KEY}`
       );
       const lookupData = await lookupRes.json();
 

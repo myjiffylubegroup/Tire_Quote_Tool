@@ -1574,6 +1574,7 @@ export default function TireFinder() {
             onClear={handleLookupClear}
             onSingleSpecResolved={handleLookupSingleSpec}
             tireSpecsCount={tireSpecs ? tireSpecs.length : 0}
+            storeId={selectedStore}
           />
 
 

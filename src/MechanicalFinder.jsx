@@ -622,13 +622,26 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   // ── Plate lookup ──
   const handlePlateLookup = async () => {
     if (!plateInput.trim()) return;
+
+    // store_id is required by customer-lookup for the PartsTech fallback path.
+    // selectedStore is always seeded from localStorage with a default, so this
+    // guard is defensive — it shouldn't fire in normal use, but if it does we
+    // want a clear log line rather than a silent 400 from the Edge Function.
+    if (!selectedStore) {
+      console.error('Plate lookup attempted without a selected store');
+      setLookupResult('not_found');
+      return;
+    }
+
     setLookupLoading(true); setLookupResult(null);
     try {
-      const res  = await fetch(`${API_BASE}/customer-lookup?plate=${encodeURIComponent(plateInput.trim())}&state=${plateState}&key=${API_KEY}`);
+      const res  = await fetch(`${API_BASE}/customer-lookup?plate=${encodeURIComponent(plateInput.trim())}&state=${plateState}&store_id=${encodeURIComponent(selectedStore)}&key=${API_KEY}`);
       const data = await res.json();
       if (data.success && data.found && data.customer) {
-        setLookupResult('found');
-        await applyLookupResult(data.customer, 'plate');
+        // source='turbo' = customer record in our DB; source='partstech' = vehicle only via external decode
+        const hasCustomer = data.source === 'turbo';
+        setLookupResult(hasCustomer ? 'found' : 'found_vehicle_only');
+        await applyLookupResult(data.customer, data.source || 'plate');
       } else {
         setCustPlate(plateInput.trim());
         setCustPlateState(plateState);
