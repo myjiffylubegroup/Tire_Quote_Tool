@@ -926,6 +926,7 @@ export default function FleetTireFinder() {
             onSingleSpecResolved={handleLookupSingleSpec}
             tireSpecsCount={tireSpecs ? tireSpecs.length : 0}
             hideStaffSigninHint={true}
+            storeId={selectedStore}
           />
 
           {/* Three Column Layout */}
