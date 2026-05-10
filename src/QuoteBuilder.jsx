@@ -879,7 +879,7 @@ export default function QuoteBuilder() {
           `https://vzsitlasfekjkvsaukmh.supabase.co/rest/v1/quote_config?config_key=eq.nexen_rebate_2026&select=config_value`,
           {
             headers: {
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6c2l0bGFzZmVramt2c2F1a21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc3NjI4MDgsImV4cCI6MjA1MzMzODgwOH0.iSHfBZfGDHKzpgGgFpHcs5C3Gx3YfqkMZFSBHuCFpBw',
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6c2l0bGFzZmVramt2c2F1a21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2OTQ5OTcsImV4cCI6MjA3MDI3MDk5N30.5zvSk5uFo51IgyfhZzzAUvgfXO_p2tXX34_x0chkbnM',
               'Content-Type': 'application/json'
             }
           }
