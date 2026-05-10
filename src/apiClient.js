@@ -36,10 +36,10 @@
 const TOKEN_KEY   = 'jl_staff_token'
 const EXPIRES_KEY = 'jl_staff_token_expires'
 
-// Supabase project anon key — public, safe to expose. Required by the Supabase
-// gateway on every request before our function code runs. Pair this with the
-// staff JWT (Authorization: Bearer ...) so both gateway and function pass.
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6c2l0bGFzZmVramt2c2F1a21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc3NjI4MDgsImV4cCI6MjA1MzMzODgwOH0.iSHfBZfGDHKzpgGgFpHcs5C3Gx3YfqkMZFSBHuCFpBw'
+// Supabase project anon key — public, safe to expose. The gateway requires
+// Authorization: Bearer <anon-key> on every request before our function code
+// runs. The staff JWT goes in X-Staff-Token because Authorization is taken.
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6c2l0bGFzZmVramt2c2F1a21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2OTQ5OTcsImV4cCI6MjA3MDI3MDk5N30.5zvSk5uFo51IgyfhZzzAUvgfXO_p2tXX34_x0chkbnM'
 
 /**
  * Read the current staff JWT, or null if missing/expired.
@@ -97,10 +97,11 @@ function forceReAuth() {
 }
 
 /**
- * Authenticated fetch — sends BOTH the Supabase anon key (gateway) AND
- * the staff JWT (function). Both are required for protected endpoints.
+ * Authenticated fetch — sends:
+ *   - Authorization: Bearer <anon-key>  (required by Supabase gateway)
+ *   - X-Staff-Token: <staff-jwt>        (read by our requireStaffAuth helper)
  *
- * On 401 with a structured auth_error, forces re-PIN.
+ * Both are required for protected endpoints. On 401 with auth_error, forces re-PIN.
  *
  * Returns the Response object (not the parsed body) — same contract as fetch().
  */
@@ -114,8 +115,8 @@ export async function apiCall(url, options = {}) {
 
   const headers = {
     ...(options.headers || {}),
-    'apikey': SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${token}`,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'X-Staff-Token': token,
   }
 
   const res = await fetch(url, { ...options, headers })
@@ -143,8 +144,8 @@ export async function apiCall(url, options = {}) {
 }
 
 /**
- * Unauthenticated fetch — for public endpoints. Sends the Supabase anon key
- * (required by the gateway) but NOT the staff JWT.
+ * Unauthenticated fetch — for public endpoints. Sends only the gateway auth
+ * (Authorization: Bearer <anon-key>) — no staff JWT.
  *
  * Use for: get-quote?code=..., get-mechanical-quote?short_code=...,
  *   vehicle-*, vcdb-vehicle-*, tire-inventory-*, store-inventory,
@@ -153,7 +154,7 @@ export async function apiCall(url, options = {}) {
 export async function apiCallPublic(url, options = {}) {
   const headers = {
     ...(options.headers || {}),
-    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
   }
   return fetch(url, { ...options, headers })
 }
