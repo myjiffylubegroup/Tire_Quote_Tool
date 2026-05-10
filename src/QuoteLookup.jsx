@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
+import { apiCall } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
-const API_KEY = 'TIRES2026';
 
 const STORES = [
   { id: 609, name: 'Santa Maria' },
@@ -152,11 +152,10 @@ export default function QuoteLookup() {
 
     try {
       const endpoint = quoteMode === 'mechanical' ? 'search-mechanical-quotes' : 'search-quotes';
-      const response = await fetch(`${API_BASE}/${endpoint}`, {
+      const response = await apiCall(`${API_BASE}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key: API_KEY,
           store_id: parseInt(selectedStore),
           search_type: searchValue.trim() ? searchType : 'all',
           search_value: searchValue.trim() || undefined,
@@ -224,7 +223,7 @@ export default function QuoteLookup() {
   const reQuote = async (quoteId) => {
     setReQuoting(quoteId);
     try {
-      const response = await fetch(`${API_BASE}/get-quote?id=${quoteId}&key=${API_KEY}`);
+      const response = await apiCall(`${API_BASE}/get-quote?id=${quoteId}`);
       const data = await response.json();
       if (data.success && data.quote) {
         const q = data.quote;

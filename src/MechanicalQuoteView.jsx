@@ -7,9 +7,9 @@
 // =============================================================================
 
 import React, { useState, useEffect, useRef } from 'react';
+import { apiCall } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
-const API_KEY  = 'TIRES2026';
 const JL_LOGO  = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/assets/JL_Multicare_Horz_1C.png';
 const MAROON   = '#8b1538';
 const DARK     = '#1e293b';
@@ -111,7 +111,7 @@ export default function MechanicalQuoteView({ code }) {
   // ── Load quote ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!code) { setError('No quote code provided'); setLoading(false); return; }
-    fetch(`${API_BASE}/get-mechanical-quote?short_code=${code}&key=${API_KEY}`)
+    fetch(`${API_BASE}/get-mechanical-quote?short_code=${code}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -131,10 +131,10 @@ export default function MechanicalQuoteView({ code }) {
           if (d.quote.status === 'draft') {
             const staffAuth = (() => { try { return JSON.parse(localStorage.getItem('jl_staff_auth') || '{}'); } catch { return {}; } })();
             if (staffAuth.user_id) {
-              fetch(`${API_BASE}/present-mechanical-quote`, {
+              apiCall(`${API_BASE}/present-mechanical-quote`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key: API_KEY, quote_id: d.quote.quote_id }),
+                body: JSON.stringify({ quote_id: d.quote.quote_id }),
               }).catch(() => {});
               setQuote(prev => ({ ...prev, status: 'presented', presented_at: new Date().toISOString() }));
             }
@@ -157,10 +157,10 @@ export default function MechanicalQuoteView({ code }) {
   const managePart = async (action, payload = {}) => {
     setSavingPart(true); setPartError('');
     try {
-      const res  = await fetch(`${API_BASE}/manage-mechanical-parts`, {
+      const res  = await apiCall(`${API_BASE}/manage-mechanical-parts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: API_KEY, action, quote_id: quote.quote_id, ...payload }),
+        body: JSON.stringify({ action, quote_id: quote.quote_id, ...payload }),
       });
       const data = await res.json();
       if (data.success) {
@@ -195,11 +195,10 @@ export default function MechanicalQuoteView({ code }) {
   const handleRemovePart = async (part) => {
     setSavingPart(true); setPartError('');
     try {
-      const res  = await fetch(`${API_BASE}/partstech-remove-parts`, {
+      const res  = await apiCall(`${API_BASE}/partstech-remove-parts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key:                     API_KEY,
           quote_id:                quote.quote_id,
           store_id:                quote.store?.store_id,
           part_id:                 part.part_id,
@@ -236,11 +235,10 @@ export default function MechanicalQuoteView({ code }) {
             quantity:                p.part_id === part.part_id ? qty : p.quantity,
           }));
 
-        const res  = await fetch(`${API_BASE}/partstech-update-cart`, {
+        const res  = await apiCall(`${API_BASE}/partstech-update-cart`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            key:                     API_KEY,
             quote_id:                quote.quote_id,
             store_id:                quote.store?.store_id,
             part_id:                 part.part_id,
@@ -272,11 +270,10 @@ export default function MechanicalQuoteView({ code }) {
   const handleSaveCustomer = async () => {
     setSavingCust(true); setCustError('');
     try {
-      const res = await fetch(`${API_BASE}/manage-mechanical-quote-customer`, {
+      const res = await apiCall(`${API_BASE}/manage-mechanical-quote-customer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key:      API_KEY,
           quote_id: quote.quote_id,
           customer: {
             full_name:     custForm.full_name.trim(),
@@ -325,11 +322,10 @@ export default function MechanicalQuoteView({ code }) {
     if (!hasChanges) { setRevError('Add, remove, or update at least one item'); return; }
     setSavingRev(true); setRevError('');
     try {
-      const res = await fetch(`${API_BASE}/add-mechanical-revision`, {
+      const res = await apiCall(`${API_BASE}/add-mechanical-revision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key:           API_KEY,
           quote_id:      quote.quote_id,
           revision_auth: revAuth.trim(),
           items:         revItems,
@@ -341,7 +337,7 @@ export default function MechanicalQuoteView({ code }) {
       });
       const data = await res.json();
       if (data.success) {
-        const refreshRes = await fetch(`${API_BASE}/get-mechanical-quote?short_code=${quote.short_code}&key=${API_KEY}`);
+        const refreshRes = await fetch(`${API_BASE}/get-mechanical-quote?short_code=${quote.short_code}`);
         const refreshData = await refreshRes.json();
         if (refreshData.success) setQuote(refreshData.quote);
         setRevMode(false);
@@ -385,11 +381,10 @@ export default function MechanicalQuoteView({ code }) {
         vehiclePayload.plateState = plateState;
       }
 
-      const res = await fetch(`${API_BASE}/partstech-punchout-session`, {
+      const res = await apiCall(`${API_BASE}/partstech-punchout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key:       API_KEY,
           store_id:  quote.store?.store_id,
           vehicle:   vehiclePayload,
           po_number: vin || plate || quote.quote_number,
@@ -410,7 +405,7 @@ export default function MechanicalQuoteView({ code }) {
       if (revPtIntervalRef.current) clearInterval(revPtIntervalRef.current);
       revPtIntervalRef.current = setInterval(async () => {
         try {
-          const pollRes  = await fetch(`${API_BASE}/partstech-poll-session?session_id=${data.session_id}&key=${API_KEY}`);
+          const pollRes  = await apiCall(`${API_BASE}/partstech-poll-session?session_id=${data.session_id}`);
           const pollData = await pollRes.json();
           if (pollData.ready) {
             clearInterval(revPtIntervalRef.current);
@@ -438,10 +433,10 @@ export default function MechanicalQuoteView({ code }) {
     if (!quote.customer?.email) return;
     setEmailSending(true); setEmailError('');
     try {
-      const res  = await fetch(`${API_BASE}/email-mechanical-quote`, {
+      const res  = await apiCall(`${API_BASE}/email-mechanical-quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: API_KEY, quote_id: quote.quote_id }),
+        body: JSON.stringify({ quote_id: quote.quote_id }),
       });
       const data = await res.json();
       if (data.success) setEmailSent(true);
@@ -456,10 +451,10 @@ export default function MechanicalQuoteView({ code }) {
     if (digits.length < 10 || !smsConsent) return;
     setSmsSending(true); setSmsError('');
     try {
-      const res  = await fetch(`${API_BASE}/sms-mechanical-quote`, {
+      const res  = await apiCall(`${API_BASE}/sms-mechanical-quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: API_KEY, quote_id: quote.quote_id, phone: digits }),
+        body: JSON.stringify({ quote_id: quote.quote_id, phone: digits }),
       });
       const data = await res.json();
       if (data.success) { setSmsSent(true); setShowSmsModal(false); }
@@ -472,10 +467,10 @@ export default function MechanicalQuoteView({ code }) {
   const handlePlaceOrder = async () => {
     setOrdering(true); setOrderError(''); setUnavailParts([]); setOrderCheckData(null);
     try {
-      const res  = await fetch(`${API_BASE}/partstech-place-order`, {
+      const res  = await apiCall(`${API_BASE}/partstech-place-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: API_KEY, quote_id: quote.quote_id, store_id: quote.store?.store_id, action: 'check' }),
+        body: JSON.stringify({ quote_id: quote.quote_id, store_id: quote.store?.store_id, action: 'check' }),
       });
       const data = await res.json();
       if (data.success) {
@@ -492,10 +487,10 @@ export default function MechanicalQuoteView({ code }) {
   const handleConfirmOrder = async () => {
     setConfirming(true); setOrderError('');
     try {
-      const res  = await fetch(`${API_BASE}/partstech-place-order`, {
+      const res  = await apiCall(`${API_BASE}/partstech-place-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: API_KEY, quote_id: quote.quote_id, store_id: quote.store?.store_id, action: 'order' }),
+        body: JSON.stringify({ quote_id: quote.quote_id, store_id: quote.store?.store_id, action: 'order' }),
       });
       const data = await res.json();
       if (data.success) {

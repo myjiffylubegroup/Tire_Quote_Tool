@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
+import { apiCall } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
-const API_KEY = 'TIRES2026';
 
 const STORES = [
   { id: 609, name: 'Santa Maria' },
@@ -378,8 +378,8 @@ const CustomerSearchModal = ({ isOpen, onClose, onSelectCustomer }) => {
     setSearched(false);
 
     try {
-      let url = `${API_BASE}/customer-lookup?key=${API_KEY}&search_type=${searchType}`;
-      
+      let url = `${API_BASE}/customer-lookup?search_type=${searchType}`;
+
       if (searchType === 'name') {
         url += `&last_name=${encodeURIComponent(searchValue.trim())}`;
       } else if (searchType === 'phone') {
@@ -387,7 +387,7 @@ const CustomerSearchModal = ({ isOpen, onClose, onSelectCustomer }) => {
         url += `&phone=${encodeURIComponent(phoneDigits)}`;
       }
 
-      const response = await fetch(url);
+      const response = await apiCall(url);
       const data = await response.json();
 
       if (data.success) {
@@ -836,7 +836,7 @@ export default function QuoteBuilder() {
     const fetchEmployees = async () => {
       setEmployeesLoading(true);
       try {
-        const response = await fetch(`${API_BASE}/employee-list?store_id=${selectedStore}&key=${API_KEY}`);
+        const response = await apiCall(`${API_BASE}/employee-list?store_id=${selectedStore}`);
         const data = await response.json();
         if (data.success) {
           setEmployees(data.employees || []);
@@ -872,14 +872,9 @@ export default function QuoteBuilder() {
   useEffect(() => {
     const fetchRebateConfig = async () => {
       try {
-        const response = await fetch(`${API_BASE}/generate-quote`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: API_KEY, config_only: true })
-        });
-        // generate-quote doesn't support config_only — fetch quote_config directly via a
-        // lightweight approach: we read it from the active_promos endpoint pattern.
-        // Instead, use a direct Supabase REST call to read quote_config.
+        // Read quote_config directly via Supabase REST. (We don't have a
+        // dedicated config-fetch Edge Function and don't want to invent one
+        // just for this — the anon key is fine for read-only public config.)
         const configResponse = await fetch(
           `https://vzsitlasfekjkvsaukmh.supabase.co/rest/v1/quote_config?config_key=eq.nexen_rebate_2026&select=config_value`,
           {
@@ -1022,7 +1017,7 @@ export default function QuoteBuilder() {
     setCustomerLookupLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/customer-lookup?plate=${encodeURIComponent(licensePlate)}&state=${licenseState}&key=${API_KEY}`);
+      const response = await apiCall(`${API_BASE}/customer-lookup?plate=${encodeURIComponent(licensePlate)}&state=${licenseState}`);
       const data = await response.json();
       if (data.success && data.found) {
         setCustomerFound(true);
@@ -1117,10 +1112,10 @@ export default function QuoteBuilder() {
       return;
     }
     try {
-      const response = await fetch(`${API_BASE}/sms-quote`, {
+      const response = await apiCall(`${API_BASE}/sms-quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: API_KEY, check_only: true, phone: digits })
+        body: JSON.stringify({ check_only: true, phone: digits })
       });
       const data = await response.json();
       if (data.opted_out) {
@@ -1142,7 +1137,6 @@ export default function QuoteBuilder() {
     
     try {
       const requestBody = {
-        key: API_KEY,
         store_id: parseInt(selectedStore),
         employee: { user_id: selectedEmployee.user_id || selectedEmployee.employee_id, user_name: selectedEmployee.user_name || selectedEmployee.display_name },
         customer: {
@@ -1234,10 +1228,10 @@ export default function QuoteBuilder() {
         revised_from_quote_id: revisedFromQuoteId || null
       };
       
-      const response = await fetch(`${API_BASE}/generate-quote`, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(requestBody) 
+      const response = await apiCall(`${API_BASE}/generate-quote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
       });
       const data = await response.json();
       

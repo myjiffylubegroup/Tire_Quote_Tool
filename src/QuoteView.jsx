@@ -36,9 +36,9 @@
 // =============================================================================
 
 import React, { useState, useEffect } from 'react';
+import { apiCall } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
-const API_KEY = 'TIRES2026';
 const JL_LOGO = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/assets/JL_Multicare_Horz_1C.png';
 
 // Tread status thresholds: 0-4 red, 5-6 yellow, 7+ green
@@ -336,7 +336,7 @@ const QuoteView = () => {
       }
 
       try {
-        const response = await fetch(`${API_BASE}/get-quote?code=${code}&key=${API_KEY}`);
+        const response = await fetch(`${API_BASE}/get-quote?code=${code}`);
         const data = await response.json();
 
         if (!data.success) {
@@ -393,10 +393,10 @@ const QuoteView = () => {
     setSendingEmail(true);
     setActionMessage(null);
     try {
-      const response = await fetch(`${API_BASE}/email-quote`, {
+      const response = await apiCall(`${API_BASE}/email-quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: API_KEY, quote_id: quote.quote_id, email_override: email })
+        body: JSON.stringify({ quote_id: quote.quote_id, email_override: email })
       });
       const data = await response.json();
       if (data.success) {
@@ -430,11 +430,10 @@ const QuoteView = () => {
     setSendingSms(true);
     setActionMessage(null);
     try {
-      const response = await fetch(`${API_BASE}/sms-quote`, {
+      const response = await apiCall(`${API_BASE}/sms-quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key: API_KEY,
           quote_id: quote.quote_id,
           phone_override: phone !== quote?.customer?.phone?.replace(/\D/g, '') ? phone : null
         })
@@ -475,10 +474,10 @@ const QuoteView = () => {
     setActionMessage(null);
 
     try {
-      const response = await fetch(`${API_BASE}/create-paypal-invoice`, {
+      const response = await apiCall(`${API_BASE}/create-paypal-invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: API_KEY, quote_id: quote.quote_id })
+        body: JSON.stringify({ quote_id: quote.quote_id })
       });
 
       const data = await response.json();
@@ -549,11 +548,10 @@ const QuoteView = () => {
         rr: { inside: editTreadDepths.rr.inside ? parseInt(editTreadDepths.rr.inside) : null, middle: editTreadDepths.rr.middle ? parseInt(editTreadDepths.rr.middle) : null, outside: editTreadDepths.rr.outside ? parseInt(editTreadDepths.rr.outside) : null },
       } : undefined;
 
-      const response = await fetch(`${API_BASE}/update-quote`, {
+      const response = await apiCall(`${API_BASE}/update-quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key: API_KEY,
           quote_id: quote.quote_id,
           quantity: editQuantity,
           promo_id: editPromo || null,
@@ -586,7 +584,7 @@ const QuoteView = () => {
           : 'Quote updated successfully!';
         setActionMessage({ type: 'success', text: msg });
         setEditMode(false);
-        const refreshResp = await fetch(`${API_BASE}/get-quote?id=${quote.quote_id}&key=${API_KEY}`);
+        const refreshResp = await apiCall(`${API_BASE}/get-quote?id=${quote.quote_id}`);
         const refreshData = await refreshResp.json();
         if (refreshData.success) setQuote(refreshData.quote);
       } else {

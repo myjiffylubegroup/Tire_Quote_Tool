@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiCall, getStaffToken } from './apiClient';
 
 /**
  * CustomerVehicleLookup — shared customer/vehicle lookup card.
@@ -18,6 +19,10 @@ import React, { useState } from 'react';
  *     state (tire specs, inventory results, etc.).
  *   - The component reads localStorage.jl_staff_auth itself to gate PII display.
  *     Parents do not need to pass auth state.
+ *   - When the user is signed in as staff, lookups go to the JWT-protected
+ *     `customer-lookup` endpoint (returns full PII).
+ *     When the user is a public visitor, lookups go to the public
+ *     `vehicle-lookup` endpoint (returns vehicle YMM only — no PII).
  *
  * The `result` shape passed to onLookupSuccess matches what TireFinder previously
  * stored as `plateLookupResult`:
@@ -43,7 +48,6 @@ import React, { useState } from 'react';
  */
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
-const API_KEY = 'TIRES2026';
 const STORAGE_KEY = 'jl_staff_auth';
 
 const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
@@ -101,7 +105,7 @@ export default function CustomerVehicleLookup({
     }
     try {
       const tiresRes = await fetch(
-        `${API_BASE}/vehicle-tires?year=${year}&make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}&key=${API_KEY}`
+        `${API_BASE}/vehicle-tires?year=${year}&make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`
       );
       const tiresData = await tiresRes.json();
 
@@ -132,9 +136,16 @@ export default function CustomerVehicleLookup({
     setResult(null);
 
     try {
-      const lookupRes = await fetch(
-        `${API_BASE}/customer-lookup?plate=${encodeURIComponent(plate)}&state=${stateCode}&store_id=${encodeURIComponent(storeId)}&key=${API_KEY}`
-      );
+      // Staff users hit customer-lookup (returns full PII).
+      // Public visitors hit vehicle-lookup (returns vehicle YMM only — no PII).
+      const isStaff = !!getStaffToken();
+      const lookupRes = isStaff
+        ? await apiCall(
+            `${API_BASE}/customer-lookup?plate=${encodeURIComponent(plate)}&state=${stateCode}&store_id=${encodeURIComponent(storeId)}`
+          )
+        : await fetch(
+            `${API_BASE}/vehicle-lookup?plate=${encodeURIComponent(plate)}&state=${stateCode}&store_id=${encodeURIComponent(storeId)}`
+          );
       const lookupData = await lookupRes.json();
 
       if (!lookupData.success || !lookupData.found) {
@@ -143,41 +154,49 @@ export default function CustomerVehicleLookup({
         return;
       }
 
-      const customer = lookupData.customer;
-      const motorMake = customer.motor_make || null;
-      const motorModel = customer.motor_model || null;
+      // Normalize the response: customer-lookup returns vehicle data flattened
+      // into the customer object; vehicle-lookup returns it under a `vehicle` key.
+      // Build a uniform shape for downstream code.
+      const respVehicle = lookupData.vehicle || lookupData.customer;
+      const respCustomer = lookupData.customer || {};
+      const motorMake = respVehicle?.motor_make || null;
+      const motorModel = respVehicle?.motor_model || null;
+      const vYear  = respVehicle?.year   || respVehicle?.vehicle_year;
+      const vMake  = respVehicle?.make   || respVehicle?.vehicle_make;
+      const vModel = respVehicle?.model  || respVehicle?.vehicle_model;
+      const vYmm   = respVehicle?.ymm    || respVehicle?.vehicle_ymm;
 
       const newResult = {
         vehicle: {
-          year: customer.vehicle_year,
-          make: customer.vehicle_make,
-          model: customer.vehicle_model,
-          display: customer.vehicle_ymm || `${customer.vehicle_year} ${customer.vehicle_make} ${customer.vehicle_model}`,
+          year: vYear,
+          make: vMake,
+          model: vModel,
+          display: vYmm || `${vYear} ${vMake} ${vModel}`,
           motor_make: motorMake,
           motor_model: motorModel,
         },
         customer: {
-          first_name: customer.first_name,
-          last_name: customer.last_name,
-          full_name: customer.full_name,
-          phone: customer.phone,
-          phone_raw: customer.phone_raw,
-          email: customer.email,
-          license_plate: customer.license_plate,
-          license_state: customer.license_state,
+          first_name:    respCustomer.first_name    || '',
+          last_name:     respCustomer.last_name     || '',
+          full_name:     respCustomer.full_name     || '',
+          phone:         respCustomer.phone         || '',
+          phone_raw:     respCustomer.phone_raw     || '',
+          email:         respCustomer.email         || '',
+          license_plate: respCustomer.license_plate || plate.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+          license_state: respCustomer.license_state || stateCode,
         },
       };
       setResult(newResult);
 
       // Fetch tire specs and surface to parent
-      const lookupMake = motorMake || customer.vehicle_make;
-      const lookupModel = motorModel || customer.vehicle_model;
+      const lookupMake = motorMake || vMake;
+      const lookupModel = motorModel || vModel;
       const { specs, errorMessage } = await fetchTireSpecsForVehicle(
-        customer.vehicle_year, lookupMake, lookupModel
+        vYear, lookupMake, lookupModel
       );
 
       if (errorMessage === 'no-specs') {
-        setPlateError(`Found ${customer.vehicle_ymm || 'vehicle'} but no tire specs in our database. Select a tire size below.`);
+        setPlateError(`Found ${vYmm || 'vehicle'} but no tire specs in our database. Select a tire size below.`);
       }
 
       if (typeof onLookupSuccess === 'function') {
@@ -213,9 +232,15 @@ export default function CustomerVehicleLookup({
     setResult(null);
 
     try {
-      const lookupRes = await fetch(
-        `${API_BASE}/customer-lookup?search_type=vin&vin=${encodeURIComponent(vin)}&key=${API_KEY}`
-      );
+      // Staff: customer-lookup (full PII). Public: vehicle-lookup (vehicle only).
+      const isStaff = !!getStaffToken();
+      const lookupRes = isStaff
+        ? await apiCall(
+            `${API_BASE}/customer-lookup?search_type=vin&vin=${encodeURIComponent(vin)}`
+          )
+        : await fetch(
+            `${API_BASE}/vehicle-lookup?search_type=vin&vin=${encodeURIComponent(vin)}`
+          );
       const lookupData = await lookupRes.json();
 
       if (!lookupData.success || !lookupData.found) {
@@ -224,43 +249,49 @@ export default function CustomerVehicleLookup({
         return;
       }
 
-      const customer = lookupData.customer;
+      // Normalize the response (same pattern as plate handler).
+      const respVehicle = lookupData.vehicle || lookupData.customer;
+      const respCustomer = lookupData.customer || {};
       const isCustomerMatch = lookupData.source === 'turbo';
-      const motorMake = customer.motor_make || null;
-      const motorModel = customer.motor_model || null;
+      const motorMake = respVehicle?.motor_make || null;
+      const motorModel = respVehicle?.motor_model || null;
+      const vYear  = respVehicle?.year   || respVehicle?.vehicle_year;
+      const vMake  = respVehicle?.make   || respVehicle?.vehicle_make;
+      const vModel = respVehicle?.model  || respVehicle?.vehicle_model;
+      const vYmm   = respVehicle?.ymm    || respVehicle?.vehicle_ymm;
 
       const newResult = {
         source: isCustomerMatch ? 'vin-turbo' : 'vin-nhtsa',
         vehicle: {
-          year: customer.vehicle_year,
-          make: customer.vehicle_make,
-          model: customer.vehicle_model,
-          display: customer.vehicle_ymm || `${customer.vehicle_year} ${customer.vehicle_make} ${customer.vehicle_model}`,
+          year: vYear,
+          make: vMake,
+          model: vModel,
+          display: vYmm || `${vYear} ${vMake} ${vModel}`,
           motor_make: motorMake,
           motor_model: motorModel,
         },
         customer: {
-          first_name:    customer.first_name    || '',
-          last_name:     customer.last_name     || '',
-          full_name:     customer.full_name     || '',
-          phone:         customer.phone         || '',
-          phone_raw:     customer.phone_raw     || '',
-          email:         customer.email         || '',
-          license_plate: customer.license_plate || '',
-          license_state: customer.license_state || '',
-          vin:           customer.vin || vin,
+          first_name:    respCustomer.first_name    || '',
+          last_name:     respCustomer.last_name     || '',
+          full_name:     respCustomer.full_name     || '',
+          phone:         respCustomer.phone         || '',
+          phone_raw:     respCustomer.phone_raw     || '',
+          email:         respCustomer.email         || '',
+          license_plate: respCustomer.license_plate || '',
+          license_state: respCustomer.license_state || '',
+          vin:           respCustomer.vin || respVehicle?.vin || vin,
         },
       };
       setResult(newResult);
 
-      const lookupMake = motorMake || customer.vehicle_make;
-      const lookupModel = motorModel || customer.vehicle_model;
+      const lookupMake = motorMake || vMake;
+      const lookupModel = motorModel || vModel;
       const { specs, errorMessage } = await fetchTireSpecsForVehicle(
-        customer.vehicle_year, lookupMake, lookupModel
+        vYear, lookupMake, lookupModel
       );
 
       if (errorMessage === 'no-specs') {
-        setVinError(`Found ${customer.vehicle_ymm || 'vehicle'} but no tire specs in our database. Select a tire size below.`);
+        setVinError(`Found ${vYmm || 'vehicle'} but no tire specs in our database. Select a tire size below.`);
       }
 
       if (typeof onLookupSuccess === 'function') {

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Navbar from './Navbar';
+import { apiCall } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
-const API_KEY = 'TIRES2026';
 
 const STORES = [
   { id: 609,  name: 'Santa Maria' },
@@ -149,13 +149,13 @@ const AdvancedSearchModal = ({ onSelect, onClose }) => {
     if (!searchValue.trim()) return;
     setLoading(true); setError(''); setResults([]);
     try {
-      let url = `${API_BASE}/customer-lookup?key=${API_KEY}`;
+      let url = `${API_BASE}/customer-lookup`;
       if (searchType === 'name') {
-        url += `&search_type=name&last_name=${encodeURIComponent(searchValue.trim())}`;
+        url += `?search_type=name&last_name=${encodeURIComponent(searchValue.trim())}`;
       } else {
-        url += `&search_type=phone&phone=${searchValue.replace(/\D/g,'').trim()}`;
+        url += `?search_type=phone&phone=${searchValue.replace(/\D/g,'').trim()}`;
       }
-      const res = await fetch(url);
+      const res = await apiCall(url);
       const data = await res.json();
       if (data.success && data.customers) setResults(data.customers);
       else if (data.success && data.customer) setResults([data.customer]);
@@ -359,7 +359,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           });
 
           if (parsed.base_vehicle_id) {
-            const params = new URLSearchParams({ key: API_KEY, base_vehicle_id: parsed.base_vehicle_id, mode: 'tree' });
+            const params = new URLSearchParams({ base_vehicle_id: parsed.base_vehicle_id, mode: 'tree' });
             if (parsed.engine_config_id) params.set('engine_config_id', String(parsed.engine_config_id));
             if (parsed.vehicle_id)       params.set('vehicle_id',       String(parsed.vehicle_id));
             fetch(`${API_BASE}/ewt-labor-search?${params.toString()}`)
@@ -376,14 +376,14 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   // Fetch years + employees
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch(`${API_BASE}/vcdb-vehicle-years?key=${API_KEY}`)
+    fetch(`${API_BASE}/vcdb-vehicle-years`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setYears(d.data); })
       .catch(() => setError('Failed to load years'));
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE}/employee-list?store_id=${selectedStore}&key=${API_KEY}`)
+    apiCall(`${API_BASE}/employee-list?store_id=${selectedStore}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -419,7 +419,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       setSelConfig(null); setConfigs([]);
     }
     if (!selYear) { setMakes([]); setSelMake(''); return; }
-    fetch(`${API_BASE}/vcdb-vehicle-makes?year=${selYear}&key=${API_KEY}`)
+    fetch(`${API_BASE}/vcdb-vehicle-makes?year=${selYear}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setMakes(d.data); });
   }, [selYear]);
@@ -431,7 +431,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       setSelConfig(null); setConfigs([]);
     }
     if (!selYear || !selMake) { setModels([]); return; }
-    fetch(`${API_BASE}/vcdb-vehicle-models?year=${selYear}&make=${encodeURIComponent(selMake)}&key=${API_KEY}`)
+    fetch(`${API_BASE}/vcdb-vehicle-models?year=${selYear}&make=${encodeURIComponent(selMake)}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setModels(d.data); });
   }, [selMake, pendingModel]);
@@ -442,7 +442,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setSelConfig(null); setConfigs([]);
     if (!selYear || !selMake || !selModel) return;
     setLoading(true);
-    fetch(`${API_BASE}/vcdb-vehicle-submodels?year=${selYear}&make=${encodeURIComponent(selMake)}&model=${encodeURIComponent(selModel)}&key=${API_KEY}`)
+    fetch(`${API_BASE}/vcdb-vehicle-submodels?year=${selYear}&make=${encodeURIComponent(selMake)}&model=${encodeURIComponent(selModel)}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) { setSubmodels(d.data); setStep('submodel'); }
@@ -455,7 +455,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setSelConfig(null); setConfigs([]);
     if (!selYear || !selMake || !selModel || !selSubmodel) return;
     setLoading(true);
-    fetch(`${API_BASE}/vcdb-vehicle-configs?year=${selYear}&make=${encodeURIComponent(selMake)}&model=${encodeURIComponent(selModel)}&submodel=${encodeURIComponent(selSubmodel)}&key=${API_KEY}`)
+    fetch(`${API_BASE}/vcdb-vehicle-configs?year=${selYear}&make=${encodeURIComponent(selMake)}&model=${encodeURIComponent(selModel)}&submodel=${encodeURIComponent(selSubmodel)}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) { setConfigs(d.data); setStep('submodel'); }
@@ -474,7 +474,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   // Load operation tree when config selected
   // ─────────────────────────────────────────────────────────────────────────
   const loadTree = useCallback((baseVehicleId, engineConfigId, vehicleId) => {
-    const treeParams = new URLSearchParams({ key: API_KEY, base_vehicle_id: baseVehicleId, mode: 'tree' });
+    const treeParams = new URLSearchParams({ base_vehicle_id: baseVehicleId, mode: 'tree' });
     if (engineConfigId) treeParams.set('engine_config_id', engineConfigId);
     if (vehicleId)      treeParams.set('vehicle_id',       vehicleId);
     fetch(`${API_BASE}/ewt-labor-search?${treeParams.toString()}`)
@@ -490,7 +490,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     if (!selSubgroup && !searchTerm) { setOperations([]); return; }
     if (searchTerm && searchTerm.trim().length < 3) return;
     setOpsLoading(true);
-    const params = new URLSearchParams({ key: API_KEY, base_vehicle_id: selConfig.base_vehicle_id });
+    const params = new URLSearchParams({ base_vehicle_id: selConfig.base_vehicle_id });
     if (selConfig.engine_config_id) params.set('engine_config_id', selConfig.engine_config_id);
     if (selConfig.vehicle_id)       params.set('vehicle_id',       selConfig.vehicle_id);
     if (searchTerm && searchTerm.trim().length >= 3) {
@@ -575,7 +575,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     if (!vehicleYear || !candidateMake) return;
 
     try {
-      const makesRes  = await fetch(`${API_BASE}/vcdb-vehicle-makes?year=${vehicleYear}&key=${API_KEY}`);
+      const makesRes  = await fetch(`${API_BASE}/vcdb-vehicle-makes?year=${vehicleYear}`);
       const makesData = await makesRes.json();
       if (!makesData.success || !makesData.data) return;
 
@@ -586,7 +586,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       );
       if (!makeMatch) return;
 
-      const modelsRes  = await fetch(`${API_BASE}/vcdb-vehicle-models?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&key=${API_KEY}`);
+      const modelsRes  = await fetch(`${API_BASE}/vcdb-vehicle-models?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}`);
       const modelsData = await modelsRes.json();
       if (!modelsData.success || !modelsData.data) return;
 
@@ -604,7 +604,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
         return;
       }
 
-      const subRes  = await fetch(`${API_BASE}/vcdb-vehicle-submodels?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&model=${encodeURIComponent(modelMatch)}&key=${API_KEY}`);
+      const subRes  = await fetch(`${API_BASE}/vcdb-vehicle-submodels?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&model=${encodeURIComponent(modelMatch)}`);
       const subData = await subRes.json();
 
       setMakes(makesData.data);
@@ -635,7 +635,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
 
     setLookupLoading(true); setLookupResult(null);
     try {
-      const res  = await fetch(`${API_BASE}/customer-lookup?plate=${encodeURIComponent(plateInput.trim())}&state=${plateState}&store_id=${encodeURIComponent(selectedStore)}&key=${API_KEY}`);
+      const res  = await apiCall(`${API_BASE}/customer-lookup?plate=${encodeURIComponent(plateInput.trim())}&state=${plateState}&store_id=${encodeURIComponent(selectedStore)}`);
       const data = await res.json();
       if (data.success && data.found && data.customer) {
         // source='turbo' = customer record in our DB; source='partstech' = vehicle only via external decode
@@ -660,7 +660,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     if (vin.length !== 17) return;
     setLookupLoading(true); setLookupResult(null);
     try {
-      const res  = await fetch(`${API_BASE}/customer-lookup?search_type=vin&vin=${encodeURIComponent(vin)}&key=${API_KEY}`);
+      const res  = await apiCall(`${API_BASE}/customer-lookup?search_type=vin&vin=${encodeURIComponent(vin)}`);
       const data = await res.json();
       if (data.success && data.found && data.customer) {
         // source='turbo' means we have a customer record; source='nhtsa' means vehicle only
@@ -724,8 +724,8 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
 
     pollIntervalRef.current = setInterval(async () => {
       try {
-        const res = await fetch(
-          `${API_BASE}/partstech-poll-session?session_id=${sessionId}&key=${API_KEY}`
+        const res = await apiCall(
+          `${API_BASE}/partstech-poll-session?session_id=${sessionId}`
         );
         const data = await res.json();
 
@@ -773,11 +773,10 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
         plateState: custPlate   ? custPlateState : undefined,
       };
 
-      const res = await fetch(`${API_BASE}/partstech-punchout-session`, {
+      const res = await apiCall(`${API_BASE}/partstech-punchout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key:       API_KEY,
           store_id:  Number(selectedStore),
           vehicle:   vehiclePayload,
           // PO number: VIN preferred, plate fallback — helps CSA match delivered parts
@@ -847,11 +846,10 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     if (!revisionContext?.quote_id) { setRevisionError('Revision context lost — please go back to the quote'); return; }
     setLoading(true); setRevisionError('');
     try {
-      const res = await fetch(`${API_BASE}/add-mechanical-revision`, {
+      const res = await apiCall(`${API_BASE}/add-mechanical-revision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key:           API_KEY,
           quote_id:      revisionContext.quote_id,
           revision_auth: revisionAuth.trim(),
           items: cart.map((op) => ({
@@ -898,7 +896,6 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setError('');
     try {
       const body = {
-        key: API_KEY,
         store_id: Number(selectedStore),
         employee: {
           user_id:   selectedEmployee?.user_id || selectedEmployee?.employee_id || null,
@@ -953,7 +950,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
         notes: quoteNotes || undefined,
       };
 
-      const res  = await fetch(`${API_BASE}/generate-mechanical-quote`, {
+      const res  = await apiCall(`${API_BASE}/generate-mechanical-quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

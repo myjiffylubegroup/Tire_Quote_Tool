@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import StaffLoginForm from './StaffLoginForm';
+import { setStaffToken, clearStaffToken, getStaffToken } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const STORAGE_KEY = 'jl_staff_auth';
@@ -41,9 +42,19 @@ export default function StaffPinGate({ children }) {
 
           if (hoursSince >= SESSION_HOURS) {
             localStorage.removeItem(STORAGE_KEY);
+            clearStaffToken();
             setIsChecking(false);
             return;
           }
+        }
+
+        // If we have legacy auth but no JWT (e.g., right after the JWT
+        // migration deploy), force re-PIN. This is the expected one-time
+        // path for every CSA when the migration first lands.
+        if (!getStaffToken()) {
+          localStorage.removeItem(STORAGE_KEY);
+          setIsChecking(false);
+          return;
         }
 
         // Re-verify the employee is still active
@@ -52,13 +63,17 @@ export default function StaffPinGate({ children }) {
         } else {
           // Old format auth data (from v1 store PINs) — force re-login
           localStorage.removeItem(STORAGE_KEY);
+          clearStaffToken();
           setIsChecking(false);
         }
       } catch {
         localStorage.removeItem(STORAGE_KEY);
+        clearStaffToken();
         setIsChecking(false);
       }
     } else {
+      // No stored auth — make sure no orphan token lingers either
+      clearStaffToken();
       setIsChecking(false);
     }
   }, []);
@@ -96,18 +111,31 @@ export default function StaffPinGate({ children }) {
           user_id:      data.employee.user_id,
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
+        // Refresh the JWT — the server mints a new one on every successful
+        // verify, including re-verify, so we always have a fresh token.
+        if (data.token) {
+          setStaffToken(data.token, data.expires_at);
+        }
         setAuthData(auth);
+        setIsAuthenticated(true);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+        clearStaffToken();
+        setIsAuthenticated(false);
+        setAuthData(null);
+      }
+    } catch {
+      // Network error on re-verify — allow through with stored data ONLY if
+      // we have a JWT. Without a JWT every protected request will 401, so
+      // silently letting through is worse than forcing re-PIN.
+      if (getStaffToken()) {
+        setAuthData(storedAuth);
         setIsAuthenticated(true);
       } else {
         localStorage.removeItem(STORAGE_KEY);
         setIsAuthenticated(false);
         setAuthData(null);
       }
-    } catch {
-      // Network error on re-verify — allow through with stored data
-      // (don't lock people out if the API is briefly unreachable)
-      setAuthData(storedAuth);
-      setIsAuthenticated(true);
     }
 
     setIsChecking(false);
@@ -121,6 +149,7 @@ export default function StaffPinGate({ children }) {
 
   const handleLogout = () => {
     localStorage.removeItem(STORAGE_KEY);
+    clearStaffToken();
     setIsAuthenticated(false);
     setAuthData(null);
   };
@@ -224,6 +253,8 @@ export const getStaffStoreId = () => {
 
 export const staffLogout = () => {
   localStorage.removeItem('jl_staff_auth');
+  localStorage.removeItem('jl_staff_token');
+  localStorage.removeItem('jl_staff_token_expires');
   window.location.hash = '#/';
   window.location.reload();
 };

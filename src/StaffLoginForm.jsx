@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { setStaffToken } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const STORAGE_KEY = 'jl_staff_auth';
@@ -57,6 +58,8 @@ export default function StaffLoginForm({ onSuccess, compact = false }) {
         if (auth.store_id) {
           localStorage.setItem('jl_tire_store', String(auth.store_id));
         }
+        // Store the staff JWT for protected Edge Function calls
+        setStaffToken(data.token, data.expires_at);
         if (typeof onSuccess === 'function') {
           onSuccess(auth);
         }

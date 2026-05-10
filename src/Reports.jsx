@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
+import { apiCall } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
-const API_KEY = 'TIRES2026';
 
 const STORES = [
   { id: 609,  name: 'Santa Maria',               number: 609  },
@@ -190,11 +190,10 @@ export default function Reports() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/get-quote-report`, {
+      const res = await apiCall(`${API_BASE}/get-quote-report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          key: API_KEY,
           date_from: from,
           date_to: to,
           store_id: authStoreId,
