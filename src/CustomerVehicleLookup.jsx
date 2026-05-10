@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { apiCall, getStaffToken } from './apiClient';
+import { apiCall, apiCallPublic, getStaffToken } from './apiClient';
 
 /**
  * CustomerVehicleLookup — shared customer/vehicle lookup card.
@@ -104,7 +104,7 @@ export default function CustomerVehicleLookup({
       return { specs: null, errorMessage: null };
     }
     try {
-      const tiresRes = await fetch(
+      const tiresRes = await apiCallPublic(
         `${API_BASE}/vehicle-tires?year=${year}&make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`
       );
       const tiresData = await tiresRes.json();
@@ -143,7 +143,7 @@ export default function CustomerVehicleLookup({
         ? await apiCall(
             `${API_BASE}/customer-lookup?plate=${encodeURIComponent(plate)}&state=${stateCode}&store_id=${encodeURIComponent(storeId)}`
           )
-        : await fetch(
+        : await apiCallPublic(
             `${API_BASE}/vehicle-lookup?plate=${encodeURIComponent(plate)}&state=${stateCode}&store_id=${encodeURIComponent(storeId)}`
           );
       const lookupData = await lookupRes.json();
@@ -238,7 +238,7 @@ export default function CustomerVehicleLookup({
         ? await apiCall(
             `${API_BASE}/customer-lookup?search_type=vin&vin=${encodeURIComponent(vin)}`
           )
-        : await fetch(
+        : await apiCallPublic(
             `${API_BASE}/vehicle-lookup?search_type=vin&vin=${encodeURIComponent(vin)}`
           );
       const lookupData = await lookupRes.json();

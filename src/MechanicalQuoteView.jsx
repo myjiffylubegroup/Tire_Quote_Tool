@@ -7,7 +7,7 @@
 // =============================================================================
 
 import React, { useState, useEffect, useRef } from 'react';
-import { apiCall } from './apiClient';
+import { apiCall, apiCallPublic } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const JL_LOGO  = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/assets/JL_Multicare_Horz_1C.png';
@@ -111,7 +111,7 @@ export default function MechanicalQuoteView({ code }) {
   // ── Load quote ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!code) { setError('No quote code provided'); setLoading(false); return; }
-    fetch(`${API_BASE}/get-mechanical-quote?short_code=${code}`)
+    apiCallPublic(`${API_BASE}/get-mechanical-quote?short_code=${code}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -337,7 +337,7 @@ export default function MechanicalQuoteView({ code }) {
       });
       const data = await res.json();
       if (data.success) {
-        const refreshRes = await fetch(`${API_BASE}/get-mechanical-quote?short_code=${quote.short_code}`);
+        const refreshRes = await apiCallPublic(`${API_BASE}/get-mechanical-quote?short_code=${quote.short_code}`);
         const refreshData = await refreshRes.json();
         if (refreshData.success) setQuote(refreshData.quote);
         setRevMode(false);

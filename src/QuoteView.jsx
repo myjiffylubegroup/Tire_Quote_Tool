@@ -36,7 +36,7 @@
 // =============================================================================
 
 import React, { useState, useEffect } from 'react';
-import { apiCall } from './apiClient';
+import { apiCall, apiCallPublic } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const JL_LOGO = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/assets/JL_Multicare_Horz_1C.png';
@@ -336,7 +336,7 @@ const QuoteView = () => {
       }
 
       try {
-        const response = await fetch(`${API_BASE}/get-quote?code=${code}`);
+        const response = await apiCallPublic(`${API_BASE}/get-quote?code=${code}`);
         const data = await response.json();
 
         if (!data.success) {

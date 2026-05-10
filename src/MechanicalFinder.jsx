@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Navbar from './Navbar';
-import { apiCall } from './apiClient';
+import { apiCall, apiCallPublic } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 
@@ -362,7 +362,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
             const params = new URLSearchParams({ base_vehicle_id: parsed.base_vehicle_id, mode: 'tree' });
             if (parsed.engine_config_id) params.set('engine_config_id', String(parsed.engine_config_id));
             if (parsed.vehicle_id)       params.set('vehicle_id',       String(parsed.vehicle_id));
-            fetch(`${API_BASE}/ewt-labor-search?${params.toString()}`)
+            apiCallPublic(`${API_BASE}/ewt-labor-search?${params.toString()}`)
               .then((r) => r.json())
               .then((d) => { if (d.success) setTree(d.data); });
           }
@@ -376,7 +376,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   // Fetch years + employees
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch(`${API_BASE}/vcdb-vehicle-years`)
+    apiCallPublic(`${API_BASE}/vcdb-vehicle-years`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setYears(d.data); })
       .catch(() => setError('Failed to load years'));
@@ -419,7 +419,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       setSelConfig(null); setConfigs([]);
     }
     if (!selYear) { setMakes([]); setSelMake(''); return; }
-    fetch(`${API_BASE}/vcdb-vehicle-makes?year=${selYear}`)
+    apiCallPublic(`${API_BASE}/vcdb-vehicle-makes?year=${selYear}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setMakes(d.data); });
   }, [selYear]);
@@ -431,7 +431,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       setSelConfig(null); setConfigs([]);
     }
     if (!selYear || !selMake) { setModels([]); return; }
-    fetch(`${API_BASE}/vcdb-vehicle-models?year=${selYear}&make=${encodeURIComponent(selMake)}`)
+    apiCallPublic(`${API_BASE}/vcdb-vehicle-models?year=${selYear}&make=${encodeURIComponent(selMake)}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setModels(d.data); });
   }, [selMake, pendingModel]);
@@ -442,7 +442,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setSelConfig(null); setConfigs([]);
     if (!selYear || !selMake || !selModel) return;
     setLoading(true);
-    fetch(`${API_BASE}/vcdb-vehicle-submodels?year=${selYear}&make=${encodeURIComponent(selMake)}&model=${encodeURIComponent(selModel)}`)
+    apiCallPublic(`${API_BASE}/vcdb-vehicle-submodels?year=${selYear}&make=${encodeURIComponent(selMake)}&model=${encodeURIComponent(selModel)}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) { setSubmodels(d.data); setStep('submodel'); }
@@ -455,7 +455,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setSelConfig(null); setConfigs([]);
     if (!selYear || !selMake || !selModel || !selSubmodel) return;
     setLoading(true);
-    fetch(`${API_BASE}/vcdb-vehicle-configs?year=${selYear}&make=${encodeURIComponent(selMake)}&model=${encodeURIComponent(selModel)}&submodel=${encodeURIComponent(selSubmodel)}`)
+    apiCallPublic(`${API_BASE}/vcdb-vehicle-configs?year=${selYear}&make=${encodeURIComponent(selMake)}&model=${encodeURIComponent(selModel)}&submodel=${encodeURIComponent(selSubmodel)}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) { setConfigs(d.data); setStep('submodel'); }
@@ -477,7 +477,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     const treeParams = new URLSearchParams({ base_vehicle_id: baseVehicleId, mode: 'tree' });
     if (engineConfigId) treeParams.set('engine_config_id', engineConfigId);
     if (vehicleId)      treeParams.set('vehicle_id',       vehicleId);
-    fetch(`${API_BASE}/ewt-labor-search?${treeParams.toString()}`)
+    apiCallPublic(`${API_BASE}/ewt-labor-search?${treeParams.toString()}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setTree(d.data); });
   }, []);
@@ -500,7 +500,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       if (selGroup)    params.set('group',     selGroup);
       if (selSubgroup) params.set('subgroup',  selSubgroup);
     }
-    fetch(`${API_BASE}/ewt-labor-search?${params.toString()}`)
+    apiCallPublic(`${API_BASE}/ewt-labor-search?${params.toString()}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setOperations(d.data); setOpsLoading(false); })
       .catch(() => setOpsLoading(false));
@@ -575,7 +575,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     if (!vehicleYear || !candidateMake) return;
 
     try {
-      const makesRes  = await fetch(`${API_BASE}/vcdb-vehicle-makes?year=${vehicleYear}`);
+      const makesRes  = await apiCallPublic(`${API_BASE}/vcdb-vehicle-makes?year=${vehicleYear}`);
       const makesData = await makesRes.json();
       if (!makesData.success || !makesData.data) return;
 
@@ -586,7 +586,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       );
       if (!makeMatch) return;
 
-      const modelsRes  = await fetch(`${API_BASE}/vcdb-vehicle-models?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}`);
+      const modelsRes  = await apiCallPublic(`${API_BASE}/vcdb-vehicle-models?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}`);
       const modelsData = await modelsRes.json();
       if (!modelsData.success || !modelsData.data) return;
 
@@ -604,7 +604,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
         return;
       }
 
-      const subRes  = await fetch(`${API_BASE}/vcdb-vehicle-submodels?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&model=${encodeURIComponent(modelMatch)}`);
+      const subRes  = await apiCallPublic(`${API_BASE}/vcdb-vehicle-submodels?year=${vehicleYear}&make=${encodeURIComponent(makeMatch)}&model=${encodeURIComponent(modelMatch)}`);
       const subData = await subRes.json();
 
       setMakes(makesData.data);

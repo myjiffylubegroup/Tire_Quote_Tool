@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { setStaffToken } from './apiClient';
+import { setStaffToken, apiCallPublic } from './apiClient';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 const STORAGE_KEY = 'jl_staff_auth';
@@ -31,7 +31,7 @@ export default function StaffLoginForm({ onSuccess, compact = false }) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/verify-staff-pin`, {
+      const response = await apiCallPublic(`${API_BASE}/verify-staff-pin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

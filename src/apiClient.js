@@ -36,6 +36,11 @@
 const TOKEN_KEY   = 'jl_staff_token'
 const EXPIRES_KEY = 'jl_staff_token_expires'
 
+// Supabase project anon key — public, safe to expose. Required by the Supabase
+// gateway on every request before our function code runs. Pair this with the
+// staff JWT (Authorization: Bearer ...) so both gateway and function pass.
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6c2l0bGFzZmVramt2c2F1a21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc3NjI4MDgsImV4cCI6MjA1MzMzODgwOH0.iSHfBZfGDHKzpgGgFpHcs5C3Gx3YfqkMZFSBHuCFpBw'
+
 /**
  * Read the current staff JWT, or null if missing/expired.
  * Performs a client-side expiry pre-check to avoid sending a doomed request.
@@ -92,7 +97,9 @@ function forceReAuth() {
 }
 
 /**
- * Authenticated fetch — adds Authorization: Bearer <token> from localStorage.
+ * Authenticated fetch — sends BOTH the Supabase anon key (gateway) AND
+ * the staff JWT (function). Both are required for protected endpoints.
+ *
  * On 401 with a structured auth_error, forces re-PIN.
  *
  * Returns the Response object (not the parsed body) — same contract as fetch().
@@ -107,6 +114,7 @@ export async function apiCall(url, options = {}) {
 
   const headers = {
     ...(options.headers || {}),
+    'apikey': SUPABASE_ANON_KEY,
     'Authorization': `Bearer ${token}`,
   }
 
@@ -135,16 +143,19 @@ export async function apiCall(url, options = {}) {
 }
 
 /**
- * Unauthenticated fetch — for public endpoints.
+ * Unauthenticated fetch — for public endpoints. Sends the Supabase anon key
+ * (required by the gateway) but NOT the staff JWT.
+ *
  * Use for: get-quote?code=..., get-mechanical-quote?short_code=...,
  *   vehicle-*, vcdb-vehicle-*, tire-inventory-*, store-inventory,
- *   ewt-labor-search, verify-staff-pin.
- *
- * Effectively just a passthrough to fetch(), but the named export makes it
- * explicit at the call site that the public path is intentional.
+ *   ewt-labor-search, vehicle-lookup, verify-staff-pin.
  */
 export async function apiCallPublic(url, options = {}) {
-  return fetch(url, options)
+  const headers = {
+    ...(options.headers || {}),
+    'apikey': SUPABASE_ANON_KEY,
+  }
+  return fetch(url, { ...options, headers })
 }
 
 /**
