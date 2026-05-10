@@ -104,8 +104,8 @@ export default function CustomerVehicleLookup({
       return { specs: null, errorMessage: null };
     }
     try {
-      const tiresRes = await apiCallPublic(
-        `${API_BASE}/vehicle-tires?year=${year}&make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`
+      const tiresRes = await fetch(
+        `${API_BASE}/vehicle-tires?year=${year}&make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}&key=TIRES2026`
       );
       const tiresData = await tiresRes.json();
 
