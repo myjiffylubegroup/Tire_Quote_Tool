@@ -81,7 +81,7 @@ const StyledInput = ({ value, onChange, placeholder, type = 'text', style, ...pr
   />
 );
 
-// Compact date input — tighter padding, no rounded pill (so the two read as a pair)
+// Date input — slightly squared corners so the two visually read as a pair
 const DateInput = ({ value, onChange, style }) => (
   <input
     type="date"
@@ -89,12 +89,12 @@ const DateInput = ({ value, onChange, style }) => (
     onChange={(e) => onChange(e.target.value)}
     style={{
       width: '100%',
-      padding: '8px 10px',
+      padding: '10px 12px',
       border: '2px solid #9b59b6',
-      borderRadius: '8px',
+      borderRadius: '10px',
       backgroundColor: 'white',
       color: '#333',
-      fontSize: '12px',
+      fontSize: '13px',
       fontWeight: '500',
       outline: 'none',
       boxSizing: 'border-box',
@@ -375,11 +375,11 @@ export default function QuoteLookup() {
             </button>
           </div>
 
-          {/* Search Form */}
-          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          {/* Search Form — Row 1: What to search for */}
+          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '15px' }}>
             
             {/* Search Type */}
-            <div style={{ width: '150px' }}>
+            <div style={{ width: '170px' }}>
               <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
                 SEARCH BY
               </label>
@@ -397,7 +397,7 @@ export default function QuoteLookup() {
             </div>
 
             {/* Search Value */}
-            <div style={{ flex: 1, minWidth: '200px' }}>
+            <div style={{ flex: 1, minWidth: '220px' }}>
               <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
                 {searchType === 'name' ? 'CUSTOMER NAME' : 
                  searchType === 'plate' ? 'LICENSE PLATE' :
@@ -418,7 +418,7 @@ export default function QuoteLookup() {
 
             {/* License State (only for plate search) */}
             {searchType === 'plate' && (
-              <div style={{ width: '100px' }}>
+              <div style={{ width: '110px' }}>
                 <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
                   STATE
                 </label>
@@ -433,26 +433,34 @@ export default function QuoteLookup() {
 
             {/* Date Range — tires only */}
             {quoteMode === 'tires' && (
-              <div style={{ width: '230px' }}>
+              <div style={{ width: '320px' }}>
                 <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
                   DATE RANGE
                 </label>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <DateInput
-                    value={dateFrom}
-                    onChange={setDateFrom}
-                  />
-                  <span style={{ color: '#9b59b6', fontSize: '12px', fontWeight: '700' }}>→</span>
-                  <DateInput
-                    value={dateTo}
-                    onChange={setDateTo}
-                  />
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <DateInput
+                      value={dateFrom}
+                      onChange={setDateFrom}
+                    />
+                  </div>
+                  <span style={{ color: '#9b59b6', fontSize: '14px', fontWeight: '700', flexShrink: 0 }}>→</span>
+                  <div style={{ flex: 1 }}>
+                    <DateInput
+                      value={dateTo}
+                      onChange={setDateTo}
+                    />
+                  </div>
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Search Form — Row 2: How to display + actions */}
+          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
 
             {/* Sort By */}
-            <div style={{ width: '120px' }}>
+            <div style={{ width: '140px' }}>
               <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
                 SORT BY
               </label>
@@ -468,7 +476,7 @@ export default function QuoteLookup() {
             </div>
 
             {/* Sort Order */}
-            <div style={{ width: '120px' }}>
+            <div style={{ width: '150px' }}>
               <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
                 ORDER
               </label>
@@ -485,7 +493,7 @@ export default function QuoteLookup() {
 
             {/* Conversion Filter — tires only */}
             {quoteMode === 'tires' && (
-            <div style={{ width: '150px' }}>
+            <div style={{ width: '180px' }}>
               <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
                 FILTER
               </label>
@@ -503,6 +511,9 @@ export default function QuoteLookup() {
               />
             </div>
             )}
+
+            {/* Spacer to push buttons right */}
+            <div style={{ flex: 1, minWidth: '0' }} />
 
             {/* Search Button */}
             <button
