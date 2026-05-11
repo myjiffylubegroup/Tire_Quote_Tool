@@ -81,6 +81,29 @@ const StyledInput = ({ value, onChange, placeholder, type = 'text', style, ...pr
   />
 );
 
+// Compact date input — tighter padding, no rounded pill (so the two read as a pair)
+const DateInput = ({ value, onChange, style }) => (
+  <input
+    type="date"
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    style={{
+      width: '100%',
+      padding: '8px 10px',
+      border: '2px solid #9b59b6',
+      borderRadius: '8px',
+      backgroundColor: 'white',
+      color: '#333',
+      fontSize: '12px',
+      fontWeight: '500',
+      outline: 'none',
+      boxSizing: 'border-box',
+      fontFamily: 'inherit',
+      ...style
+    }}
+  />
+);
+
 // Styled Select
 const StyledSelect = ({ value, onChange, options, placeholder, style }) => (
   <select
@@ -126,12 +149,18 @@ export default function QuoteLookup() {
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
   const [filterStatus, setFilterStatus] = useState('all');
+
+  // Date range filter (tires only). Empty string = no filter.
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   
   // Results state
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
+  const [limitApplied, setLimitApplied] = useState(null);
 
   // Save store to localStorage
   useEffect(() => {
@@ -142,6 +171,8 @@ export default function QuoteLookup() {
   useEffect(() => {
     setQuotes([]);
     setHasSearched(false);
+    setLimitReached(false);
+    setLimitApplied(null);
     handleSearch(true);
   }, [selectedStore, quoteMode]);
 
@@ -152,6 +183,19 @@ export default function QuoteLookup() {
 
     try {
       const endpoint = quoteMode === 'mechanical' ? 'search-mechanical-quotes' : 'search-quotes';
+
+      // Only send date params for tire quotes (search-mechanical-quotes does not support them yet)
+      const dateParams = (quoteMode === 'tires')
+        ? {
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+          }
+        : {};
+
+      // If a date range is in play, ask for the higher 500 cap; otherwise default to 50
+      const hasDateFilter = quoteMode === 'tires' && (dateFrom || dateTo);
+      const limit = hasDateFilter ? 500 : 50;
+
       const response = await apiCall(`${API_BASE}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,7 +207,8 @@ export default function QuoteLookup() {
           sort_by: sortBy,
           sort_order: sortOrder,
           filter_status: quoteMode === 'mechanical' ? undefined : filterStatus,
-          limit: 50
+          ...dateParams,
+          limit,
         })
       });
 
@@ -171,6 +216,8 @@ export default function QuoteLookup() {
 
       if (data.success) {
         setQuotes(data.quotes || []);
+        setLimitReached(Boolean(data.result_limit_reached));
+        setLimitApplied(data.limit_applied ?? null);
       } else {
         setError(data.error || 'Failed to search quotes');
       }
@@ -191,7 +238,11 @@ export default function QuoteLookup() {
     setSearchValue('');
     setSearchType('name');
     setFilterStatus('all');
+    setDateFrom('');
+    setDateTo('');
     setHasSearched(false);
+    setLimitReached(false);
+    setLimitApplied(null);
     handleSearch(true);
   };
 
@@ -380,6 +431,26 @@ export default function QuoteLookup() {
               </div>
             )}
 
+            {/* Date Range — tires only */}
+            {quoteMode === 'tires' && (
+              <div style={{ width: '230px' }}>
+                <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                  DATE RANGE
+                </label>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <DateInput
+                    value={dateFrom}
+                    onChange={setDateFrom}
+                  />
+                  <span style={{ color: '#9b59b6', fontSize: '12px', fontWeight: '700' }}>→</span>
+                  <DateInput
+                    value={dateTo}
+                    onChange={setDateTo}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Sort By */}
             <div style={{ width: '120px' }}>
               <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
@@ -503,6 +574,21 @@ export default function QuoteLookup() {
               Store: {STORES.find(s => s.id === parseInt(selectedStore))?.name || selectedStore}
             </span>
           </div>
+
+          {/* Limit-reached banner */}
+          {limitReached && limitApplied != null && (
+            <div style={{
+              backgroundColor: '#fef3c7',
+              color: '#92400e',
+              padding: '10px 25px',
+              fontSize: '12px',
+              fontWeight: '600',
+              borderBottom: '1px solid #fde68a',
+              textAlign: 'center'
+            }}>
+              ⚠ Showing the first {limitApplied} results. There may be more — narrow your date range or refine your search.
+            </div>
+          )}
 
           {/* Results Table */}
           {quotes.length > 0 ? (
