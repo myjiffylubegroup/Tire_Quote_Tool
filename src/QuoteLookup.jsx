@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
 import { apiCall } from './apiClient';
+import {
+  concernLabel,
+  timePressureLabel,
+  serviceClassificationLabel,
+  promotedReasonLabel,
+  oilTierLabel,
+  tmPackageLabel,
+  TM_PACKAGE_ADDON_PRICE,
+  tireRotationLabel,
+  followUpItemLabel,
+  followUpResponseLabel,
+  waitPreferenceLabel,
+} from './concernLabels';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 
@@ -17,7 +30,7 @@ const STORES = [
 
 const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
 
-const formatCurrency = (amount) => 
+const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
 const formatDate = (dateStr) => {
@@ -33,6 +46,25 @@ const formatPhone = (phone) => {
     return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
   }
   return phone;
+};
+
+// Time-ago helper for greet cards ("18 min ago", "1 hr ago", "yesterday at 3:42 PM")
+const timeAgo = (dateStr) => {
+  if (!dateStr) return '';
+  const now = new Date();
+  const then = new Date(dateStr);
+  const diffMs = now - then;
+  const diffMin = Math.floor(diffMs / 60000);
+
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hr${diffHr !== 1 ? 's' : ''} ago`;
+  // Same day fallback or older — show the time
+  return then.toLocaleString('en-US', {
+    month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit'
+  });
 };
 
 // Footer Component
@@ -138,11 +170,11 @@ const StyledSelect = ({ value, onChange, options, placeholder, style }) => (
 
 export default function QuoteLookup() {
   const [selectedStore, setSelectedStore] = useState(() => localStorage.getItem('jl_tire_store') || '609');
-  
-  // Quote type toggle
-  const [quoteMode, setQuoteMode] = useState('tires'); // 'tires' | 'mechanical'
 
-  // Search state
+  // Quote type toggle
+  const [quoteMode, setQuoteMode] = useState('tires'); // 'tires' | 'mechanical' | 'greets'
+
+  // Search state (tires/mechanical)
   const [searchType, setSearchType] = useState('name');
   const [searchValue, setSearchValue] = useState('');
   const [licenseState, setLicenseState] = useState('CA');
@@ -153,8 +185,8 @@ export default function QuoteLookup() {
   // Date range filter (tires only). Empty string = no filter.
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  
-  // Results state
+
+  // Results state (tires/mechanical)
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -162,19 +194,108 @@ export default function QuoteLookup() {
   const [limitReached, setLimitReached] = useState(false);
   const [limitApplied, setLimitApplied] = useState(null);
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // Greets state — kept fully separate from tires/mechanical state so the
+  // two paths can never accidentally interfere with each other.
+  // ──────────────────────────────────────────────────────────────────────────
+  const [greets, setGreets] = useState([]);
+  const [greetsLoading, setGreetsLoading] = useState(false);
+  const [greetsError, setGreetsError] = useState(null);
+  const [selectedGreet, setSelectedGreet] = useState(null); // for detail modal
+  const [greetDetailLoading, setGreetDetailLoading] = useState(false);
+
   // Save store to localStorage
   useEffect(() => {
     localStorage.setItem('jl_tire_store', selectedStore);
   }, [selectedStore]);
 
-  // Load recent quotes on mount / when store or mode changes
+  // Load recent quotes on mount / when store or mode changes (tires/mechanical only)
   useEffect(() => {
+    if (quoteMode === 'greets') {
+      // Greets has its own effect — bail out so we don't fire an unwanted quote search.
+      return;
+    }
     setQuotes([]);
     setHasSearched(false);
     setLimitReached(false);
     setLimitApplied(null);
     handleSearch(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStore, quoteMode]);
+
+  // Load greets when entering greets mode or switching store while in greets mode
+  useEffect(() => {
+    if (quoteMode !== 'greets') return;
+    loadGreets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStore, quoteMode]);
+
+  const loadGreets = async () => {
+    setGreetsLoading(true);
+    setGreetsError(null);
+    setGreets([]);
+
+    try {
+      const response = await apiCall(`${API_BASE}/greets-list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          store_id: parseInt(selectedStore),
+          // No date param — backend defaults to today (Pacific)
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setGreets(data.greets || []);
+      } else {
+        setGreetsError(data.error || 'Failed to load greets');
+      }
+    } catch (e) {
+      setGreetsError('Failed to connect to server');
+    }
+
+    setGreetsLoading(false);
+  };
+
+  // Open the detail modal for a greet. Re-fetches via get-greet so the modal
+  // always reflects the latest data — list payload may be a few seconds stale.
+  const openGreetDetail = async (greet) => {
+    // Show the list-level payload immediately so the modal opens instantly,
+    // then upgrade with the fresh detail when it arrives.
+    setSelectedGreet(greet);
+    setGreetDetailLoading(true);
+
+    try {
+      const response = await apiCall(`${API_BASE}/get-greet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          short_code: greet.short_code,
+          store_id: parseInt(selectedStore),
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.greet) {
+        // Only update if the user hasn't closed the modal in the meantime
+        setSelectedGreet((current) => current && current.short_code === greet.short_code ? data.greet : current);
+      }
+      // If the fetch fails, just keep the list-level payload — no error UX needed,
+      // CSA still sees most of the data.
+    } catch (e) {
+      // Same — silently fall back to the list-level payload.
+    }
+
+    setGreetDetailLoading(false);
+  };
+
+  const closeGreetDetail = () => {
+    setSelectedGreet(null);
+    setGreetDetailLoading(false);
+  };
 
   const handleSearch = async (initialLoad = false) => {
     setLoading(true);
@@ -310,6 +431,12 @@ export default function QuoteLookup() {
     }
   };
 
+  // The header text and helper depend on mode
+  const headerTitle = quoteMode === 'greets' ? 'Today\'s Greets' : 'Retrieve Quote';
+  const headerSubtitle = quoteMode === 'greets'
+    ? 'Customers who pre-checked in at the kiosk — find them by their 4-character code'
+    : 'Search saved quotes by customer name, license plate, phone, or quote number';
+
   return (
     <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       <Navbar
@@ -319,42 +446,42 @@ export default function QuoteLookup() {
       />
 
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '30px 20px' }}>
-        
+
         {/* Search Card */}
-        <div style={{ 
-          backgroundColor: 'white', 
-          borderRadius: '15px', 
-          padding: '30px', 
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '15px',
+          padding: '30px',
           boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
           marginBottom: '25px'
         }}>
-          <h2 style={{ 
-            color: '#9b59b6', 
-            fontSize: '24px', 
-            fontWeight: '700', 
-            textAlign: 'center', 
+          <h2 style={{
+            color: '#9b59b6',
+            fontSize: '24px',
+            fontWeight: '700',
+            textAlign: 'center',
             marginBottom: '5px',
             textTransform: 'uppercase',
             letterSpacing: '2px'
           }}>
-            Retrieve Quote
+            {headerTitle}
           </h2>
-          <p style={{ 
-            color: '#888', 
-            textAlign: 'center', 
-            fontSize: '13px', 
+          <p style={{
+            color: '#888',
+            textAlign: 'center',
+            fontSize: '13px',
             marginBottom: '20px',
             letterSpacing: '1px'
           }}>
-            Search saved quotes by customer name, license plate, phone, or quote number
+            {headerSubtitle}
           </p>
 
-          {/* Quote type toggle */}
+          {/* Mode toggle — Tires / Mechanical / Greets */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '0', marginBottom: '25px', border: '2px solid #9b59b6', borderRadius: '25px', overflow: 'hidden', width: 'fit-content', margin: '0 auto 25px' }}>
             <button
               onClick={() => setQuoteMode('tires')}
               style={{
-                padding: '10px 28px', border: 'none', cursor: 'pointer',
+                padding: '10px 24px', border: 'none', cursor: 'pointer',
                 backgroundColor: quoteMode === 'tires' ? '#9b59b6' : 'white',
                 color: quoteMode === 'tires' ? 'white' : '#9b59b6',
                 fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px',
@@ -365,229 +492,276 @@ export default function QuoteLookup() {
             <button
               onClick={() => setQuoteMode('mechanical')}
               style={{
-                padding: '10px 28px', border: 'none', cursor: 'pointer',
+                padding: '10px 24px', border: 'none', cursor: 'pointer',
                 backgroundColor: quoteMode === 'mechanical' ? '#9b59b6' : 'white',
                 color: quoteMode === 'mechanical' ? 'white' : '#9b59b6',
                 fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px',
+                borderLeft: '1px solid #9b59b6',
+                borderRight: '1px solid #9b59b6',
               }}
             >
               🔧 Mechanical Quotes
             </button>
-          </div>
-
-          {/* Search Form — Row 1: What to search for */}
-          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '15px' }}>
-            
-            {/* Search Type */}
-            <div style={{ width: '170px' }}>
-              <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
-                SEARCH BY
-              </label>
-              <StyledSelect
-                value={searchType}
-                onChange={setSearchType}
-                options={[
-                  { value: 'name', label: 'Customer Name' },
-                  { value: 'plate', label: 'License Plate' },
-                  { value: 'phone', label: 'Phone Number' },
-                  { value: 'quote_number', label: 'Quote Number' },
-                ]}
-                placeholder="Select..."
-              />
-            </div>
-
-            {/* Search Value */}
-            <div style={{ flex: 1, minWidth: '220px' }}>
-              <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
-                {searchType === 'name' ? 'CUSTOMER NAME' : 
-                 searchType === 'plate' ? 'LICENSE PLATE' :
-                 searchType === 'phone' ? 'PHONE NUMBER' : 'QUOTE NUMBER'}
-              </label>
-              <StyledInput
-                value={searchValue}
-                onChange={setSearchValue}
-                onKeyPress={handleKeyPress}
-                placeholder={
-                  searchType === 'name' ? 'e.g., John Smith' :
-                  searchType === 'plate' ? 'e.g., 8ABC123' :
-                  searchType === 'phone' ? 'e.g., 805-555-1234' :
-                  'e.g., JL-609-20260128-001'
-                }
-              />
-            </div>
-
-            {/* License State (only for plate search) */}
-            {searchType === 'plate' && (
-              <div style={{ width: '110px' }}>
-                <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
-                  STATE
-                </label>
-                <StyledSelect
-                  value={licenseState}
-                  onChange={setLicenseState}
-                  options={US_STATES}
-                  placeholder="State"
-                />
-              </div>
-            )}
-
-            {/* Date Range — tires only */}
-            {quoteMode === 'tires' && (
-              <div style={{ width: '320px' }}>
-                <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
-                  DATE RANGE
-                </label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <div style={{ flex: 1 }}>
-                    <DateInput
-                      value={dateFrom}
-                      onChange={setDateFrom}
-                    />
-                  </div>
-                  <span style={{ color: '#9b59b6', fontSize: '14px', fontWeight: '700', flexShrink: 0 }}>→</span>
-                  <div style={{ flex: 1 }}>
-                    <DateInput
-                      value={dateTo}
-                      onChange={setDateTo}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Search Form — Row 2: How to display + actions */}
-          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-
-            {/* Sort By */}
-            <div style={{ width: '140px' }}>
-              <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
-                SORT BY
-              </label>
-              <StyledSelect
-                value={sortBy}
-                onChange={setSortBy}
-                options={[
-                  { value: 'date', label: 'Date' },
-                  { value: 'name', label: 'Name' },
-                ]}
-                placeholder="Sort..."
-              />
-            </div>
-
-            {/* Sort Order */}
-            <div style={{ width: '150px' }}>
-              <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
-                ORDER
-              </label>
-              <StyledSelect
-                value={sortOrder}
-                onChange={setSortOrder}
-                options={[
-                  { value: 'desc', label: 'Newest First' },
-                  { value: 'asc', label: 'Oldest First' },
-                ]}
-                placeholder="Order..."
-              />
-            </div>
-
-            {/* Conversion Filter — tires only */}
-            {quoteMode === 'tires' && (
-            <div style={{ width: '180px' }}>
-              <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
-                FILTER
-              </label>
-              <StyledSelect
-                value={filterStatus}
-                onChange={setFilterStatus}
-                options={[
-                  { value: 'all', label: 'All Quotes' },
-                  { value: 'needs_followup', label: '🔴🟡 Needs Follow-up' },
-                  { value: 'purchased', label: '✅ Purchased' },
-                  { value: 'not_purchased', label: '— Not Purchased' },
-                  { value: 'unmatched', label: '? Unmatched' },
-                ]}
-                placeholder="Filter..."
-              />
-            </div>
-            )}
-
-            {/* Spacer to push buttons right */}
-            <div style={{ flex: 1, minWidth: '0' }} />
-
-            {/* Search Button */}
             <button
-              onClick={() => handleSearch()}
-              disabled={loading}
+              onClick={() => setQuoteMode('greets')}
               style={{
-                backgroundColor: '#9b59b6',
-                color: 'white',
-                border: 'none',
-                padding: '12px 30px',
-                borderRadius: '25px',
-                fontSize: '13px',
-                fontWeight: '700',
-                letterSpacing: '1px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.7 : 1,
+                padding: '10px 24px', border: 'none', cursor: 'pointer',
+                backgroundColor: quoteMode === 'greets' ? '#9b59b6' : 'white',
+                color: quoteMode === 'greets' ? 'white' : '#9b59b6',
+                fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px',
               }}
             >
-              {loading ? 'SEARCHING...' : 'SEARCH'}
+              👋 Greets
             </button>
-
-            {/* Clear Button */}
-            {hasSearched && (
-              <button
-                onClick={handleClear}
-                style={{
-                  backgroundColor: '#f1f5f9',
-                  color: '#64748b',
-                  border: 'none',
-                  padding: '12px 20px',
-                  borderRadius: '25px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                }}
-              >
-                CLEAR
-              </button>
-            )}
           </div>
 
-          {error && (
-            <p style={{ color: '#e74c3c', textAlign: 'center', marginTop: '15px', fontSize: '13px' }}>
-              {error}
-            </p>
+          {/* Search form is hidden in Greets mode (no search; today-only view) */}
+          {quoteMode !== 'greets' && (
+            <>
+              {/* Search Form — Row 1: What to search for */}
+              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '15px' }}>
+
+                {/* Search Type */}
+                <div style={{ width: '170px' }}>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                    SEARCH BY
+                  </label>
+                  <StyledSelect
+                    value={searchType}
+                    onChange={setSearchType}
+                    options={[
+                      { value: 'name', label: 'Customer Name' },
+                      { value: 'plate', label: 'License Plate' },
+                      { value: 'phone', label: 'Phone Number' },
+                      { value: 'quote_number', label: 'Quote Number' },
+                    ]}
+                    placeholder="Select..."
+                  />
+                </div>
+
+                {/* Search Value */}
+                <div style={{ flex: 1, minWidth: '220px' }}>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                    {searchType === 'name' ? 'CUSTOMER NAME' :
+                     searchType === 'plate' ? 'LICENSE PLATE' :
+                     searchType === 'phone' ? 'PHONE NUMBER' : 'QUOTE NUMBER'}
+                  </label>
+                  <StyledInput
+                    value={searchValue}
+                    onChange={setSearchValue}
+                    onKeyPress={handleKeyPress}
+                    placeholder={
+                      searchType === 'name' ? 'e.g., John Smith' :
+                      searchType === 'plate' ? 'e.g., 8ABC123' :
+                      searchType === 'phone' ? 'e.g., 805-555-1234' :
+                      'e.g., JL-609-20260128-001'
+                    }
+                  />
+                </div>
+
+                {/* License State (only for plate search) */}
+                {searchType === 'plate' && (
+                  <div style={{ width: '110px' }}>
+                    <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                      STATE
+                    </label>
+                    <StyledSelect
+                      value={licenseState}
+                      onChange={setLicenseState}
+                      options={US_STATES}
+                      placeholder="State"
+                    />
+                  </div>
+                )}
+
+                {/* Date Range — tires only */}
+                {quoteMode === 'tires' && (
+                  <div style={{ width: '320px' }}>
+                    <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                      DATE RANGE
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <div style={{ flex: 1 }}>
+                        <DateInput
+                          value={dateFrom}
+                          onChange={setDateFrom}
+                        />
+                      </div>
+                      <span style={{ color: '#9b59b6', fontSize: '14px', fontWeight: '700', flexShrink: 0 }}>→</span>
+                      <div style={{ flex: 1 }}>
+                        <DateInput
+                          value={dateTo}
+                          onChange={setDateTo}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Search Form — Row 2: How to display + actions */}
+              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+
+                {/* Sort By */}
+                <div style={{ width: '140px' }}>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                    SORT BY
+                  </label>
+                  <StyledSelect
+                    value={sortBy}
+                    onChange={setSortBy}
+                    options={[
+                      { value: 'date', label: 'Date' },
+                      { value: 'name', label: 'Name' },
+                    ]}
+                    placeholder="Sort..."
+                  />
+                </div>
+
+                {/* Sort Order */}
+                <div style={{ width: '150px' }}>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                    ORDER
+                  </label>
+                  <StyledSelect
+                    value={sortOrder}
+                    onChange={setSortOrder}
+                    options={[
+                      { value: 'desc', label: 'Newest First' },
+                      { value: 'asc', label: 'Oldest First' },
+                    ]}
+                    placeholder="Order..."
+                  />
+                </div>
+
+                {/* Conversion Filter — tires only */}
+                {quoteMode === 'tires' && (
+                  <div style={{ width: '180px' }}>
+                    <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                      FILTER
+                    </label>
+                    <StyledSelect
+                      value={filterStatus}
+                      onChange={setFilterStatus}
+                      options={[
+                        { value: 'all', label: 'All Quotes' },
+                        { value: 'needs_followup', label: '🔴🟡 Needs Follow-up' },
+                        { value: 'purchased', label: '✅ Purchased' },
+                        { value: 'not_purchased', label: '— Not Purchased' },
+                        { value: 'unmatched', label: '? Unmatched' },
+                      ]}
+                      placeholder="Filter..."
+                    />
+                  </div>
+                )}
+
+                {/* Spacer to push buttons right */}
+                <div style={{ flex: 1, minWidth: '0' }} />
+
+                {/* Search Button */}
+                <button
+                  onClick={() => handleSearch()}
+                  disabled={loading}
+                  style={{
+                    backgroundColor: '#9b59b6',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 30px',
+                    borderRadius: '25px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    letterSpacing: '1px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.7 : 1,
+                  }}
+                >
+                  {loading ? 'SEARCHING...' : 'SEARCH'}
+                </button>
+
+                {/* Clear Button */}
+                {hasSearched && (
+                  <button
+                    onClick={handleClear}
+                    style={{
+                      backgroundColor: '#f1f5f9',
+                      color: '#64748b',
+                      border: 'none',
+                      padding: '12px 20px',
+                      borderRadius: '25px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    CLEAR
+                  </button>
+                )}
+              </div>
+
+              {error && (
+                <p style={{ color: '#e74c3c', textAlign: 'center', marginTop: '15px', fontSize: '13px' }}>
+                  {error}
+                </p>
+              )}
+            </>
+          )}
+
+          {/* In greets mode, show a small refresh control instead of the search form */}
+          {quoteMode === 'greets' && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px' }}>
+              <button
+                onClick={loadGreets}
+                disabled={greetsLoading}
+                style={{
+                  backgroundColor: '#9b59b6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 24px',
+                  borderRadius: '25px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  letterSpacing: '1px',
+                  cursor: greetsLoading ? 'not-allowed' : 'pointer',
+                  opacity: greetsLoading ? 0.7 : 1,
+                }}
+              >
+                {greetsLoading ? 'REFRESHING...' : '↻ REFRESH'}
+              </button>
+              {greetsError && (
+                <span style={{ color: '#e74c3c', fontSize: '13px' }}>{greetsError}</span>
+              )}
+            </div>
           )}
         </div>
 
         {/* Results */}
-        <div style={{ 
-          backgroundColor: 'white', 
-          borderRadius: '15px', 
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '15px',
           boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
           overflow: 'hidden'
         }}>
           {/* Results Header */}
-          <div style={{ 
-            backgroundColor: '#f8f9fa', 
-            padding: '15px 25px', 
+          <div style={{
+            backgroundColor: '#f8f9fa',
+            padding: '15px 25px',
             borderBottom: '1px solid #eee',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
             <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
-              {quotes.length} Quote{quotes.length !== 1 ? 's' : ''} Found
+              {quoteMode === 'greets'
+                ? `${greets.length} Greet${greets.length !== 1 ? 's' : ''} Today`
+                : `${quotes.length} Quote${quotes.length !== 1 ? 's' : ''} Found`}
             </span>
             <span style={{ fontSize: '12px', color: '#888' }}>
               Store: {STORES.find(s => s.id === parseInt(selectedStore))?.name || selectedStore}
             </span>
           </div>
 
-          {/* Limit-reached banner */}
-          {limitReached && limitApplied != null && (
+          {/* Limit-reached banner (tires/mechanical only) */}
+          {quoteMode !== 'greets' && limitReached && limitApplied != null && (
             <div style={{
               backgroundColor: '#fef3c7',
               color: '#92400e',
@@ -601,196 +775,712 @@ export default function QuoteLookup() {
             </div>
           )}
 
-          {/* Results Table */}
-          {quotes.length > 0 ? (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #eee' }}>
-                    <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Quote #</th>
-                    <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Date</th>
-                    <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Customer</th>
-                    <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Vehicle</th>
-                    {quoteMode === 'tires' ? (
-                      <>
-                        <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Tread</th>
-                        <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Tire</th>
-                      </>
-                    ) : (
-                      <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Services</th>
-                    )}
-                    <th style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#666' }}>Total</th>
-                    {quoteMode === 'tires' && (
-                      <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Purchased</th>
-                    )}
-                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Status</th>
-                    <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666', minWidth: '120px' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {quotes.map((quote, idx) => (
-                    <tr 
-                      key={quote.quote_id}
-                      style={{ 
-                        borderBottom: '1px solid #eee',
-                        backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.15s'
-                      }}
-                      onClick={() => openQuote(quote.short_code)}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f3e8ff'}
-                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = idx % 2 === 0 ? 'white' : '#fafafa'}
-                    >
-                      <td style={{ padding: '12px 15px', fontWeight: '600', color: '#9b59b6' }}>
-                        {quote.quote_number}
-                      </td>
-                      <td style={{ padding: '12px 15px', color: '#666' }}>
-                        {formatDate(quote.created_at)}
-                      </td>
-                      <td style={{ padding: '12px 15px' }}>
-                        <div style={{ fontWeight: '500', color: '#333' }}>{quote.customer.full_name}</div>
-                        {quote.customer.phone && (
-                          <div style={{ fontSize: '11px', color: '#888' }}>{formatPhone(quote.customer.phone)}</div>
-                        )}
-                        {quote.customer.license_plate && (
-                          <div style={{ fontSize: '11px', color: '#888' }}>
-                            {quote.customer.license_plate} ({quote.customer.license_state})
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: '12px 15px', color: '#666', maxWidth: '200px' }}>
-                        <div style={{ 
-                          whiteSpace: 'nowrap', 
-                          overflow: 'hidden', 
-                          textOverflow: 'ellipsis' 
-                        }}>
-                          {quote.vehicle_display}
-                        </div>
-                      </td>
-                      {quoteMode === 'tires' && (
-                      <td style={{ padding: '12px 10px', textAlign: 'center' }}>
-                        {quote.tread ? (
-                          <div style={{ display: 'flex', justifyContent: 'center', gap: '3px', flexWrap: 'nowrap' }}>
-                            {quote.tread.red_count > 0 && <span style={{ backgroundColor: '#fee2e2', color: '#dc2626', padding: '2px 6px', borderRadius: '8px', fontSize: '10px', fontWeight: '700' }}>🔴 {quote.tread.red_count}</span>}
-                            {quote.tread.yellow_count > 0 && <span style={{ backgroundColor: '#fef3c7', color: '#d97706', padding: '2px 6px', borderRadius: '8px', fontSize: '10px', fontWeight: '700' }}>🟡 {quote.tread.yellow_count}</span>}
-                            {quote.tread.green_count > 0 && quote.tread.red_count === 0 && quote.tread.yellow_count === 0 && <span style={{ backgroundColor: '#d1fae5', color: '#059669', padding: '2px 6px', borderRadius: '8px', fontSize: '10px', fontWeight: '700' }}>🟢 {quote.tread.green_count}</span>}
-                          </div>
-                        ) : <span style={{ color: '#ccc', fontSize: '11px' }}>—</span>}
-                      </td>
-                      )}
+          {/* ──────────────────────────────────────────────────────────────── */}
+          {/* GREETS MODE — card list                                          */}
+          {/* ──────────────────────────────────────────────────────────────── */}
+          {quoteMode === 'greets' ? (
+            greetsLoading ? (
+              <div style={{ padding: '50px 20px', textAlign: 'center', color: '#888' }}>
+                <p>Loading greets...</p>
+              </div>
+            ) : greets.length > 0 ? (
+              <div style={{ padding: '20px', display: 'grid', gap: '15px' }}>
+                {greets.map((g) => (
+                  <GreetCard key={g.greet_id} greet={g} onOpen={() => openGreetDetail(g)} />
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: '50px 20px', textAlign: 'center', color: '#888' }}>
+                <p style={{ fontSize: '16px', marginBottom: '10px' }}>No greets yet today</p>
+                <p style={{ fontSize: '13px' }}>Customers who use the kiosk will appear here. Tap REFRESH to check again.</p>
+              </div>
+            )
+          ) : (
+            /* ────────────────────────────────────────────────────────────── */
+            /* TIRES / MECHANICAL MODE — existing table                       */
+            /* ────────────────────────────────────────────────────────────── */
+            quotes.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #eee' }}>
+                      <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Quote #</th>
+                      <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Date</th>
+                      <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Customer</th>
+                      <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Vehicle</th>
                       {quoteMode === 'tires' ? (
-                        <td style={{ padding: '12px 15px', color: '#666' }}>
-                          <div style={{ fontWeight: '500' }}>{quote.tire?.brand} {quote.tire?.size}</div>
-                          <div style={{ fontSize: '11px', color: '#888' }}>Qty: {quote.quantity}</div>
-                        </td>
+                        <>
+                          <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Tread</th>
+                          <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Tire</th>
+                        </>
                       ) : (
-                        <td style={{ padding: '12px 15px', textAlign: 'center', color: '#666' }}>
-                          <div style={{ fontSize: '12px', fontWeight: '600' }}>{quote.item_count} labor</div>
-                          {quote.parts_count > 0 && <div style={{ fontSize: '11px', color: '#888' }}>{quote.parts_count} parts</div>}
-                        </td>
+                        <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Services</th>
                       )}
-                      <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#333' }}>
-                        {formatCurrency(quoteMode === 'mechanical' ? quote.total : quote.total_amount)}
-                      </td>
+                      <th style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#666' }}>Total</th>
                       {quoteMode === 'tires' && (
-                      <td style={{ padding: '12px 10px', textAlign: 'center' }}>
-                        {quote.conversion ? (
-                          quote.conversion.status === 'purchased' ? (
-                            <span 
-                              title={`${quote.conversion.tires_purchased} tire${quote.conversion.tires_purchased !== 1 ? 's' : ''} · Store ${quote.conversion.purchase_store} · ${quote.conversion.days_to_purchase} day${quote.conversion.days_to_purchase !== 1 ? 's' : ''}`}
-                              style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '3px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600', cursor: 'default' }}>
-                              ✅ {quote.conversion.tires_purchased}
-                            </span>
-                          ) : quote.conversion.status === 'unmatched' ? (
-                            <span style={{ backgroundColor: '#f1f5f9', color: '#94a3b8', padding: '3px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600' }}>
-                              NO PLATE
-                            </span>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Purchased</th>
+                      )}
+                      <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666' }}>Status</th>
+                      <th style={{ padding: '12px 15px', textAlign: 'center', fontWeight: '600', color: '#666', minWidth: '120px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quotes.map((quote, idx) => (
+                      <tr
+                        key={quote.quote_id}
+                        style={{
+                          borderBottom: '1px solid #eee',
+                          backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.15s'
+                        }}
+                        onClick={() => openQuote(quote.short_code)}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f3e8ff'}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = idx % 2 === 0 ? 'white' : '#fafafa'}
+                      >
+                        <td style={{ padding: '12px 15px', fontWeight: '600', color: '#9b59b6' }}>
+                          {quote.quote_number}
+                        </td>
+                        <td style={{ padding: '12px 15px', color: '#666' }}>
+                          {formatDate(quote.created_at)}
+                        </td>
+                        <td style={{ padding: '12px 15px' }}>
+                          <div style={{ fontWeight: '500', color: '#333' }}>{quote.customer.full_name}</div>
+                          {quote.customer.phone && (
+                            <div style={{ fontSize: '11px', color: '#888' }}>{formatPhone(quote.customer.phone)}</div>
+                          )}
+                          {quote.customer.license_plate && (
+                            <div style={{ fontSize: '11px', color: '#888' }}>
+                              {quote.customer.license_plate} ({quote.customer.license_state})
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 15px', color: '#666', maxWidth: '200px' }}>
+                          <div style={{
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {quote.vehicle_display}
+                          </div>
+                        </td>
+                        {quoteMode === 'tires' && (
+                        <td style={{ padding: '12px 10px', textAlign: 'center' }}>
+                          {quote.tread ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '3px', flexWrap: 'nowrap' }}>
+                              {quote.tread.red_count > 0 && <span style={{ backgroundColor: '#fee2e2', color: '#dc2626', padding: '2px 6px', borderRadius: '8px', fontSize: '10px', fontWeight: '700' }}>🔴 {quote.tread.red_count}</span>}
+                              {quote.tread.yellow_count > 0 && <span style={{ backgroundColor: '#fef3c7', color: '#d97706', padding: '2px 6px', borderRadius: '8px', fontSize: '10px', fontWeight: '700' }}>🟡 {quote.tread.yellow_count}</span>}
+                              {quote.tread.green_count > 0 && quote.tread.red_count === 0 && quote.tread.yellow_count === 0 && <span style={{ backgroundColor: '#d1fae5', color: '#059669', padding: '2px 6px', borderRadius: '8px', fontSize: '10px', fontWeight: '700' }}>🟢 {quote.tread.green_count}</span>}
+                            </div>
+                          ) : <span style={{ color: '#ccc', fontSize: '11px' }}>—</span>}
+                        </td>
+                        )}
+                        {quoteMode === 'tires' ? (
+                          <td style={{ padding: '12px 15px', color: '#666' }}>
+                            <div style={{ fontWeight: '500' }}>{quote.tire?.brand} {quote.tire?.size}</div>
+                            <div style={{ fontSize: '11px', color: '#888' }}>Qty: {quote.quantity}</div>
+                          </td>
+                        ) : (
+                          <td style={{ padding: '12px 15px', textAlign: 'center', color: '#666' }}>
+                            <div style={{ fontSize: '12px', fontWeight: '600' }}>{quote.item_count} labor</div>
+                            {quote.parts_count > 0 && <div style={{ fontSize: '11px', color: '#888' }}>{quote.parts_count} parts</div>}
+                          </td>
+                        )}
+                        <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight: '600', color: '#333' }}>
+                          {formatCurrency(quoteMode === 'mechanical' ? quote.total : quote.total_amount)}
+                        </td>
+                        {quoteMode === 'tires' && (
+                        <td style={{ padding: '12px 10px', textAlign: 'center' }}>
+                          {quote.conversion ? (
+                            quote.conversion.status === 'purchased' ? (
+                              <span
+                                title={`${quote.conversion.tires_purchased} tire${quote.conversion.tires_purchased !== 1 ? 's' : ''} · Store ${quote.conversion.purchase_store} · ${quote.conversion.days_to_purchase} day${quote.conversion.days_to_purchase !== 1 ? 's' : ''}`}
+                                style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '3px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600', cursor: 'default' }}>
+                                ✅ {quote.conversion.tires_purchased}
+                              </span>
+                            ) : quote.conversion.status === 'unmatched' ? (
+                              <span style={{ backgroundColor: '#f1f5f9', color: '#94a3b8', padding: '3px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '600' }}>
+                                NO PLATE
+                              </span>
+                            ) : (
+                              <span style={{ color: '#cbd5e1', fontSize: '14px' }}>—</span>
+                            )
                           ) : (
                             <span style={{ color: '#cbd5e1', fontSize: '14px' }}>—</span>
-                          )
-                        ) : (
-                          <span style={{ color: '#cbd5e1', fontSize: '14px' }}>—</span>
-                        )}
-                      </td>
-                      )}
-                      <td style={{ padding: '12px 15px', textAlign: 'center' }}>
-                        {quote.is_expired ? (
-                          <span style={{ 
-                            backgroundColor: '#fef3c7', 
-                            color: '#92400e', 
-                            padding: '3px 8px', 
-                            borderRadius: '10px', 
-                            fontSize: '10px', 
-                            fontWeight: '600' 
-                          }}>
-                            EXPIRED
-                          </span>
-                        ) : (
-                          <span style={{ 
-                            backgroundColor: '#d1fae5', 
-                            color: '#065f46', 
-                            padding: '3px 8px', 
-                            borderRadius: '10px', 
-                            fontSize: '10px', 
-                            fontWeight: '600' 
-                          }}>
-                            ACTIVE
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openQuote(quote.short_code); }}
-                            style={{ backgroundColor: '#9b59b6', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
-                          >
-                            VIEW
-                          </button>
-                          {quoteMode === 'tires' && isSameDay(quote.created_at) && !quote.is_expired && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); editQuote(quote.short_code); }}
-                              style={{ backgroundColor: 'transparent', color: '#9b59b6', border: '1.5px solid #9b59b6', padding: '5px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
-                            >
-                              EDIT
-                            </button>
                           )}
-                          {quoteMode === 'tires' && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); reQuote(quote.quote_id); }}
-                              disabled={reQuoting === quote.quote_id}
-                              style={{ backgroundColor: 'transparent', color: '#3b82f6', border: '1.5px solid #3b82f6', padding: '5px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', cursor: reQuoting === quote.quote_id ? 'wait' : 'pointer', opacity: reQuoting === quote.quote_id ? 0.5 : 1 }}
-                            >
-                              {reQuoting === quote.quote_id ? '...' : 'RE-QUOTE'}
-                            </button>
+                        </td>
+                        )}
+                        <td style={{ padding: '12px 15px', textAlign: 'center' }}>
+                          {quote.is_expired ? (
+                            <span style={{
+                              backgroundColor: '#fef3c7',
+                              color: '#92400e',
+                              padding: '3px 8px',
+                              borderRadius: '10px',
+                              fontSize: '10px',
+                              fontWeight: '600'
+                            }}>
+                              EXPIRED
+                            </span>
+                          ) : (
+                            <span style={{
+                              backgroundColor: '#d1fae5',
+                              color: '#065f46',
+                              padding: '3px 8px',
+                              borderRadius: '10px',
+                              fontSize: '10px',
+                              fontWeight: '600'
+                            }}>
+                              ACTIVE
+                            </span>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div style={{ padding: '50px 20px', textAlign: 'center', color: '#888' }}>
-              {loading ? (
-                <p>Searching...</p>
-              ) : hasSearched ? (
-                <>
-                  <p style={{ fontSize: '16px', marginBottom: '10px' }}>No quotes found</p>
-                  <p style={{ fontSize: '13px' }}>Try adjusting your search criteria</p>
-                </>
-              ) : (
-                <>
-                  <p style={{ fontSize: '16px', marginBottom: '10px' }}>Recent quotes will appear here</p>
-                  <p style={{ fontSize: '13px' }}>Enter search criteria above to find specific quotes</p>
-                </>
-              )}
-            </div>
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openQuote(quote.short_code); }}
+                              style={{ backgroundColor: '#9b59b6', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
+                            >
+                              VIEW
+                            </button>
+                            {quoteMode === 'tires' && isSameDay(quote.created_at) && !quote.is_expired && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); editQuote(quote.short_code); }}
+                                style={{ backgroundColor: 'transparent', color: '#9b59b6', border: '1.5px solid #9b59b6', padding: '5px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
+                              >
+                                EDIT
+                              </button>
+                            )}
+                            {quoteMode === 'tires' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); reQuote(quote.quote_id); }}
+                                disabled={reQuoting === quote.quote_id}
+                                style={{ backgroundColor: 'transparent', color: '#3b82f6', border: '1.5px solid #3b82f6', padding: '5px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', cursor: reQuoting === quote.quote_id ? 'wait' : 'pointer', opacity: reQuoting === quote.quote_id ? 0.5 : 1 }}
+                              >
+                                {reQuoting === quote.quote_id ? '...' : 'RE-QUOTE'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ padding: '50px 20px', textAlign: 'center', color: '#888' }}>
+                {loading ? (
+                  <p>Searching...</p>
+                ) : hasSearched ? (
+                  <>
+                    <p style={{ fontSize: '16px', marginBottom: '10px' }}>No quotes found</p>
+                    <p style={{ fontSize: '13px' }}>Try adjusting your search criteria</p>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ fontSize: '16px', marginBottom: '10px' }}>Recent quotes will appear here</p>
+                    <p style={{ fontSize: '13px' }}>Enter search criteria above to find specific quotes</p>
+                  </>
+                )}
+              </div>
+            )
           )}
         </div>
       </div>
 
+      {/* Detail Modal — only mounted when a greet is selected */}
+      {selectedGreet && (
+        <GreetDetailModal
+          greet={selectedGreet}
+          onClose={closeGreetDetail}
+          loading={greetDetailLoading}
+        />
+      )}
+
       <Footer />
     </div>
   );
+}
+
+// =============================================================================
+// GreetCard — list-view card for a single greet
+// =============================================================================
+function GreetCard({ greet, onOpen }) {
+  const promoted = greet.classification_promoted === true;
+  const hasConcerns = (greet.concerns_selected && greet.concerns_selected.length > 0)
+    || (greet.concerns_text && greet.concerns_text.trim().length > 0);
+
+  return (
+    <div
+      onClick={onOpen}
+      onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(155, 89, 182, 0.25)'}
+      onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)'}
+      style={{
+        backgroundColor: 'white',
+        border: '1px solid #eee',
+        borderLeft: promoted ? '4px solid #f59e0b' : '4px solid #9b59b6',
+        borderRadius: '10px',
+        padding: '16px 18px',
+        cursor: 'pointer',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+        transition: 'box-shadow 0.15s'
+      }}
+    >
+      {/* Top row: short code + customer + time */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '18px', fontWeight: '700', color: '#9b59b6', letterSpacing: '1px' }}>
+            #{greet.short_code}
+          </span>
+          <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+            {greet.customer_first_name || 'Customer'}
+          </span>
+          {greet.customer_phone && (
+            <span style={{ fontSize: '13px', color: '#666' }}>
+              · {formatPhone(greet.customer_phone)}
+            </span>
+          )}
+        </div>
+        <span style={{ fontSize: '12px', color: '#888', whiteSpace: 'nowrap' }}>
+          {timeAgo(greet.created_at)}
+        </span>
+      </div>
+
+      {/* Vehicle line */}
+      <div style={{ fontSize: '13px', color: '#444', marginBottom: '6px' }}>
+        {greet.vehicle_display || 'Vehicle unknown'}
+        {greet.vehicle_mileage != null && (
+          <span style={{ color: '#888' }}> · {greet.vehicle_mileage.toLocaleString()} mi</span>
+        )}
+        {greet.is_returning_vehicle && (
+          <span style={{
+            marginLeft: '8px',
+            fontSize: '10px',
+            color: '#065f46',
+            backgroundColor: '#d1fae5',
+            padding: '2px 6px',
+            borderRadius: '8px',
+            fontWeight: '600',
+          }}>
+            RETURNING
+          </span>
+        )}
+        {greet.is_fleet_vehicle && (
+          <span style={{
+            marginLeft: '6px',
+            fontSize: '10px',
+            color: '#1e40af',
+            backgroundColor: '#dbeafe',
+            padding: '2px 6px',
+            borderRadius: '8px',
+            fontWeight: '600',
+          }}>
+            FLEET
+          </span>
+        )}
+      </div>
+
+      {/* Service summary */}
+      <div style={{ fontSize: '13px', color: '#444', marginBottom: '6px' }}>
+        {serviceClassificationLabel(greet.service_classification)}
+        {greet.oil_tier_selected && (
+          <> · {oilTierLabel(greet.oil_tier_selected)}</>
+        )}
+        {greet.tm_package_selected && (
+          <> + {tmPackageLabel(greet.tm_package_selected)}</>
+        )}
+        {greet.estimated_subtotal != null && (
+          <span style={{ fontWeight: '600', color: '#333' }}>
+            {' '}· {formatCurrency(Number(greet.estimated_subtotal))}
+          </span>
+        )}
+      </div>
+
+      {/* Promote-up + concerns row */}
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        {promoted && (
+          <span style={{
+            fontSize: '11px',
+            color: '#92400e',
+            backgroundColor: '#fef3c7',
+            padding: '3px 8px',
+            borderRadius: '10px',
+            fontWeight: '600',
+          }}>
+            ⚠ Promoted to Full
+          </span>
+        )}
+        {hasConcerns && !promoted && (
+          <span style={{
+            fontSize: '11px',
+            color: '#92400e',
+            backgroundColor: '#fef3c7',
+            padding: '3px 8px',
+            borderRadius: '10px',
+            fontWeight: '600',
+          }}>
+            Has concerns flagged
+          </span>
+        )}
+        {greet.follow_up_response === 'accepted' && (
+          <span style={{
+            fontSize: '11px',
+            color: '#065f46',
+            backgroundColor: '#d1fae5',
+            padding: '3px 8px',
+            borderRadius: '10px',
+            fontWeight: '600',
+          }}>
+            ✓ Accepted CAW
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// GreetDetailModal — full-screen overlay with the greet's complete breakdown
+// =============================================================================
+function GreetDetailModal({ greet, onClose, loading }) {
+  // Close on ESC
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  // Prevent background scroll while modal is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const promoted = greet.classification_promoted === true;
+
+  // Build the promote-up sentence using actual concern labels when possible.
+  const buildPromoteUpSentence = () => {
+    if (!promoted) return null;
+
+    const reason = greet.promoted_reason;
+    const chips = Array.isArray(greet.concerns_selected) ? greet.concerns_selected : [];
+
+    if (reason === 'concern_chip_selected' && chips.length > 0) {
+      const labels = chips.map(concernLabel);
+      const list = labels.length === 1
+        ? labels[0]
+        : labels.slice(0, -1).join(', ') + ' and ' + labels[labels.length - 1];
+      return `Customer mentioned ${list}. We promised we'd take extra time today to look these over properly.`;
+    }
+
+    if (reason === 'concern_text_provided' && greet.concerns_text) {
+      return `Customer described concerns in their own words. We promised we'd take extra time today to look them over properly.`;
+    }
+
+    if (reason === 'customer_chose_full_on_screen_5') {
+      return `Customer chose a full inspection up front — they know they want the thorough look-over.`;
+    }
+
+    return promotedReasonLabel(reason);
+  };
+
+  const promoteSentence = buildPromoteUpSentence();
+  const concerns = Array.isArray(greet.concerns_selected) ? greet.concerns_selected : [];
+  const followUpItems = Array.isArray(greet.follow_up_items_accepted) ? greet.follow_up_items_accepted : [];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        padding: '40px 20px',
+        overflowY: 'auto',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: 'white',
+          borderRadius: '15px',
+          maxWidth: '720px',
+          width: '100%',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.25)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          backgroundColor: '#9b59b6',
+          color: 'white',
+          padding: '20px 25px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div>
+            <div style={{ fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>
+              #{greet.short_code}
+            </div>
+            <div style={{ fontSize: '12px', opacity: 0.85, marginTop: '2px' }}>
+              Submitted {timeAgo(greet.created_at)} · {timePressureLabel(greet.time_pressure)}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              color: 'white',
+              border: 'none',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer',
+            }}
+          >
+            CLOSE ✕
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '25px' }}>
+          {loading && (
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '12px', textAlign: 'right' }}>
+              Refreshing...
+            </div>
+          )}
+
+          {/* Promote-up callout */}
+          {promoted && promoteSentence && (
+            <div style={{
+              backgroundColor: '#fef3c7',
+              borderLeft: '4px solid #f59e0b',
+              color: '#78350f',
+              padding: '14px 18px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              fontSize: '14px',
+              lineHeight: '1.5',
+              fontStyle: 'italic',
+            }}>
+              <div style={{ fontWeight: '700', fontStyle: 'normal', marginBottom: '4px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px' }}>
+                ⚠ Promoted from Express to Full Inspection
+              </div>
+              {promoteSentence}
+            </div>
+          )}
+
+          {/* Customer & Vehicle */}
+          <Section title="Customer & Vehicle">
+            <DetailRow label="Name" value={greet.customer_first_name || '—'} />
+            <DetailRow label="Phone" value={greet.customer_phone ? formatPhone(greet.customer_phone) : '—'} />
+            <DetailRow label="Email" value={greet.customer_email || '—'} />
+            <DetailRow label="Vehicle" value={greet.vehicle_display || '—'} />
+            <DetailRow
+              label="Plate"
+              value={greet.vehicle_license_plate
+                ? `${greet.vehicle_license_plate}${greet.vehicle_license_state ? ' (' + greet.vehicle_license_state + ')' : ''}`
+                : '—'}
+            />
+            <DetailRow label="VIN" value={greet.vehicle_vin || '—'} />
+            <DetailRow
+              label="Mileage"
+              value={greet.vehicle_mileage != null ? `${greet.vehicle_mileage.toLocaleString()} mi` : '—'}
+            />
+            {greet.last_visit_date && (
+              <DetailRow
+                label="Last visit"
+                value={`${formatDate(greet.last_visit_date)}${greet.last_visit_mileage != null ? ' @ ' + greet.last_visit_mileage.toLocaleString() + ' mi' : ''}`}
+              />
+            )}
+            <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+              {greet.is_returning_vehicle && (
+                <span style={badgePill('#065f46', '#d1fae5')}>RETURNING</span>
+              )}
+              {greet.is_fleet_vehicle && (
+                <span style={badgePill('#1e40af', '#dbeafe')}>FLEET</span>
+              )}
+            </div>
+          </Section>
+
+          {/* Service Plan */}
+          <Section title="Service Plan">
+            <DetailRow
+              label="Service"
+              value={serviceClassificationLabel(greet.service_classification)}
+            />
+            <DetailRow
+              label="Customer pace"
+              value={timePressureLabel(greet.time_pressure)}
+            />
+          </Section>
+
+          {/* Oil + Treatment */}
+          <Section title="Oil + Treatment">
+            <DetailRow label="Oil tier" value={oilTierLabel(greet.oil_tier_selected)} />
+            {greet.oil_tier_starts_at != null && (
+              <DetailRow
+                label="Starting at"
+                value={formatCurrency(Number(greet.oil_tier_starts_at))}
+              />
+            )}
+            <DetailRow
+              label="Add-on"
+              value={
+                greet.tm_package_selected
+                  ? `${tmPackageLabel(greet.tm_package_selected)} (+${formatCurrency(TM_PACKAGE_ADDON_PRICE[greet.tm_package_selected] || 0)})`
+                  : 'No add-on'
+              }
+            />
+          </Section>
+
+          {/* Tire rotation */}
+          <Section title="Tire Rotation">
+            <DetailRow
+              label="Choice"
+              value={tireRotationLabel(greet.tire_rotation_choice)}
+            />
+            {greet.tire_rotation_choice === 'yes' && greet.tire_rotation_starts_at != null && (
+              <DetailRow
+                label="Starting at"
+                value={formatCurrency(Number(greet.tire_rotation_starts_at))}
+              />
+            )}
+          </Section>
+
+          {/* CAW Add-ons */}
+          {(followUpItems.length > 0 || greet.follow_up_response) && (
+            <Section title="CAW Add-ons">
+              <DetailRow
+                label="Outcome"
+                value={followUpResponseLabel(greet.follow_up_response)}
+              />
+              {followUpItems.length > 0 && (
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                  {followUpItems.map((id) => (
+                    <span key={id} style={badgePill('#065f46', '#d1fae5')}>
+                      ✓ {followUpItemLabel(id)}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {greet.follow_up_bundle_price != null && (
+                <DetailRow
+                  label="Bundle price"
+                  value={formatCurrency(Number(greet.follow_up_bundle_price))}
+                />
+              )}
+            </Section>
+          )}
+
+          {/* Concerns */}
+          {(concerns.length > 0 || (greet.concerns_text && greet.concerns_text.trim())) && (
+            <Section title="Concerns">
+              {concerns.length > 0 && (
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: greet.concerns_text ? '12px' : '0' }}>
+                  {concerns.map((id) => (
+                    <span key={id} style={badgePill('#991b1b', '#fee2e2')}>
+                      {concernLabel(id)}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {greet.concerns_text && greet.concerns_text.trim() && (
+                <div style={{
+                  fontStyle: 'italic',
+                  color: '#444',
+                  fontSize: '13px',
+                  padding: '10px 14px',
+                  backgroundColor: '#fafafa',
+                  borderLeft: '3px solid #ddd',
+                  borderRadius: '4px',
+                }}>
+                  "{greet.concerns_text}"
+                </div>
+              )}
+            </Section>
+          )}
+
+          {/* Wait preference */}
+          <Section title="Wait Preference">
+            <DetailRow
+              label="They'll be"
+              value={waitPreferenceLabel(greet.wait_preference)}
+            />
+          </Section>
+
+          {/* Estimated subtotal */}
+          {greet.estimated_subtotal != null && (
+            <div style={{
+              marginTop: '20px',
+              padding: '18px 20px',
+              backgroundColor: '#f3e8ff',
+              borderRadius: '10px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <span style={{ fontSize: '12px', fontWeight: '700', color: '#6b21a8', letterSpacing: '1px' }}>
+                ESTIMATED SUBTOTAL (what the customer saw)
+              </span>
+              <span style={{ fontSize: '22px', fontWeight: '700', color: '#6b21a8' }}>
+                {formatCurrency(Number(greet.estimated_subtotal))}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Small modal-internal building blocks
+// =============================================================================
+function Section({ title, children }) {
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#9b59b6',
+        textTransform: 'uppercase',
+        letterSpacing: '1.5px',
+        marginBottom: '10px',
+        paddingBottom: '6px',
+        borderBottom: '1px solid #eee',
+      }}>
+        {title}
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '4px 0', fontSize: '13px' }}>
+      <span style={{ color: '#888', flexShrink: 0 }}>{label}</span>
+      <span style={{ color: '#333', textAlign: 'right', fontWeight: '500', wordBreak: 'break-word' }}>{value}</span>
+    </div>
+  );
+}
+
+function badgePill(color, bgColor) {
+  return {
+    fontSize: '11px',
+    color,
+    backgroundColor: bgColor,
+    padding: '3px 10px',
+    borderRadius: '10px',
+    fontWeight: '600',
+    display: 'inline-block',
+  };
 }
