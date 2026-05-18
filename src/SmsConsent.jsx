@@ -2,8 +2,11 @@
 // SMS CONSENT PAGE - Telnyx 10DLC Compliance
 // =============================================================================
 // Route: #/sms-consent
-// Purpose: SMS opt-in form + terms + privacy for tire quote messaging
-// Updated: February 2026 - Aligned to tire quote SMS journey for Telnyx 10DLC
+// Purpose: SMS opt-in form + terms + privacy for two programs:
+//          (1) Tire quote messaging
+//          (2) Identity verification codes across customer-facing apps
+// Updated: May 2026 - Added identity verification SMS program (Program 2)
+//          Original: February 2026 - Aligned to tire quote SMS journey for Telnyx 10DLC
 // =============================================================================
 
 import React, { useState } from 'react';
@@ -187,16 +190,19 @@ const SmsConsent = () => {
             </h2>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
               P.C.J.L., Inc. DBA My Jiffy Lube Group ("we", "us", "our") operates Jiffy Lube Multicare locations 
-              in California. We offer an optional SMS messaging service to deliver tire quotes and related 
-              follow-up messages to our customers. This page describes how we collect consent, what messages 
-              you will receive, and how to manage your SMS preferences.
+              in California. We offer two distinct optional SMS services to our customers: (1) a tire quote 
+              messaging program that delivers personalized tire quotes and related follow-up messages, and 
+              (2) an identity verification program that delivers one-time numeric codes to confirm customer 
+              identity when using our customer-facing applications (including our tire finder, customer-facing 
+              quote retrieval, and self-service intake kiosks). Each program has its own opt-in mechanism, 
+              message content, and frequency. This page describes both programs.
             </p>
           </section>
 
-          {/* How Consent is Collected */}
+          {/* How Consent is Collected — Tire Quote Messages */}
           <section style={{ marginBottom: '35px' }}>
             <h2 style={{ color: '#8b1538', fontSize: '20px', marginBottom: '15px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
-              How We Collect Consent
+              How We Collect Consent — Tire Quote Messages
             </h2>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
               Customers provide explicit consent to receive SMS messages through the following method:
@@ -218,10 +224,10 @@ const SmsConsent = () => {
             </p>
           </section>
 
-          {/* Types of Messages */}
+          {/* Types of Messages — Tire Quote Messages */}
           <section style={{ marginBottom: '35px' }}>
             <h2 style={{ color: '#8b1538', fontSize: '20px', marginBottom: '15px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
-              Types of Messages
+              Types of Messages — Tire Quote Messages
             </h2>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
               Customers who opt in will receive up to 5 SMS messages per tire quote, all related to their tire 
@@ -244,10 +250,10 @@ const SmsConsent = () => {
             </p>
           </section>
 
-          {/* Sample Messages */}
+          {/* Sample Messages — Tire Quote Messages */}
           <section style={{ marginBottom: '35px' }}>
             <h2 style={{ color: '#8b1538', fontSize: '20px', marginBottom: '15px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
-              Sample Messages
+              Sample Messages — Tire Quote Messages
             </h2>
             <div style={{ 
               backgroundColor: '#f8fafc', 
@@ -271,6 +277,89 @@ const SmsConsent = () => {
               color: '#334155'
             }}>
               Jiffy Lube Multicare: During your inspection we measured 2 tires in the red zone (under 3/32). Safe stopping distance is significantly reduced. View your tire quote: tires.myjiffylube.ai/#/quote/Ab3kX9 - Your quote expires in 7 days. Reply STOP to opt out.
+            </div>
+          </section>
+
+          {/* ========================================================== */}
+          {/* SMS PROGRAM 2: Identity Verification Codes                  */}
+          {/* ========================================================== */}
+
+          {/* Program 2 Intro */}
+          <section style={{ marginBottom: '35px' }}>
+            <h2 style={{ color: '#8b1538', fontSize: '20px', marginBottom: '15px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
+              SMS Program 2: Identity Verification Codes
+            </h2>
+            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
+              In addition to the tire quote SMS program described above, we operate a separate SMS program 
+              for delivering one-time numeric verification codes to customers using our customer-facing 
+              applications at <strong>tires.myjiffylube.ai</strong>. This program supports identity 
+              verification across multiple touchpoints, including our tire finder, customer-facing quote 
+              retrieval, and our self-service intake kiosks at Jiffy Lube Multicare locations. This is a 
+              distinct service with its own opt-in mechanism, message content, and message frequency.
+            </p>
+          </section>
+
+          {/* How Consent is Collected — Identity Verification */}
+          <section style={{ marginBottom: '35px' }}>
+            <h2 style={{ color: '#8b1538', fontSize: '20px', marginBottom: '15px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
+              How We Collect Consent — Identity Verification
+            </h2>
+            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
+              Customers provide explicit consent to receive a verification code by performing the following 
+              action within one of our customer-facing applications:
+            </p>
+            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
+              <strong>Customer-Initiated Opt-In:</strong> The customer enters their mobile phone number into 
+              an input field and taps a button clearly labeled to indicate that a verification code will be 
+              sent (for example, "Send me a verification code" or "Text me a code"). The act of entering the 
+              phone number and tapping the button constitutes the customer's express consent to receive one 
+              SMS message containing the verification code at the number provided. No verification code is 
+              sent unless the customer initiates this action. Specific touchpoints where this opt-in occurs 
+              today include our self-service intake kiosks (accessed by scanning a QR code at a store 
+              entrance), our tire finder application, and our customer-facing quote retrieval. We may add 
+              additional verification touchpoints across our customer-facing applications over time; in all 
+              cases the opt-in mechanism follows the customer-initiated pattern described above.
+            </p>
+          </section>
+
+          {/* Types of Messages — Identity Verification */}
+          <section style={{ marginBottom: '35px' }}>
+            <h2 style={{ color: '#8b1538', fontSize: '20px', marginBottom: '15px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
+              Types of Messages — Identity Verification
+            </h2>
+            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
+              Customers who request a verification code will receive a single SMS message containing a 
+              6-digit numeric code valid for approximately 5 minutes. If the customer's code does not arrive 
+              or expires, they may request a new code from within the application, which triggers one 
+              additional SMS. No further messages are sent unless the customer requests another code.
+            </p>
+            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
+              The identity verification SMS program is strictly transactional. We do not send marketing, 
+              promotional, or any other content through this program. The verification SMS contains no 
+              embedded links and no embedded phone numbers.
+            </p>
+            <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
+              <strong>Message Frequency:</strong> One SMS message per verification request initiated by the 
+              customer. The customer fully controls how many messages they receive by choosing how many 
+              times they request a code. Most customers will receive a single verification code per session.
+            </p>
+          </section>
+
+          {/* Sample Message — Identity Verification */}
+          <section style={{ marginBottom: '35px' }}>
+            <h2 style={{ color: '#8b1538', fontSize: '20px', marginBottom: '15px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
+              Sample Message — Identity Verification
+            </h2>
+            <div style={{ 
+              backgroundColor: '#f8fafc', 
+              border: '1px solid #e2e8f0', 
+              borderRadius: '12px', 
+              padding: '20px',
+              fontFamily: 'monospace',
+              fontSize: '14px',
+              color: '#334155'
+            }}>
+              Jiffy Lube Multicare: Your verification code is 482913. This code expires in 5 minutes. Reply STOP to opt out, HELP for help.
             </div>
           </section>
 
@@ -328,15 +417,16 @@ const SmsConsent = () => {
               SMS Privacy Policy
             </h2>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
-              We respect your privacy. Phone numbers and SMS opt-in consent data collected for this program are 
-              used solely for the purpose of delivering tire quote messages as described on this page.
+              We respect your privacy. Phone numbers and SMS opt-in consent data collected for our SMS 
+              programs are used solely for the purposes described on this page (tire quote messaging and 
+              identity verification codes for our customer-facing applications).
             </p>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px', marginBottom: '15px' }}>
-              We will not share your opt-in to this SMS campaign with any third party for purposes unrelated to 
-              providing you with the services of this campaign. We may share your personal data, including your 
-              SMS opt-in or consent status, with third parties that help us provide our messaging services, 
-              including but not limited to platform providers, phone companies, and any other vendors who assist 
-              us in the delivery of text messages.
+              We will not share your opt-in to our SMS campaigns with any third party for purposes unrelated 
+              to providing you with the services of those campaigns. We may share your personal data, 
+              including your SMS opt-in or consent status, with third parties that help us provide our 
+              messaging services, including but not limited to platform providers, phone companies, and any 
+              other vendors who assist us in the delivery of text messages.
             </p>
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
               We do not sell, rent, or otherwise share your mobile phone number or SMS consent information with 
@@ -383,7 +473,7 @@ const SmsConsent = () => {
             <a href="#/sms-consent" style={{ color: '#64748b', textDecoration: 'none' }}>SMS Terms</a>
           </p>
           <p style={{ margin: '0' }}>
-            Last Updated: February 2026 | © 2026 P.C.J.L., Inc. DBA My Jiffy Lube Group
+            Last Updated: May 2026 | © 2026 P.C.J.L., Inc. DBA My Jiffy Lube Group
           </p>
         </div>
       </div>

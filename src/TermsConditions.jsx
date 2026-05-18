@@ -110,7 +110,7 @@ const TermsConditions = () => {
           <a href="#/" style={pageStyles.backLink}>← Back to Tire Finder</a>
 
           <p style={{ ...pageStyles.paragraph, fontStyle: 'italic', color: '#64748b' }}>
-            Last Updated: February 2026
+            Last Updated: May 2026
           </p>
 
           {/* Introduction */}
@@ -253,29 +253,59 @@ const TermsConditions = () => {
 
             <h3 style={pageStyles.subsectionTitle}>Program Description</h3>
             <p style={pageStyles.paragraph}>
-              Our SMS program sends customers messages related to their tire quote, including 
-              tire quote delivery, tire safety follow-ups based on tread depth inspection results, 
+              We operate two distinct SMS programs:
+            </p>
+            <p style={pageStyles.paragraph}>
+              <strong>Tire Quote SMS Program:</strong> Sends customers messages related to their tire quote, 
+              including tire quote delivery, tire safety follow-ups based on tread depth inspection results, 
               re-engagement messages, and quote expiration reminders. Marketing messages may include 
               promotional offers to encourage customers to return for tire replacement. Customers who 
               do not confirm marketing opt-in will only receive informational messages. All messages 
               relate solely to the customer's tire quote and vehicle tire safety.
             </p>
+            <p style={pageStyles.paragraph}>
+              <strong>Identity Verification SMS Program:</strong> Sends customers a single one-time 6-digit 
+              numeric verification code when they request one from any of our customer-facing applications 
+              at tires.myjiffylube.ai (including our tire finder, customer-facing quote retrieval, and 
+              self-service intake kiosks at Jiffy Lube MultiCare locations). The code is used to confirm 
+              the customer's identity, is valid for approximately 5 minutes, and contains no marketing 
+              content. The customer initiates this action by entering their phone number into one of our 
+              applications and tapping a button to request a code; no code is sent without that action.
+            </p>
+            <p style={pageStyles.paragraph}>
+              Each program has its own consent mechanism. Opting out of one program does not automatically 
+              opt out of the other.
+            </p>
 
             <h3 style={pageStyles.subsectionTitle}>Consent</h3>
             <p style={pageStyles.paragraph}>
-              By providing your mobile phone number and requesting a tire quote via SMS, you expressly consent 
-              to receive text messages from P.C.J.L., Inc. at the phone number provided, including marketing 
-              messages with promotional offers related to your tire quote if you confirm by replying YES. You 
-              also agree to pay any charges to your wireless bill or have them deducted from your prepaid 
-              balance for receiving text messages. Consent is not a condition of purchase.
+              <strong>Tire Quote SMS Program:</strong> By providing your mobile phone number and requesting 
+              a tire quote via SMS, you expressly consent to receive text messages from P.C.J.L., Inc. at 
+              the phone number provided, including marketing messages with promotional offers related to 
+              your tire quote if you confirm by replying YES. Consent is not a condition of purchase.
+            </p>
+            <p style={pageStyles.paragraph}>
+              <strong>Identity Verification SMS Program:</strong> By entering your phone number into one of 
+              our customer-facing applications and tapping a button to receive a verification code, you 
+              expressly consent to receive a single SMS message at the phone number provided containing the 
+              verification code. Consent is not a condition of purchase.
+            </p>
+            <p style={pageStyles.paragraph}>
+              In both cases, you also agree to pay any charges to your wireless bill or have them deducted 
+              from your prepaid balance for receiving text messages.
             </p>
 
             <h3 style={pageStyles.subsectionTitle}>Message Frequency</h3>
             <p style={pageStyles.paragraph}>
-              Message frequency varies. Up to 5 messages per tire quote over a 14-day period. Messages include 
-              quote delivery, tire safety follow-ups, and expiration reminders. Marketing messages may include 
-              promotional offers. If you purchase tires before all messages are sent, remaining follow-ups stop 
-              and you receive a purchase confirmation instead.
+              <strong>Tire Quote SMS Program:</strong> Up to 5 messages per tire quote over a 14-day period. 
+              Messages include quote delivery, tire safety follow-ups, and expiration reminders. Marketing 
+              messages may include promotional offers. If you purchase tires before all messages are sent, 
+              remaining follow-ups stop and you receive a purchase confirmation instead.
+            </p>
+            <p style={pageStyles.paragraph}>
+              <strong>Identity Verification SMS Program:</strong> One message per verification code request. 
+              You may request additional codes if needed (e.g., the original code did not arrive or has 
+              expired). Most customers receive a single code per session.
             </p>
 
             <h3 style={pageStyles.subsectionTitle}>Opting Out</h3>
@@ -305,16 +335,17 @@ const TermsConditions = () => {
 
             <h3 style={pageStyles.subsectionTitle}>Privacy</h3>
             <p style={pageStyles.paragraph}>
-              Phone numbers and SMS opt-in consent data collected for this program are used solely for the 
-              purpose of delivering tire quote messages as described above. We will not share your opt-in to 
-              this SMS campaign with any third party for purposes unrelated to providing you with the services 
-              of this campaign. We may share your personal data, including your SMS opt-in or consent status, 
-              with third parties that help us provide our messaging services, including but not limited to 
-              platform providers, phone companies, and any other vendors who assist us in the delivery of text 
-              messages. We do not sell, rent, or otherwise share your mobile phone number or SMS consent 
-              information with third parties for promotional or marketing purposes. All of the above categories 
-              exclude text messaging originator opt-in data and consent; this information will not be shared 
-              with any third parties. For full details, see 
+              Phone numbers and SMS opt-in consent data collected for our SMS programs are used solely for 
+              the purposes described above (tire quote messaging and identity verification codes for our 
+              customer-facing applications). We will not share your opt-in to our SMS campaigns with any 
+              third party for purposes unrelated to providing you with the services of those campaigns. We 
+              may share your personal data, including your SMS opt-in or consent status, with third parties 
+              that help us provide our messaging services, including but not limited to platform providers, 
+              phone companies, and any other vendors who assist us in the delivery of text messages. We do 
+              not sell, rent, or otherwise share your mobile phone number or SMS consent information with 
+              third parties for promotional or marketing purposes. All of the above categories exclude text 
+              messaging originator opt-in data and consent; this information will not be shared with any 
+              third parties. For full details, see 
               our <a href="#/privacy-policy" style={{ color: '#8b1538' }}>Privacy Policy</a> and{' '}
               <a href="#/sms-consent" style={{ color: '#8b1538' }}>SMS Consent & Terms</a> page.
             </p>

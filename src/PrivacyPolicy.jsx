@@ -112,7 +112,7 @@ const PrivacyPolicy = () => {
           <a href="#/" style={pageStyles.backLink}>← Back to Tire Finder</a>
 
           <p style={{ ...pageStyles.paragraph, fontStyle: 'italic', color: '#64748b' }}>
-            Last Updated: February 2026
+            Last Updated: May 2026
           </p>
 
           {/* Introduction */}
@@ -141,7 +141,7 @@ const PrivacyPolicy = () => {
               We may collect and store personal information you provide to us, including:
             </p>
             <ul style={pageStyles.list}>
-              <li>Your name, mailing address, email address, and telephone number</li>
+              <li>Your name, mailing address, email address, and telephone number (including for use with verification codes sent via SMS to confirm your identity when using our customer-facing applications)</li>
               <li>Vehicle information (year, make, model, license plate number)</li>
               <li>Tire service history and tire condition assessments (tread depth readings)</li>
               <li>Payment information (when using our PayPal invoice service)</li>
@@ -172,6 +172,7 @@ const PrivacyPolicy = () => {
             <ul style={pageStyles.list}>
               <li>Generate and deliver tire quotes and service estimates</li>
               <li>Send you your tire quote via email, SMS text message, or print</li>
+              <li>Send you one-time verification codes via SMS text message to confirm your identity when you use our customer-facing applications (including our tire finder, quote retrieval, and self-service intake kiosks at Jiffy Lube MultiCare locations)</li>
               <li>Process payments through our PayPal invoice service</li>
               <li>Manage your customer relationship and provide customer service</li>
               <li>Communicate with you about your vehicle service needs, appointments, and service updates</li>
@@ -228,13 +229,18 @@ const PrivacyPolicy = () => {
               promotional email we send.
             </p>
             <p style={pageStyles.paragraph}>
-              <strong>SMS/Text Messages:</strong> You may opt out of receiving text messages at any time by 
-              replying STOP to any message. For details, see our{' '}
+              <strong>SMS/Text Messages:</strong> We send two distinct types of SMS messages: (1) tire 
+              quote delivery and follow-up messages, which require your verbal opt-in at one of our service 
+              centers, and (2) one-time verification codes sent to confirm your identity when using our 
+              customer-facing applications, which you initiate by entering your phone number and tapping a 
+              button to request a code. You may opt out of either type at any time by replying STOP to any 
+              message. For details, see our{' '}
               <a href="#/sms-consent" style={{ color: '#8b1538' }}>SMS Consent & Terms</a> page.
             </p>
             <p style={pageStyles.paragraph}>
-              <strong>SMS Privacy:</strong> We will not share your opt-in to our SMS campaign with any third 
-              party for purposes unrelated to providing you with the services of that campaign. We may share 
+              <strong>SMS Privacy:</strong> We will not share your opt-in to our SMS campaigns (including 
+              both tire quote messaging and identity verification codes) with any third party for purposes 
+              unrelated to providing you with the services of those campaigns. We may share 
               your personal data, including your SMS opt-in or consent status, with third parties that help us 
               provide our messaging services, including but not limited to platform providers, phone companies, 
               and any other vendors who assist us in the delivery of text messages. We do not sell, rent, or 
