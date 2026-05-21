@@ -116,17 +116,18 @@ const TermsConditions = () => {
           {/* Introduction */}
           <section style={pageStyles.section}>
             <p style={pageStyles.paragraph}>
-              This website (tires.myjiffylube.ai) is operated by P.C.J.L., Inc., operating Jiffy Lube 
-              MultiCare service centers in California. Throughout this site, the terms "we", "us", and 
-              "our" refer to P.C.J.L., Inc. We offer this website, including all information, tools, and 
-              services available from this site, conditioned upon your acceptance of all terms, conditions, 
-              policies, and notices stated here.
+              These Terms govern our customer-facing applications operated by P.C.J.L., Inc., operating 
+              Jiffy Lube MultiCare service centers in California, including tires.myjiffylube.ai and 
+              greets.myjiffylube.ai. Throughout these Terms, the terms "we", "us", "our", and "this site" 
+              refer to P.C.J.L., Inc. and our customer-facing applications. We offer these applications, 
+              including all information, tools, and services available from them, conditioned upon your 
+              acceptance of all terms, conditions, policies, and notices stated here.
             </p>
             <p style={pageStyles.paragraph}>
-              By visiting our site and/or using our tire quote tools, you engage in our "Service" and agree 
+              By visiting our applications and/or using our tools, you engage in our "Service" and agree 
               to be bound by the following terms and conditions. Please read these Terms of Service carefully 
-              before accessing or using our website. If you do not agree to all the terms and conditions of 
-              this agreement, then you may not access the website or use any services.
+              before accessing or using our applications. If you do not agree to all the terms and conditions 
+              of this agreement, then you may not access the applications or use any services.
             </p>
           </section>
 
@@ -266,11 +267,12 @@ const TermsConditions = () => {
             <p style={pageStyles.paragraph}>
               <strong>Identity Verification SMS Program:</strong> Sends customers a single one-time 6-digit 
               numeric verification code when they request one from any of our customer-facing applications 
-              at tires.myjiffylube.ai (including our tire finder, customer-facing quote retrieval, and 
-              self-service intake kiosks at Jiffy Lube MultiCare locations). The code is used to confirm 
-              the customer's identity, is valid for approximately 5 minutes, and contains no marketing 
-              content. The customer initiates this action by entering their phone number into one of our 
-              applications and tapping a button to request a code; no code is sent without that action.
+              (including our tire finder and customer-facing quote retrieval at tires.myjiffylube.ai, and 
+              our self-service intake kiosks at greets.myjiffylube.ai accessed at Jiffy Lube MultiCare 
+              locations). The code is used to confirm the customer's identity, is valid for approximately 
+              5 minutes, and contains no marketing content. The customer initiates this action by entering 
+              their phone number into one of our applications and tapping a button to request a code; no 
+              code is sent without that action.
             </p>
             <p style={pageStyles.paragraph}>
               Each program has its own consent mechanism. Opting out of one program does not automatically 

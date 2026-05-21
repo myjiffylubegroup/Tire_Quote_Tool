@@ -133,7 +133,8 @@ const DoNotSell = () => {
           <section style={pageStyles.section}>
             <h2 style={pageStyles.sectionTitle}>What This Means</h2>
             <p style={pageStyles.paragraph}>
-              When you use our tire quote tool at tires.myjiffylube.ai or visit one of our service centers, 
+              When you use any of our customer-facing applications (including tires.myjiffylube.ai and 
+              greets.myjiffylube.ai) or visit one of our service centers, 
               we collect personal information solely to provide you with our services. This information is 
               used to:
             </p>

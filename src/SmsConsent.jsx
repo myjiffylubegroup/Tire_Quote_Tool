@@ -292,10 +292,11 @@ const SmsConsent = () => {
             <p style={{ color: '#475569', lineHeight: '1.7', fontSize: '15px' }}>
               In addition to the tire quote SMS program described above, we operate a separate SMS program 
               for delivering one-time numeric verification codes to customers using our customer-facing 
-              applications at <strong>tires.myjiffylube.ai</strong>. This program supports identity 
-              verification across multiple touchpoints, including our tire finder, customer-facing quote 
-              retrieval, and our self-service intake kiosks at Jiffy Lube Multicare locations. This is a 
-              distinct service with its own opt-in mechanism, message content, and message frequency.
+              applications. This program supports identity verification across multiple touchpoints, 
+              including our tire finder and customer-facing quote retrieval at <strong>tires.myjiffylube.ai</strong>, 
+              and our self-service intake kiosks at <strong>greets.myjiffylube.ai</strong> accessed by 
+              scanning a QR code at Jiffy Lube Multicare locations. This is a distinct service with its 
+              own opt-in mechanism, message content, and message frequency.
             </p>
           </section>
 
@@ -452,7 +453,7 @@ const SmsConsent = () => {
               Operating Jiffy Lube Multicare locations in California<br/>
               Phone: (805) 354-7077<br/>
               Email: support@myjiffylube.com<br/>
-              Website: tires.myjiffylube.ai
+              Websites: tires.myjiffylube.ai, greets.myjiffylube.ai
             </p>
           </section>
 

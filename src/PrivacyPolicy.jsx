@@ -122,7 +122,8 @@ const PrivacyPolicy = () => {
               in California ("we", "us", "our"). P.C.J.L., Inc. is an independently owned and operated 
               franchisee of Jiffy Lube International, Inc. This Policy applies to all information transmitted 
               or submitted to us, whether provided at one of our Jiffy Lube MultiCare service centers or via 
-              our website at tires.myjiffylube.ai, phone, text or SMS message, email, or any other written 
+              any of our customer-facing applications (including tires.myjiffylube.ai and 
+              greets.myjiffylube.ai), phone, text or SMS message, email, or any other written 
               or oral communication with us.
             </p>
             <p style={pageStyles.paragraph}>

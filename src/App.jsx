@@ -12,6 +12,7 @@ import PrivacyPolicy from './PrivacyPolicy';
 import MechanicalFinder from './MechanicalFinder';
 import MechanicalQuoteView from './MechanicalQuoteView';
 import TermsConditions from './TermsConditions';
+import DoNotSell from './DoNotSell';
 import Reports from './Reports';
 
 // Simple hash-based router (no additional dependencies needed)
@@ -35,6 +36,7 @@ export default function App() {
   // #/sms-consent -> SmsConsent (SMS opt-in & terms)
   // #/privacy-policy -> PrivacyPolicy
   // #/terms -> TermsConditions
+  // #/do-not-sell -> DoNotSell (CCPA compliance)
   //
   // PROTECTED ROUTES (staff PIN required):
   // #/quotes -> QuoteLookup
@@ -63,6 +65,10 @@ export default function App() {
 
   if (path === '/terms') {
     return <TermsConditions />;
+  }
+
+  if (path === '/do-not-sell') {
+    return <DoNotSell />;
   }
   
   // QuoteView - public (customer has the short code link)
