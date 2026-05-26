@@ -1098,6 +1098,18 @@ function GreetCard({ greet, onOpen }) {
 
       {/* Promote-up + concerns row */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        {Array.isArray(greet.grow_codes) && greet.grow_codes.length > 0 && (
+          <span style={{
+            fontSize: '11px',
+            color: '#3730a3',
+            backgroundColor: '#e0e7ff',
+            padding: '3px 8px',
+            borderRadius: '10px',
+            fontWeight: '700',
+          }}>
+            {greet.grow_codes.length} code{greet.grow_codes.length !== 1 ? 's' : ''}
+          </span>
+        )}
         {promoted && (
           <span style={{
             fontSize: '11px',
@@ -1276,6 +1288,14 @@ function GreetDetailModal({ greet, onClose, loading }) {
               {promoteSentence}
             </div>
           )}
+
+          {/* GROW Service Codes — the most actionable info, placed first.
+              Display-only: codes and callouts are rendered exactly as stored
+              by the kiosk's greets-submit. Never transformed or recomputed. */}
+          <GrowCodesSection
+            codes={Array.isArray(greet.grow_codes) ? greet.grow_codes : []}
+            callouts={Array.isArray(greet.grow_code_callouts) ? greet.grow_code_callouts : []}
+          />
 
           {/* Customer & Vehicle */}
           <Section title="Customer & Vehicle">
@@ -1483,4 +1503,120 @@ function badgePill(color, bgColor) {
     fontWeight: '600',
     display: 'inline-block',
   };
+}
+
+// =============================================================================
+// GrowCodesSection — the actionable GROW POS codes + read-only callouts.
+//
+// DISPLAY ONLY. Codes and callouts are rendered exactly as stored by the
+// kiosk's greets-submit function (the single source of truth). This component
+// never transforms, sorts, dedups, relabels, or recomputes them — doing so
+// would risk drift from what's actually stored.
+// =============================================================================
+function GrowCodesSection({ codes, callouts }) {
+  const hasCodes = codes.length > 0;
+  const hasCallouts = callouts.length > 0;
+
+  return (
+    <Section title="GROW Service Codes">
+      {hasCodes ? (
+        <>
+          <div style={{ fontSize: '11px', color: '#888', marginBottom: '10px' }}>
+            Enter these into GROW. Tap a code to copy it.
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {codes.map((code, idx) => (
+              <GrowCodeChip key={`${code}-${idx}`} code={code} />
+            ))}
+          </div>
+        </>
+      ) : (
+        <div style={{ fontSize: '13px', color: '#888', fontStyle: 'italic' }}>
+          No service codes — non-oil visit
+        </div>
+      )}
+
+      {/* Callouts: read-only guidance. Clearly secondary so no one mistakes a
+          callout for a code to type into GROW. Matches the muted concerns-note
+          styling used elsewhere in the modal. */}
+      {hasCallouts && (
+        <div style={{ marginTop: hasCodes ? '14px' : '12px' }}>
+          <div style={{ fontSize: '10px', color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
+            Do not type — greeter guidance
+          </div>
+          {callouts.map((note, idx) => (
+            <div
+              key={idx}
+              style={{
+                fontStyle: 'italic',
+                color: '#666',
+                fontSize: '13px',
+                padding: '8px 12px',
+                backgroundColor: '#fafafa',
+                borderLeft: '3px solid #ddd',
+                borderRadius: '4px',
+                marginBottom: idx < callouts.length - 1 ? '6px' : '0',
+              }}
+            >
+              {note}
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+// =============================================================================
+// GrowCodeChip — a single prominent, click-to-copy GROW code.
+// =============================================================================
+function GrowCodeChip({ code }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        // Fallback for browsers/webviews without the async clipboard API.
+        const ta = document.createElement('textarea');
+        ta.value = code;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch (e) {
+      // If copy fails entirely, the code is still visible on the chip to type
+      // manually — no error UX needed.
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      title="Tap to copy"
+      style={{
+        fontFamily: "'SF Mono', 'Consolas', 'Monaco', monospace",
+        fontSize: '16px',
+        fontWeight: '700',
+        letterSpacing: '0.5px',
+        color: copied ? '#065f46' : '#3730a3',
+        backgroundColor: copied ? '#d1fae5' : '#e0e7ff',
+        border: copied ? '2px solid #34d399' : '2px solid #c7d2fe',
+        padding: '8px 16px',
+        borderRadius: '10px',
+        cursor: 'pointer',
+        transition: 'all 0.12s',
+        minWidth: '60px',
+      }}
+    >
+      {copied ? '✓ Copied' : code}
+    </button>
+  );
 }
