@@ -1096,20 +1096,18 @@ function GreetCard({ greet, onOpen }) {
         )}
       </div>
 
+      {/* GROW codes — actual click-to-copy chips, so the greeter can grab a
+          code straight from the list without opening the modal. */}
+      {Array.isArray(greet.grow_codes) && greet.grow_codes.length > 0 && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '8px' }}>
+          {greet.grow_codes.map((code, idx) => (
+            <GrowCodeChip key={`${code}-${idx}`} code={code} size="compact" />
+          ))}
+        </div>
+      )}
+
       {/* Promote-up + concerns row */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-        {Array.isArray(greet.grow_codes) && greet.grow_codes.length > 0 && (
-          <span style={{
-            fontSize: '11px',
-            color: '#3730a3',
-            backgroundColor: '#e0e7ff',
-            padding: '3px 8px',
-            borderRadius: '10px',
-            fontWeight: '700',
-          }}>
-            {greet.grow_codes.length} code{greet.grow_codes.length !== 1 ? 's' : ''}
-          </span>
-        )}
         {promoted && (
           <span style={{
             fontSize: '11px',
@@ -1570,10 +1568,14 @@ function GrowCodesSection({ codes, callouts }) {
 // =============================================================================
 // GrowCodeChip — a single prominent, click-to-copy GROW code.
 // =============================================================================
-function GrowCodeChip({ code }) {
+function GrowCodeChip({ code, size = 'normal' }) {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = async () => {
+  const handleCopy = async (e) => {
+    // Stop the click from bubbling to a clickable parent (e.g. the greet card,
+    // which opens the detail modal). Copying a code should never open the modal.
+    if (e && e.stopPropagation) e.stopPropagation();
+
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(code);
@@ -1597,26 +1599,28 @@ function GrowCodeChip({ code }) {
     }
   };
 
+  const compact = size === 'compact';
+
   return (
     <button
       onClick={handleCopy}
       title="Tap to copy"
       style={{
         fontFamily: "'SF Mono', 'Consolas', 'Monaco', monospace",
-        fontSize: '16px',
+        fontSize: compact ? '13px' : '16px',
         fontWeight: '700',
         letterSpacing: '0.5px',
         color: copied ? '#065f46' : '#3730a3',
         backgroundColor: copied ? '#d1fae5' : '#e0e7ff',
         border: copied ? '2px solid #34d399' : '2px solid #c7d2fe',
-        padding: '8px 16px',
-        borderRadius: '10px',
+        padding: compact ? '4px 10px' : '8px 16px',
+        borderRadius: compact ? '8px' : '10px',
         cursor: 'pointer',
         transition: 'all 0.12s',
-        minWidth: '60px',
+        minWidth: compact ? '44px' : '60px',
       }}
     >
-      {copied ? '✓ Copied' : code}
+      {copied ? (compact ? '✓' : '✓ Copied') : code}
     </button>
   );
 }
