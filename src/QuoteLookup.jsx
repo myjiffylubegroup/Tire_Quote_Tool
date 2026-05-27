@@ -75,16 +75,27 @@ const greetFullName = (greet) => {
   return parts.length ? parts.join(' ') : 'Customer';
 };
 
-// EXPRESS vs FULL classification badge styling.
+// EXPRESS vs FULL classification badge + card styling.
 //   express → red, reads as urgency / get them through fast
-//   full    → green, reads as revenue / worth the time
-// Returns { label, icon, color, bg, border } or null for unknown values.
+//   full    → green, reads as worth the time
+// Returns badge colors plus card-level cues:
+//   cardBorder — the 4px left border color for the card
+//   cardTint   — a very faint background wash reinforcing the border
+// Returns null for unknown values (card falls back to its default styling).
 const classificationBadge = (code) => {
   if (code === 'express') {
-    return { label: 'EXPRESS', icon: '⚡', color: '#b91c1c', bg: '#fee2e2', border: '#fca5a5' };
+    return {
+      label: 'EXPRESS', icon: '⚡',
+      color: '#b91c1c', bg: '#fee2e2', border: '#fca5a5',
+      cardBorder: '#ef4444', cardTint: '#fef5f5',
+    };
   }
   if (code === 'full') {
-    return { label: 'FULL', icon: '💰', color: '#047857', bg: '#d1fae5', border: '#6ee7b7' };
+    return {
+      label: 'FULL', icon: '🔧',
+      color: '#047857', bg: '#d1fae5', border: '#6ee7b7',
+      cardBorder: '#10b981', cardTint: '#f3fbf7',
+    };
   }
   return null;
 };
@@ -1069,15 +1080,23 @@ function GreetCard({ greet, onOpen }) {
     || (greet.concerns_text && greet.concerns_text.trim().length > 0);
   const alerts = contactAlerts(greet);
 
+  // Classification drives the card's left border + faint background tint.
+  // (Classification wins the border; promote-up is shown via its pill, not the
+  // border.) Falls back to the prior purple / promoted-amber when the
+  // classification value is unknown.
+  const cls = classificationBadge(greet.service_classification);
+  const cardBorderColor = cls ? cls.cardBorder : (promoted ? '#f59e0b' : '#9b59b6');
+  const cardBg = cls ? cls.cardTint : 'white';
+
   return (
     <div
       onClick={onOpen}
       onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(155, 89, 182, 0.25)'}
       onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)'}
       style={{
-        backgroundColor: 'white',
+        backgroundColor: cardBg,
         border: '1px solid #eee',
-        borderLeft: promoted ? '4px solid #f59e0b' : '4px solid #9b59b6',
+        borderLeft: `4px solid ${cardBorderColor}`,
         borderRadius: '10px',
         padding: '16px 18px',
         cursor: 'pointer',
@@ -1189,14 +1208,15 @@ function GreetCard({ greet, onOpen }) {
         {alerts.length > 0 && (
           <span style={{
             fontSize: '11px',
-            color: '#b91c1c',
-            backgroundColor: '#fee2e2',
-            border: '1px solid #fca5a5',
-            padding: '3px 8px',
+            color: '#ffffff',
+            backgroundColor: '#111827',
+            border: '1px solid #111827',
+            padding: '3px 10px',
             borderRadius: '10px',
-            fontWeight: '700',
+            fontWeight: '800',
+            letterSpacing: '0.3px',
           }}>
-            ⚠ Contact
+            ⚠ CONTACT UPDATED
           </span>
         )}
         {promoted && (
