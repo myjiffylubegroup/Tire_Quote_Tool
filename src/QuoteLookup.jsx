@@ -67,6 +67,64 @@ const timeAgo = (dateStr) => {
   });
 };
 
+// Build the customer's display name from first + last. Graceful when either
+// is missing (older greets may have first name only). Falls back to 'Customer'.
+const greetFullName = (greet) => {
+  const parts = [greet.customer_first_name, greet.customer_last_name]
+    .filter((p) => p && String(p).trim().length > 0);
+  return parts.length ? parts.join(' ') : 'Customer';
+};
+
+// EXPRESS vs FULL classification badge styling.
+//   express → red, reads as urgency / get them through fast
+//   full    → green, reads as revenue / worth the time
+// Returns { label, icon, color, bg, border } or null for unknown values.
+const classificationBadge = (code) => {
+  if (code === 'express') {
+    return { label: 'EXPRESS', icon: '⚡', color: '#b91c1c', bg: '#fee2e2', border: '#fca5a5' };
+  }
+  if (code === 'full') {
+    return { label: 'FULL', icon: '💰', color: '#047857', bg: '#d1fae5', border: '#6ee7b7' };
+  }
+  return null;
+};
+
+// Contact-change alerts derived from field_verification.
+// field_verification is a per-field object { first_name, phone, email } whose
+// values are one of: verified | verified_new | captured_unverified |
+// on_file_unchanged | omitted. Computed kiosk-side; null on older greets.
+//
+// Flavor A (alert only, no old value). A field fires an alert when:
+//   - status === 'verified_new'  (always — proven contact that didn't match file)
+//   - status === 'captured_unverified' AND the customer is returning
+//     (an edit on a known customer that wasn't verified; new customers type
+//      everything fresh, so captured_unverified is normal noise for them)
+//
+// Returns an array of { field, label, detail } — empty if nothing fires or
+// field_verification is absent/malformed.
+const contactAlerts = (greet) => {
+  const fv = greet && greet.field_verification;
+  if (!fv || typeof fv !== 'object') return [];
+
+  const returning = greet.is_returning_vehicle === true;
+  const fires = (status) =>
+    status === 'verified_new' || (status === 'captured_unverified' && returning);
+
+  const fieldDefs = [
+    { key: 'phone', label: '⚠ New phone', detail: 'Phone differs from file — confirm at counter' },
+    { key: 'email', label: '⚠ New email', detail: 'Email differs from file — confirm at counter' },
+    { key: 'first_name', label: '⚠ Name unverified', detail: 'Name not matched to file — confirm at counter' },
+  ];
+
+  const alerts = [];
+  for (const def of fieldDefs) {
+    if (fires(fv[def.key])) {
+      alerts.push({ field: def.key, label: def.label, detail: def.detail });
+    }
+  }
+  return alerts;
+};
+
 // Footer Component
 const Footer = () => (
   <footer style={{ backgroundColor: '#2c3e50', color: '#95a5a6', padding: '30px 20px' }}>
@@ -1009,6 +1067,7 @@ function GreetCard({ greet, onOpen }) {
   const promoted = greet.classification_promoted === true;
   const hasConcerns = (greet.concerns_selected && greet.concerns_selected.length > 0)
     || (greet.concerns_text && greet.concerns_text.trim().length > 0);
+  const alerts = contactAlerts(greet);
 
   return (
     <div
@@ -1033,7 +1092,7 @@ function GreetCard({ greet, onOpen }) {
             #{greet.short_code}
           </span>
           <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
-            {greet.customer_first_name || 'Customer'}
+            {greetFullName(greet)}
           </span>
           {greet.customer_phone && (
             <span style={{ fontSize: '13px', color: '#666' }}>
@@ -1080,12 +1139,31 @@ function GreetCard({ greet, onOpen }) {
         )}
       </div>
 
+      {/* Classification badge — EXPRESS (urgency) vs FULL (revenue) */}
+      {classificationBadge(greet.service_classification) && (() => {
+        const b = classificationBadge(greet.service_classification);
+        return (
+          <div style={{ marginBottom: '6px' }}>
+            <span style={{
+              display: 'inline-block',
+              fontSize: '12px',
+              fontWeight: '800',
+              letterSpacing: '0.5px',
+              color: b.color,
+              backgroundColor: b.bg,
+              border: `2px solid ${b.border}`,
+              padding: '3px 12px',
+              borderRadius: '8px',
+            }}>
+              {b.icon} {b.label}
+            </span>
+          </div>
+        );
+      })()}
+
       {/* Service summary */}
       <div style={{ fontSize: '13px', color: '#444', marginBottom: '6px' }}>
-        {serviceClassificationLabel(greet.service_classification)}
-        {greet.oil_tier_selected && (
-          <> · {oilTierLabel(greet.oil_tier_selected)}</>
-        )}
+        {oilTierLabel(greet.oil_tier_selected) || 'No oil service'}
         {greet.tm_package_selected && (
           <> + {tmPackageLabel(greet.tm_package_selected)}</>
         )}
@@ -1108,6 +1186,19 @@ function GreetCard({ greet, onOpen }) {
 
       {/* Promote-up + concerns row */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        {alerts.length > 0 && (
+          <span style={{
+            fontSize: '11px',
+            color: '#b91c1c',
+            backgroundColor: '#fee2e2',
+            border: '1px solid #fca5a5',
+            padding: '3px 8px',
+            borderRadius: '10px',
+            fontWeight: '700',
+          }}>
+            ⚠ Contact
+          </span>
+        )}
         {promoted && (
           <span style={{
             fontSize: '11px',
@@ -1198,6 +1289,12 @@ function GreetDetailModal({ greet, onClose, loading }) {
   const promoteSentence = buildPromoteUpSentence();
   const concerns = Array.isArray(greet.concerns_selected) ? greet.concerns_selected : [];
   const followUpItems = Array.isArray(greet.follow_up_items_accepted) ? greet.follow_up_items_accepted : [];
+
+  // Contact-change alerts, keyed by field so each renders under its own row.
+  const modalAlerts = contactAlerts(greet).reduce((acc, a) => {
+    acc[a.field] = a.detail;
+    return acc;
+  }, {});
 
   return (
     <div
@@ -1297,9 +1394,18 @@ function GreetDetailModal({ greet, onClose, loading }) {
 
           {/* Customer & Vehicle */}
           <Section title="Customer & Vehicle">
-            <DetailRow label="Name" value={greet.customer_first_name || '—'} />
+            <DetailRow label="Name" value={greetFullName(greet)} />
+            {modalAlerts.first_name && (
+              <ContactAlertRow detail={modalAlerts.first_name} />
+            )}
             <DetailRow label="Phone" value={greet.customer_phone ? formatPhone(greet.customer_phone) : '—'} />
+            {modalAlerts.phone && (
+              <ContactAlertRow detail={modalAlerts.phone} />
+            )}
             <DetailRow label="Email" value={greet.customer_email || '—'} />
+            {modalAlerts.email && (
+              <ContactAlertRow detail={modalAlerts.email} />
+            )}
             <DetailRow label="Vehicle" value={greet.vehicle_display || '—'} />
             <DetailRow
               label="Plate"
@@ -1330,10 +1436,30 @@ function GreetDetailModal({ greet, onClose, loading }) {
 
           {/* Service Plan */}
           <Section title="Service Plan">
-            <DetailRow
-              label="Service"
-              value={serviceClassificationLabel(greet.service_classification)}
-            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '4px 0' }}>
+              <span style={{ color: '#888', flexShrink: 0, fontSize: '13px' }}>Service</span>
+              {classificationBadge(greet.service_classification) ? (() => {
+                const b = classificationBadge(greet.service_classification);
+                return (
+                  <span style={{
+                    fontSize: '14px',
+                    fontWeight: '800',
+                    letterSpacing: '0.5px',
+                    color: b.color,
+                    backgroundColor: b.bg,
+                    border: `2px solid ${b.border}`,
+                    padding: '4px 14px',
+                    borderRadius: '8px',
+                  }}>
+                    {b.icon} {b.label}
+                  </span>
+                );
+              })() : (
+                <span style={{ color: '#333', fontWeight: '500', fontSize: '13px' }}>
+                  {serviceClassificationLabel(greet.service_classification)}
+                </span>
+              )}
+            </div>
             <DetailRow
               label="Customer pace"
               value={timePressureLabel(greet.time_pressure)}
@@ -1487,6 +1613,30 @@ function DetailRow({ label, value }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '4px 0', fontSize: '13px' }}>
       <span style={{ color: '#888', flexShrink: 0 }}>{label}</span>
       <span style={{ color: '#333', textAlign: 'right', fontWeight: '500', wordBreak: 'break-word' }}>{value}</span>
+    </div>
+  );
+}
+
+// Inline alert shown directly under a contact DetailRow (name/phone/email)
+// when field_verification flags it as new or unverified. Flavor A — flags
+// only, no old value.
+function ContactAlertRow({ detail }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      margin: '2px 0 8px',
+      padding: '7px 12px',
+      backgroundColor: '#fee2e2',
+      border: '1px solid #fca5a5',
+      borderRadius: '6px',
+      fontSize: '12px',
+      color: '#b91c1c',
+      fontWeight: '600',
+    }}>
+      <span style={{ flexShrink: 0 }}>⚠</span>
+      <span>{detail}</span>
     </div>
   );
 }
