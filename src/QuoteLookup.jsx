@@ -60,11 +60,55 @@ const timeAgo = (dateStr) => {
   if (diffMin < 60) return `${diffMin} min ago`;
   const diffHr = Math.floor(diffMin / 60);
   if (diffHr < 24) return `${diffHr} hr${diffHr !== 1 ? 's' : ''} ago`;
-  // Same day fallback or older — show the time
+  // Same day fallback or older — show the time (forced Pacific, see timePacific).
   return then.toLocaleString('en-US', {
+    timeZone: 'America/Los_Angeles',
     month: 'short', day: 'numeric',
     hour: 'numeric', minute: '2-digit'
   });
+};
+
+// Format a UTC timestamp as Pacific clock time, e.g. "3:14 PM".
+// Forced to America/Los_Angeles regardless of the browser's local timezone —
+// keeps the dashboard consistent with how the rest of the stack (Edge Functions,
+// date filters) thinks about time, and removes "wrong time on this laptop"
+// failure modes.
+const timePacific = (dateStr) => {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    hour: 'numeric', minute: '2-digit',
+  });
+};
+
+// Wait preference → icon + short label, for the card display next to the
+// classification badge. Mirrors concernLabels.js but returns an icon too.
+//   lobby    → 🪑 Lobby
+//   in_car   → 🚗 In car
+//   drop_off → 🔑 Drop off
+// Returns null for unknown values (card omits the chip gracefully).
+const waitPreferenceChip = (code) => {
+  if (code === 'lobby')    return { icon: '🪑', label: 'Lobby' };
+  if (code === 'in_car')   return { icon: '🚗', label: 'In car' };
+  if (code === 'drop_off') return { icon: '🔑', label: 'Drop off' };
+  return null;
+};
+
+// Engine Prep detection: certain GROW codes indicate the customer is getting
+// the Throttle Muscle Engine Prep welcome offer. The product is poured into
+// the engine BEFORE the car pulls into the bay and runs for 3 minutes — so
+// the CSA needs to grab the bottle ahead of time. This drives a loud banner
+// at the top of the card.
+//
+// Display-only signal — we check whether any of the prep-eligible GROW codes
+// is present in the greet's grow_codes array (computed kiosk-side). Exact,
+// case-sensitive match. The codes themselves are owned by the Greets project;
+// if they change there, update this list.
+const ENGINE_PREP_GROW_CODES = ['GREETTM3', 'GREETTM8', 'GREETTM13', 'GREETTM14', 'GREETTM15'];
+const hasEnginePrep = (greet) => {
+  const codes = greet && greet.grow_codes;
+  if (!Array.isArray(codes) || codes.length === 0) return false;
+  return codes.some((c) => ENGINE_PREP_GROW_CODES.includes(c));
 };
 
 // Build the customer's display name from first + last. Graceful when either
@@ -1079,6 +1123,7 @@ function GreetCard({ greet, onOpen }) {
   const hasConcerns = (greet.concerns_selected && greet.concerns_selected.length > 0)
     || (greet.concerns_text && greet.concerns_text.trim().length > 0);
   const alerts = contactAlerts(greet);
+  const prepNeeded = hasEnginePrep(greet);
 
   // Classification drives the card's left border + faint background tint.
   // (Classification wins the border; promote-up is shown via its pill, not the
@@ -1104,6 +1149,57 @@ function GreetCard({ greet, onOpen }) {
         transition: 'box-shadow 0.15s'
       }}
     >
+      {/* Engine Prep banner — only when one of the engine-prep GROW codes is
+          present. Sits above everything else and spans edge-to-edge (negative
+          margins escape the card's padding) so it can't be missed. The 3-min
+          pre-treat window means the CSA needs to grab the bottle BEFORE the
+          car pulls in, so this banner has to read from across the room. */}
+      {prepNeeded && (
+        <div style={{
+          margin: '-16px -18px 12px -18px',
+          backgroundColor: '#1e293b',
+          color: 'white',
+          padding: '10px 14px',
+          borderTopRightRadius: '9px',
+          // borderTopLeftRadius intentionally not rounded — the card's 4px
+          // classification border sits flush to the banner on the left.
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+        }}>
+          <img
+            src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/engine_prep_bottle_64.png"
+            srcSet="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/engine_prep_bottle_64.png 1x, https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/engine_prep_bottle_128.png 2x"
+            alt="Engine Prep bottle"
+            style={{
+              height: '52px',
+              width: 'auto',
+              flexShrink: 0,
+              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))',
+            }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+            <div style={{
+              fontSize: '15px',
+              fontWeight: '800',
+              letterSpacing: '0.5px',
+              lineHeight: '1.15',
+            }}>
+              ENGINE PREP — POUR BEFORE PULL-IN
+            </div>
+            <div style={{
+              fontSize: '11px',
+              fontWeight: '600',
+              letterSpacing: '0.8px',
+              color: '#fbbf24',
+              textTransform: 'uppercase',
+            }}>
+              ⏱ 3-min pre-treat
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top row: short code + customer + time */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
@@ -1120,7 +1216,7 @@ function GreetCard({ greet, onOpen }) {
           )}
         </div>
         <span style={{ fontSize: '12px', color: '#888', whiteSpace: 'nowrap' }}>
-          {timeAgo(greet.created_at)}
+          {timePacific(greet.created_at)} · {timeAgo(greet.created_at)}
         </span>
       </div>
 
@@ -1158,27 +1254,48 @@ function GreetCard({ greet, onOpen }) {
         )}
       </div>
 
-      {/* Classification badge — EXPRESS (urgency) vs FULL (revenue) */}
-      {classificationBadge(greet.service_classification) && (() => {
-        const b = classificationBadge(greet.service_classification);
-        return (
-          <div style={{ marginBottom: '6px' }}>
-            <span style={{
-              display: 'inline-block',
-              fontSize: '12px',
-              fontWeight: '800',
-              letterSpacing: '0.5px',
-              color: b.color,
-              backgroundColor: b.bg,
-              border: `2px solid ${b.border}`,
-              padding: '3px 12px',
-              borderRadius: '8px',
-            }}>
-              {b.icon} {b.label}
-            </span>
-          </div>
-        );
-      })()}
+      {/* Classification badge + wait preference — paired on one row so the CSA
+          sees urgency/scope and where the customer is together at a glance. */}
+      {(classificationBadge(greet.service_classification) || waitPreferenceChip(greet.wait_preference)) && (
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '6px' }}>
+          {classificationBadge(greet.service_classification) && (() => {
+            const b = classificationBadge(greet.service_classification);
+            return (
+              <span style={{
+                display: 'inline-block',
+                fontSize: '12px',
+                fontWeight: '800',
+                letterSpacing: '0.5px',
+                color: b.color,
+                backgroundColor: b.bg,
+                border: `2px solid ${b.border}`,
+                padding: '3px 12px',
+                borderRadius: '8px',
+              }}>
+                {b.icon} {b.label}
+              </span>
+            );
+          })()}
+          {waitPreferenceChip(greet.wait_preference) && (() => {
+            const w = waitPreferenceChip(greet.wait_preference);
+            return (
+              <span style={{
+                display: 'inline-block',
+                fontSize: '12px',
+                fontWeight: '700',
+                letterSpacing: '0.3px',
+                color: '#3730a3',
+                backgroundColor: '#eef2ff',
+                border: '2px solid #c7d2fe',
+                padding: '3px 12px',
+                borderRadius: '8px',
+              }}>
+                {w.icon} {w.label}
+              </span>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Service summary */}
       <div style={{ fontSize: '13px', color: '#444', marginBottom: '6px' }}>
@@ -1356,7 +1473,7 @@ function GreetDetailModal({ greet, onClose, loading }) {
               #{greet.short_code}
             </div>
             <div style={{ fontSize: '12px', opacity: 0.85, marginTop: '2px' }}>
-              Submitted {timeAgo(greet.created_at)} · {timePressureLabel(greet.time_pressure)}
+              Submitted {timePacific(greet.created_at)} · {timeAgo(greet.created_at)} · {timePressureLabel(greet.time_pressure)}
             </div>
           </div>
           <button
