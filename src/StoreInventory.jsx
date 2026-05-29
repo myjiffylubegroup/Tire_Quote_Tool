@@ -40,6 +40,15 @@ function parsePhysicalCount(locationText) {
   return found ? total : null;
 }
 
+// Escape values before injecting into the print document's HTML.
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 // Summary card component
 const SummaryCard = ({ label, value, subtext }) => (
   <div style={{
@@ -289,6 +298,76 @@ export default function StoreInventory() {
     URL.revokeObjectURL(url);
   };
 
+  // Print a landscape count sheet. Builds a self-contained print document so it
+  // doesn't fight the live page's layout. The <thead> repeats on every printed
+  // page automatically (table-header-group). Cost is never included.
+  const printCountSheet = () => {
+    const storeName = STORES.find(s => s.id === parseInt(selectedStore))?.name || selectedStore;
+    const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    const rowsHtml = sortedInventory.map(item => {
+      const physical = parsePhysicalCount(item.location_text);
+      const systemQoh = Math.round(item.quantity_on_hand);
+      const mismatch = physical !== null && physical !== systemQoh;
+      return (
+        `<tr class="${mismatch ? 'mismatch' : ''}">` +
+        `<td>${escapeHtml(item.tire_size || '-')}</td>` +
+        `<td>${escapeHtml(item.item_code || '-')}</td>` +
+        `<td>${escapeHtml(item.brand || '-')}</td>` +
+        `<td class="desc">${escapeHtml(item.description || '')}</td>` +
+        `<td class="num">${escapeHtml(systemQoh)}</td>` +
+        `<td>${escapeHtml(item.location_text || '')}</td>` +
+        `<td class="count"></td>` +
+        `<td class="num">$${item.retail.toFixed(2)}</td>` +
+        `</tr>`
+      );
+    }).join('');
+
+    const html =
+      '<!doctype html><html><head><meta charset="utf-8">' +
+      `<title>Count Sheet — ${escapeHtml(storeName)}</title>` +
+      '<style>' +
+      '@page { size: landscape; margin: 0.5in; }' +
+      '* { box-sizing: border-box; }' +
+      "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #222; margin: 0; }" +
+      '.sheet-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }' +
+      '.sheet-header h1 { font-size: 18px; margin: 0; color: #6c3483; }' +
+      '.sheet-header .meta { font-size: 12px; color: #555; text-align: right; line-height: 1.5; }' +
+      'table { width: 100%; border-collapse: collapse; }' +
+      'thead { display: table-header-group; }' +
+      'tr { page-break-inside: avoid; }' +
+      'th { background: #9b59b6; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 8px; text-align: left; border: 1px solid #7d3c98; }' +
+      'td { font-size: 11px; padding: 5px 8px; border: 1px solid #ccc; vertical-align: top; }' +
+      'th.num, td.num { text-align: right; }' +
+      'td.desc { max-width: 320px; }' +
+      'td.count { width: 70px; }' +
+      'tr.mismatch td { background: #fdecea; }' +
+      '.footer { margin-top: 18px; font-size: 12px; color: #333; }' +
+      '</style></head><body>' +
+      '<div class="sheet-header">' +
+      '<h1>Physical Tire Count Sheet</h1>' +
+      `<div class="meta">${escapeHtml(storeName)} (#${escapeHtml(selectedStore)})<br/>${escapeHtml(dateStr)} &middot; ${sortedInventory.length} SKUs</div>` +
+      '</div>' +
+      '<table><thead><tr>' +
+      '<th>Tire Size</th><th>Part #</th><th>Brand</th><th>Description</th>' +
+      '<th class="num">Sys QOH</th><th>Location</th><th>Count</th><th class="num">Retail</th>' +
+      '</tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
+      '<div class="footer">Counted by: ______________________&nbsp;&nbsp;&nbsp;Date: ____________</div>' +
+      '</body></html>';
+
+    const w = window.open('', '_blank', 'width=1100,height=800');
+    if (!w) {
+      setEditNotice('Pop-up blocked — allow pop-ups for this site, then click Print Count Sheet again.');
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    // Small delay lets the new document lay out before the print dialog opens.
+    setTimeout(() => { w.print(); }, 300);
+  };
+
   const selectedStoreName = STORES.find(s => s.id === parseInt(selectedStore))?.name || '';
   const staffEmployee = editMode ? getStaffEmployee() : null;
 
@@ -450,6 +529,24 @@ export default function StoreInventory() {
                     }}
                   >
                     {editMode ? '✓ DONE EDITING' : '📝 EDIT LOCATIONS'}
+                  </button>
+
+                  {/* Print Count Sheet */}
+                  <button
+                    onClick={printCountSheet}
+                    style={{
+                      padding: '10px 20px',
+                      backgroundColor: '#34495e',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '25px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      letterSpacing: '1px',
+                    }}
+                  >
+                    🖨 PRINT COUNT SHEET
                   </button>
 
                   {/* Hide/Show Cost Toggle */}
