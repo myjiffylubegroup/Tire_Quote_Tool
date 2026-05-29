@@ -1157,8 +1157,12 @@ function GreetCard({ greet, onOpen }) {
       {prepNeeded && (
         <div style={{
           margin: '-16px -18px 12px -18px',
-          backgroundColor: '#1e293b',
-          color: 'white',
+          // Safety / construction-sign yellow. The Engine Prep bottle is a
+          // black silhouette, so this color gives maximum contrast — the
+          // bottle reads crisply at the small card size. (Earlier dark-navy
+          // attempt blended the bottle into the background.)
+          backgroundColor: '#facc15',
+          color: '#111827',
           padding: '10px 14px',
           borderTopRightRadius: '9px',
           // borderTopLeftRadius intentionally not rounded — the card's 4px
@@ -1175,7 +1179,7 @@ function GreetCard({ greet, onOpen }) {
               height: '52px',
               width: 'auto',
               flexShrink: 0,
-              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))',
+              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))',
             }}
           />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
@@ -1184,14 +1188,15 @@ function GreetCard({ greet, onOpen }) {
               fontWeight: '800',
               letterSpacing: '0.5px',
               lineHeight: '1.15',
+              color: '#111827',
             }}>
               ENGINE PREP — POUR BEFORE PULL-IN
             </div>
             <div style={{
               fontSize: '11px',
-              fontWeight: '600',
+              fontWeight: '800',
               letterSpacing: '0.8px',
-              color: '#fbbf24',
+              color: '#111827',
               textTransform: 'uppercase',
             }}>
               ⏱ 3-min pre-treat
