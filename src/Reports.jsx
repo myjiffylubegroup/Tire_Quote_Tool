@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
 import { apiCall } from './apiClient';
+import { ReportsTabs } from './GreetsReports';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 
@@ -307,6 +308,9 @@ export default function Reports() {
 
       {/* Page Body */}
       <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '30px 20px' }}>
+
+        {/* Reports source pill row */}
+        <ReportsTabs active="tires" />
 
         {/* Page Title + Date Controls */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '28px' }}>

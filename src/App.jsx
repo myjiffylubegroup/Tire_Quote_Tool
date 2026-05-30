@@ -14,6 +14,7 @@ import MechanicalQuoteView from './MechanicalQuoteView';
 import TermsConditions from './TermsConditions';
 import DoNotSell from './DoNotSell';
 import Reports from './Reports';
+import GreetsReports from './GreetsReports';
 
 // Simple hash-based router (no additional dependencies needed)
 export default function App() {
@@ -108,6 +109,14 @@ export default function App() {
     return (
       <StaffPinGate>
         <FleetTireFinder />
+      </StaffPinGate>
+    );
+  }
+
+  if (path === '/reports/greets') {
+    return (
+      <StaffPinGate>
+        <GreetsReports />
       </StaffPinGate>
     );
   }
