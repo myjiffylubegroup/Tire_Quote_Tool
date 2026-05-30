@@ -317,6 +317,25 @@ export default function QuoteLookup() {
   const [selectedGreet, setSelectedGreet] = useState(null); // for detail modal
   const [greetDetailLoading, setGreetDetailLoading] = useState(false);
 
+  // Greets date range — separate from tire/mechanical's dateFrom/dateTo so
+  // switching modes doesn't blow away the user's filter on either side.
+  // Empty = "today only" (matches the prior locked-to-today behavior).
+  const [greetsDateFrom, setGreetsDateFrom] = useState('');
+  const [greetsDateTo, setGreetsDateTo] = useState('');
+  const [greetsLimitReached, setGreetsLimitReached] = useState(false);
+
+  // Edit / delete mode (managers only — gated by staffProfile.can_delete_greets)
+  const [greetsEditMode, setGreetsEditMode] = useState(false);
+  const [selectedGreetIds, setSelectedGreetIds] = useState(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  // Staff profile (used to gate the Edit button). Fetched once per session
+  // on first entry to greets mode.
+  const [staffProfile, setStaffProfile] = useState(null);
+
   // Save store to localStorage
   useEffect(() => {
     localStorage.setItem('jl_tire_store', selectedStore);
@@ -336,32 +355,67 @@ export default function QuoteLookup() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStore, quoteMode]);
 
-  // Load greets when entering greets mode or switching store while in greets mode
+  // Load greets when entering greets mode, switching store, or changing
+  // the date range.
   useEffect(() => {
     if (quoteMode !== 'greets') return;
     loadGreets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStore, quoteMode]);
+  }, [selectedStore, quoteMode, greetsDateFrom, greetsDateTo]);
+
+  // Fetch staff profile once on first entry to greets mode (gates Edit UI).
+  useEffect(() => {
+    if (quoteMode !== 'greets') return;
+    if (staffProfile !== null) return; // already fetched
+    (async () => {
+      try {
+        const response = await apiCall(`${API_BASE}/staff-profile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        const data = await response.json();
+        if (data.success && data.profile) {
+          setStaffProfile(data.profile);
+        }
+      } catch (e) {
+        // Silent failure — non-managers see no Edit button anyway, so a failed
+        // profile fetch just keeps Edit hidden. Defense in depth: even if a
+        // determined user forces the UI on, the API rejects unauthorized titles.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteMode]);
 
   const loadGreets = async () => {
     setGreetsLoading(true);
     setGreetsError(null);
     setGreets([]);
+    setGreetsLimitReached(false);
 
     try {
+      // Date range: empty fields → today only (kiosk-side default).
+      // When the user provides a range, we ask for the larger 500-row cap
+      // matching search-quotes' behavior.
+      const hasDateFilter = Boolean(greetsDateFrom || greetsDateTo);
+      const body = {
+        store_id: parseInt(selectedStore),
+        date_from: greetsDateFrom || undefined,
+        date_to: greetsDateTo || undefined,
+        limit: hasDateFilter ? 500 : undefined,
+      };
+
       const response = await apiCall(`${API_BASE}/greets-list`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          store_id: parseInt(selectedStore),
-          // No date param — backend defaults to today (Pacific)
-        })
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
 
       if (data.success) {
         setGreets(data.greets || []);
+        setGreetsLimitReached(Boolean(data.result_limit_reached));
       } else {
         setGreetsError(data.error || 'Failed to load greets');
       }
@@ -408,6 +462,98 @@ export default function QuoteLookup() {
   const closeGreetDetail = () => {
     setSelectedGreet(null);
     setGreetDetailLoading(false);
+  };
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Edit / delete mode for greets (managers only).
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // Cap matches the soft-delete-greets edge function's enforced cap.
+  const GREETS_DELETE_MAX_PER_CALL = 100;
+
+  const enterGreetsEditMode = () => {
+    setGreetsEditMode(true);
+    setSelectedGreetIds(new Set());
+  };
+
+  const exitGreetsEditMode = () => {
+    setGreetsEditMode(false);
+    setSelectedGreetIds(new Set());
+    setDeleteConfirmOpen(false);
+    setDeleteReason('');
+    setDeleteError(null);
+  };
+
+  const toggleGreetSelection = (greetId) => {
+    setSelectedGreetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(greetId)) {
+        next.delete(greetId);
+      } else if (next.size < GREETS_DELETE_MAX_PER_CALL) {
+        next.add(greetId);
+      }
+      // Silently cap at 100 — the API enforces this too. If a user runs into
+      // the cap, the disabled "Delete N selected" button stops growing, which
+      // is the cue.
+      return next;
+    });
+  };
+
+  const openDeleteConfirm = () => {
+    if (selectedGreetIds.size === 0) return;
+    setDeleteReason('');
+    setDeleteError(null);
+    setDeleteConfirmOpen(true);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (deleteInProgress) return; // don't allow close mid-call
+    setDeleteConfirmOpen(false);
+    setDeleteReason('');
+    setDeleteError(null);
+  };
+
+  const confirmDeleteGreets = async () => {
+    if (!deleteReason) return;
+    if (selectedGreetIds.size === 0) return;
+
+    // Map ids → short_codes (the API works on short_codes per the spec)
+    const idToShortCode = new Map(greets.map((g) => [g.greet_id, g.short_code]));
+    const shortCodes = Array.from(selectedGreetIds)
+      .map((id) => idToShortCode.get(id))
+      .filter(Boolean);
+
+    setDeleteInProgress(true);
+    setDeleteError(null);
+
+    try {
+      const response = await apiCall(`${API_BASE}/soft-delete-greets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          short_codes: shortCodes,
+          reason: deleteReason,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        setDeleteError(data.error || 'Delete failed');
+        setDeleteInProgress(false);
+        return;
+      }
+
+      // Success — exit edit mode and refresh the list.
+      setDeleteInProgress(false);
+      setDeleteConfirmOpen(false);
+      // Per Sean's spec choice: auto-exit edit mode after a successful delete.
+      exitGreetsEditMode();
+      loadGreets();
+    } catch (e) {
+      setDeleteError('Failed to connect to server');
+      setDeleteInProgress(false);
+    }
   };
 
   const handleSearch = async (initialLoad = false) => {
@@ -819,29 +965,130 @@ export default function QuoteLookup() {
             </>
           )}
 
-          {/* In greets mode, show a small refresh control instead of the search form */}
+          {/* In greets mode, show the date range + refresh + edit controls
+              instead of the search form. */}
           {quoteMode === 'greets' && (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px' }}>
-              <button
-                onClick={loadGreets}
-                disabled={greetsLoading}
-                style={{
-                  backgroundColor: '#9b59b6',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 24px',
-                  borderRadius: '25px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  letterSpacing: '1px',
-                  cursor: greetsLoading ? 'not-allowed' : 'pointer',
-                  opacity: greetsLoading ? 0.7 : 1,
-                }}
-              >
-                {greetsLoading ? 'REFRESHING...' : '↻ REFRESH'}
-              </button>
+            <div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end', justifyContent: 'center' }}>
+                <div style={{ width: '320px' }}>
+                  <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                    DATE RANGE (LEAVE BLANK FOR TODAY)
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <DateInput value={greetsDateFrom} onChange={setGreetsDateFrom} />
+                    </div>
+                    <span style={{ color: '#9b59b6', fontSize: '14px', fontWeight: '700', flexShrink: 0 }}>→</span>
+                    <div style={{ flex: 1 }}>
+                      <DateInput value={greetsDateTo} onChange={setGreetsDateTo} />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={loadGreets}
+                  disabled={greetsLoading}
+                  style={{
+                    backgroundColor: '#9b59b6',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 24px',
+                    borderRadius: '25px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    letterSpacing: '1px',
+                    cursor: greetsLoading ? 'not-allowed' : 'pointer',
+                    opacity: greetsLoading ? 0.7 : 1,
+                  }}
+                >
+                  {greetsLoading ? 'REFRESHING...' : '↻ REFRESH'}
+                </button>
+
+                {(greetsDateFrom || greetsDateTo) && (
+                  <button
+                    onClick={() => { setGreetsDateFrom(''); setGreetsDateTo(''); }}
+                    style={{
+                      backgroundColor: '#f1f5f9',
+                      color: '#64748b',
+                      border: 'none',
+                      padding: '10px 16px',
+                      borderRadius: '25px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    CLEAR DATES
+                  </button>
+                )}
+
+                {/* Edit button — manager-only. The API enforces this too;
+                    hiding the button is UX, not the security boundary. */}
+                {staffProfile?.can_delete_greets && !greetsEditMode && (
+                  <button
+                    onClick={enterGreetsEditMode}
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: '#9b59b6',
+                      border: '2px solid #9b59b6',
+                      padding: '8px 20px',
+                      borderRadius: '25px',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      letterSpacing: '1px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✎ EDIT
+                  </button>
+                )}
+
+                {greetsEditMode && (
+                  <>
+                    <button
+                      onClick={openDeleteConfirm}
+                      disabled={selectedGreetIds.size === 0}
+                      style={{
+                        backgroundColor: selectedGreetIds.size === 0 ? '#fca5a5' : '#dc2626',
+                        color: 'white',
+                        border: 'none',
+                        padding: '10px 22px',
+                        borderRadius: '25px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        letterSpacing: '1px',
+                        cursor: selectedGreetIds.size === 0 ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      🗑 DELETE {selectedGreetIds.size > 0 ? `${selectedGreetIds.size} SELECTED` : 'SELECTED'}
+                    </button>
+                    <button
+                      onClick={exitGreetsEditMode}
+                      style={{
+                        backgroundColor: '#f1f5f9',
+                        color: '#64748b',
+                        border: 'none',
+                        padding: '10px 20px',
+                        borderRadius: '25px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      DONE
+                    </button>
+                  </>
+                )}
+              </div>
+
               {greetsError && (
-                <span style={{ color: '#e74c3c', fontSize: '13px' }}>{greetsError}</span>
+                <div style={{ color: '#e74c3c', textAlign: 'center', marginTop: '15px', fontSize: '13px' }}>{greetsError}</div>
+              )}
+
+              {greetsEditMode && selectedGreetIds.size >= GREETS_DELETE_MAX_PER_CALL && (
+                <div style={{ color: '#92400e', backgroundColor: '#fef3c7', textAlign: 'center', marginTop: '12px', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '600' }}>
+                  ⚠ Reached the {GREETS_DELETE_MAX_PER_CALL}-record cap. Delete these first, then select more if needed.
+                </div>
               )}
             </div>
           )}
@@ -865,7 +1112,7 @@ export default function QuoteLookup() {
           }}>
             <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
               {quoteMode === 'greets'
-                ? `${greets.length} Greet${greets.length !== 1 ? 's' : ''} Today`
+                ? `${greets.length} Greet${greets.length !== 1 ? 's' : ''} ${(greetsDateFrom || greetsDateTo) ? 'in Range' : 'Today'}`
                 : `${quotes.length} Quote${quotes.length !== 1 ? 's' : ''} Found`}
             </span>
             <span style={{ fontSize: '12px', color: '#888' }}>
@@ -888,6 +1135,21 @@ export default function QuoteLookup() {
             </div>
           )}
 
+          {/* Limit-reached banner (greets, when filtering by date) */}
+          {quoteMode === 'greets' && greetsLimitReached && (
+            <div style={{
+              backgroundColor: '#fef3c7',
+              color: '#92400e',
+              padding: '10px 25px',
+              fontSize: '12px',
+              fontWeight: '600',
+              borderBottom: '1px solid #fde68a',
+              textAlign: 'center'
+            }}>
+              ⚠ Showing the first 500 greets. Narrow your date range to see more.
+            </div>
+          )}
+
           {/* ──────────────────────────────────────────────────────────────── */}
           {/* GREETS MODE — card list                                          */}
           {/* ──────────────────────────────────────────────────────────────── */}
@@ -899,13 +1161,26 @@ export default function QuoteLookup() {
             ) : greets.length > 0 ? (
               <div style={{ padding: '20px', display: 'grid', gap: '15px' }}>
                 {greets.map((g) => (
-                  <GreetCard key={g.greet_id} greet={g} onOpen={() => openGreetDetail(g)} />
+                  <GreetCard
+                    key={g.greet_id}
+                    greet={g}
+                    onOpen={() => openGreetDetail(g)}
+                    editMode={greetsEditMode}
+                    selected={selectedGreetIds.has(g.greet_id)}
+                    onToggleSelect={() => toggleGreetSelection(g.greet_id)}
+                  />
                 ))}
               </div>
             ) : (
               <div style={{ padding: '50px 20px', textAlign: 'center', color: '#888' }}>
-                <p style={{ fontSize: '16px', marginBottom: '10px' }}>No greets yet today</p>
-                <p style={{ fontSize: '13px' }}>Customers who use the kiosk will appear here. Tap REFRESH to check again.</p>
+                <p style={{ fontSize: '16px', marginBottom: '10px' }}>
+                  {(greetsDateFrom || greetsDateTo) ? 'No greets in that date range' : 'No greets yet today'}
+                </p>
+                <p style={{ fontSize: '13px' }}>
+                  {(greetsDateFrom || greetsDateTo)
+                    ? 'Try adjusting the date range, or clear it to see today\'s greets.'
+                    : 'Customers who use the kiosk will appear here. Tap REFRESH to check again.'}
+                </p>
               </div>
             )
           ) : (
@@ -1110,6 +1385,19 @@ export default function QuoteLookup() {
         />
       )}
 
+      {/* Delete confirmation modal (managers only) */}
+      {deleteConfirmOpen && (
+        <DeleteGreetsConfirmModal
+          count={selectedGreetIds.size}
+          reason={deleteReason}
+          onReasonChange={setDeleteReason}
+          onCancel={closeDeleteConfirm}
+          onConfirm={confirmDeleteGreets}
+          inProgress={deleteInProgress}
+          error={deleteError}
+        />
+      )}
+
       <Footer />
     </div>
   );
@@ -1118,7 +1406,7 @@ export default function QuoteLookup() {
 // =============================================================================
 // GreetCard — list-view card for a single greet
 // =============================================================================
-function GreetCard({ greet, onOpen }) {
+function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggleSelect }) {
   const promoted = greet.classification_promoted === true;
   const hasConcerns = (greet.concerns_selected && greet.concerns_selected.length > 0)
     || (greet.concerns_text && greet.concerns_text.trim().length > 0);
@@ -1133,11 +1421,24 @@ function GreetCard({ greet, onOpen }) {
   const cardBorderColor = cls ? cls.cardBorder : (promoted ? '#f59e0b' : '#9b59b6');
   const cardBg = cls ? cls.cardTint : 'white';
 
+  // In edit mode: clicking the card toggles selection (instead of opening
+  // detail). When a card is selected, a thicker purple ring and slight tint
+  // make the selection unmistakable.
+  const handleCardClick = () => {
+    if (editMode) {
+      onToggleSelect && onToggleSelect();
+    } else {
+      onOpen && onOpen();
+    }
+  };
+
   return (
     <div
-      onClick={onOpen}
+      onClick={handleCardClick}
       onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(155, 89, 182, 0.25)'}
-      onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)'}
+      onMouseOut={(e) => e.currentTarget.style.boxShadow = selected
+        ? '0 0 0 3px rgba(155, 89, 182, 0.55), 0 2px 6px rgba(0,0,0,0.06)'
+        : '0 2px 6px rgba(0,0,0,0.06)'}
       style={{
         backgroundColor: cardBg,
         border: '1px solid #eee',
@@ -1145,10 +1446,36 @@ function GreetCard({ greet, onOpen }) {
         borderRadius: '10px',
         padding: '16px 18px',
         cursor: 'pointer',
-        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-        transition: 'box-shadow 0.15s'
+        boxShadow: selected
+          ? '0 0 0 3px rgba(155, 89, 182, 0.55), 0 2px 6px rgba(0,0,0,0.06)'
+          : '0 2px 6px rgba(0,0,0,0.06)',
+        transition: 'box-shadow 0.15s',
+        position: 'relative',
       }}
     >
+      {/* Edit-mode checkbox indicator — top-left of card, above content. */}
+      {editMode && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          left: '10px',
+          width: '24px',
+          height: '24px',
+          borderRadius: '6px',
+          border: selected ? '2px solid #9b59b6' : '2px solid #cbd5e1',
+          backgroundColor: selected ? '#9b59b6' : 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          fontSize: '14px',
+          fontWeight: '700',
+          zIndex: 2,
+          pointerEvents: 'none',
+        }}>
+          {selected ? '✓' : ''}
+        </div>
+      )}
       {/* Engine Prep banner — only when one of the engine-prep GROW codes is
           present. Sits above everything else and spans edge-to-edge (negative
           margins escape the card's padding) so it can't be missed. The 3-min
@@ -1914,5 +2241,169 @@ function GrowCodeChip({ code, size = 'normal' }) {
     >
       {copied ? (compact ? '✓' : '✓ Copied') : code}
     </button>
+  );
+}
+
+// =============================================================================
+// DeleteGreetsConfirmModal — manager confirms before soft-deleting greets.
+//
+// Reason is required; the Delete button stays disabled until a reason is
+// picked. Cancel and ESC close the modal unless a delete is in progress
+// (don't strand the user with an in-flight call they can't see).
+// =============================================================================
+function DeleteGreetsConfirmModal({ count, reason, onReasonChange, onCancel, onConfirm, inProgress, error }) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !inProgress) onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel, inProgress]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const REASONS = [
+    { value: 'test',          label: 'Test record (created during system testing)' },
+    { value: 'duplicate',     label: 'Duplicate submission' },
+    { value: 'customer_left', label: 'Customer left without service' },
+    { value: 'system_error',  label: 'System error / glitch' },
+    { value: 'other',         label: 'Other' },
+  ];
+
+  const canConfirm = Boolean(reason) && count > 0 && !inProgress;
+
+  return (
+    <div
+      onClick={inProgress ? undefined : onCancel}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px 20px',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: 'white',
+          borderRadius: '15px',
+          maxWidth: '560px',
+          width: '100%',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.25)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header — red so the destructive action is unmistakable */}
+        <div style={{
+          backgroundColor: '#dc2626',
+          color: 'white',
+          padding: '18px 24px',
+        }}>
+          <div style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '0.3px' }}>
+            Delete {count} kiosk record{count !== 1 ? 's' : ''}?
+          </div>
+          <div style={{ fontSize: '12px', opacity: 0.9, marginTop: '4px' }}>
+            This can be undone by an admin. Records are hidden from the dashboard but kept for audit.
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '22px 24px' }}>
+          <div style={{ fontSize: '12px', color: '#888', fontWeight: '600', marginBottom: '8px', letterSpacing: '0.5px' }}>
+            REASON (REQUIRED)
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '18px' }}>
+            {REASONS.map((r) => (
+              <label
+                key={r.value}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 12px',
+                  border: reason === r.value ? '2px solid #9b59b6' : '2px solid #e5e7eb',
+                  borderRadius: '10px',
+                  cursor: inProgress ? 'not-allowed' : 'pointer',
+                  backgroundColor: reason === r.value ? '#faf5ff' : 'white',
+                  fontSize: '13px',
+                  fontWeight: reason === r.value ? '600' : '500',
+                  color: '#333',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="delete_reason"
+                  value={r.value}
+                  checked={reason === r.value}
+                  onChange={() => onReasonChange(r.value)}
+                  disabled={inProgress}
+                  style={{ accentColor: '#9b59b6', width: '16px', height: '16px' }}
+                />
+                <span>{r.label}</span>
+              </label>
+            ))}
+          </div>
+
+          {error && (
+            <div style={{
+              backgroundColor: '#fee2e2',
+              color: '#991b1b',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: '600',
+              marginBottom: '14px',
+            }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button
+              onClick={onCancel}
+              disabled={inProgress}
+              style={{
+                backgroundColor: '#f1f5f9',
+                color: '#64748b',
+                border: 'none',
+                padding: '10px 18px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: inProgress ? 'not-allowed' : 'pointer',
+                opacity: inProgress ? 0.7 : 1,
+              }}
+            >
+              CANCEL
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={!canConfirm}
+              style={{
+                backgroundColor: canConfirm ? '#dc2626' : '#fca5a5',
+                color: 'white',
+                border: 'none',
+                padding: '10px 22px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: '700',
+                letterSpacing: '0.5px',
+                cursor: canConfirm ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {inProgress ? 'DELETING…' : `DELETE ${count} RECORD${count !== 1 ? 'S' : ''}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
