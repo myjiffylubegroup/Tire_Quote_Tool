@@ -68,30 +68,55 @@ const getPreset = (preset) => {
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 // Same KpiCard contract as Reports.jsx — copied so this page has no
-// hidden dependency on the other.
-const KpiCard = ({ label, value, sub, color = '#9b59b6', highlight = false }) => (
-  <div style={{
-    backgroundColor: highlight ? color : 'white',
-    border: `2px solid ${color}`,
-    borderRadius: '12px',
-    padding: '18px 22px',
-    textAlign: 'center',
-    flex: '1 1 140px',
-    minWidth: '130px',
-  }}>
-    <div style={{ fontSize: '11px', fontWeight: '700', color: highlight ? 'rgba(255,255,255,0.85)' : '#888', letterSpacing: '1px', marginBottom: '6px' }}>
-      {label}
-    </div>
-    <div style={{ fontSize: '28px', fontWeight: '800', color: highlight ? 'white' : color, lineHeight: 1 }}>
-      {value}
-    </div>
-    {sub && (
-      <div style={{ fontSize: '11px', color: highlight ? 'rgba(255,255,255,0.75)' : '#aaa', marginTop: '5px' }}>
-        {sub}
+// hidden dependency on the other. When `onClick` is supplied the card
+// becomes interactive (hover state, pointer cursor, tiny "→" cue).
+const KpiCard = ({ label, value, sub, color = '#9b59b6', highlight = false, onClick }) => {
+  const isClickable = typeof onClick === 'function';
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        backgroundColor: highlight ? color : 'white',
+        border: `2px solid ${color}`,
+        borderRadius: '12px',
+        padding: '18px 22px',
+        textAlign: 'center',
+        flex: '1 1 140px',
+        minWidth: '130px',
+        cursor: isClickable ? 'pointer' : 'default',
+        position: 'relative',
+        transition: 'transform 0.12s, box-shadow 0.12s',
+      }}
+      onMouseOver={isClickable ? (e) => {
+        e.currentTarget.style.transform = 'translateY(-1px)';
+        e.currentTarget.style.boxShadow = `0 6px 16px ${color}40`;
+      } : undefined}
+      onMouseOut={isClickable ? (e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
+      } : undefined}
+    >
+      {isClickable && (
+        <div style={{
+          position: 'absolute', top: '8px', right: '10px',
+          fontSize: '10px', color: highlight ? 'rgba(255,255,255,0.6)' : '#bbb',
+          fontWeight: '700',
+        }}>↗</div>
+      )}
+      <div style={{ fontSize: '11px', fontWeight: '700', color: highlight ? 'rgba(255,255,255,0.85)' : '#888', letterSpacing: '1px', marginBottom: '6px' }}>
+        {label}
       </div>
-    )}
-  </div>
-);
+      <div style={{ fontSize: '28px', fontWeight: '800', color: highlight ? 'white' : color, lineHeight: 1 }}>
+        {value}
+      </div>
+      {sub && (
+        <div style={{ fontSize: '11px', color: highlight ? 'rgba(255,255,255,0.75)' : '#aaa', marginTop: '5px' }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const SectionTitle = ({ children, tooltip }) => (
   <h3 style={{
@@ -114,7 +139,10 @@ const SectionTitle = ({ children, tooltip }) => (
 );
 
 // Horizontal bar breakdown — one row per segment, ordered by count desc.
-const SegmentBar = ({ segments, total, color = '#9b59b6' }) => {
+// If `onSegmentClick` is supplied each row becomes clickable; the segment's
+// `key` is what gets sent (we pass machine-readable keys like 'express',
+// 'max_protect', etc. alongside the display labels).
+const SegmentBar = ({ segments, total, color = '#9b59b6', onSegmentClick }) => {
   if (!segments || segments.length === 0 || !total) {
     return <div style={{ fontSize: '12px', color: '#aaa' }}>No data</div>;
   }
@@ -122,8 +150,21 @@ const SegmentBar = ({ segments, total, color = '#9b59b6' }) => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
       {segments.map((seg) => {
         const pct = total > 0 ? (seg.count / total) * 100 : 0;
+        const isClickable = typeof onSegmentClick === 'function' && seg.key != null && seg.count > 0;
         return (
-          <div key={seg.label}>
+          <div
+            key={seg.label}
+            onClick={isClickable ? () => onSegmentClick(seg.key) : undefined}
+            style={{
+              cursor: isClickable ? 'pointer' : 'default',
+              padding: isClickable ? '2px 4px' : '0',
+              margin: isClickable ? '-2px -4px' : '0',
+              borderRadius: isClickable ? '4px' : '0',
+              transition: 'background-color 0.1s',
+            }}
+            onMouseOver={isClickable ? (e) => e.currentTarget.style.backgroundColor = '#faf5ff' : undefined}
+            onMouseOut={isClickable ? (e) => e.currentTarget.style.backgroundColor = 'transparent' : undefined}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '2px' }}>
               <span style={{ color: '#555', fontWeight: '500' }}>{seg.label}</span>
               <span style={{ color: '#888' }}>
@@ -144,7 +185,7 @@ const SegmentBar = ({ segments, total, color = '#9b59b6' }) => {
   );
 };
 
-const BreakdownCard = ({ title, segments, total, color, tooltip }) => (
+const BreakdownCard = ({ title, segments, total, color, tooltip, onSegmentClick }) => (
   <div style={{
     backgroundColor: 'white',
     border: '1px solid #eee',
@@ -164,9 +205,90 @@ const BreakdownCard = ({ title, segments, total, color, tooltip }) => (
         }}>?</span>
       )}
     </div>
-    <SegmentBar segments={segments} total={total} color={color} />
+    <SegmentBar segments={segments} total={total} color={color} onSegmentClick={onSegmentClick} />
   </div>
 );
+
+// Stat row for bay duration — replaces the old percentage-bar BreakdownCard,
+// which made bay times look like a count distribution rather than a
+// duration comparison. Now each classification's average minutes is the
+// primary number, with the n shown as the sub-label. Bar width is
+// proportional to minutes, not count.
+const BayDurationCard = ({ data, outliers, onSegmentClick }) => {
+  const segments = [
+    { key: 'express', label: 'EXPRESS', color: '#ef4444', ...data.express },
+    { key: 'full',    label: 'FULL',    color: '#10b981', ...data.full },
+  ].filter((s) => (s.n || 0) > 0);
+  if (segments.length === 0) {
+    return (
+      <div style={{
+        backgroundColor: 'white', border: '1px solid #eee', borderRadius: '12px',
+        padding: '18px 20px', flex: '1 1 280px', minWidth: '260px',
+      }}>
+        <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px', marginBottom: '12px' }}>
+          AVG BAY DURATION
+        </div>
+        <div style={{ fontSize: '12px', color: '#aaa' }}>No bay times available</div>
+      </div>
+    );
+  }
+  // Scale bars to the maximum avg across the segments so the visualization
+  // compares minutes directly.
+  const maxMin = Math.max(...segments.map((s) => s.avg_minutes || 0));
+  return (
+    <div style={{
+      backgroundColor: 'white', border: '1px solid #eee', borderRadius: '12px',
+      padding: '18px 20px', flex: '1 1 280px', minWidth: '260px',
+    }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        AVG BAY DURATION
+        <span title={`Outliers excluded: ${outliers}. Bay times outside 2-180 min are dropped.`} style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: '14px', height: '14px', borderRadius: '50%',
+          backgroundColor: '#f0f0f0', color: '#888',
+          fontSize: '9px', fontWeight: '700', cursor: 'help',
+        }}>?</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {segments.map((s) => {
+          const width = maxMin > 0 ? ((s.avg_minutes || 0) / maxMin) * 100 : 0;
+          const isClickable = typeof onSegmentClick === 'function';
+          return (
+            <div
+              key={s.key}
+              onClick={isClickable ? () => onSegmentClick(s.key) : undefined}
+              style={{
+                cursor: isClickable ? 'pointer' : 'default',
+                padding: isClickable ? '4px 6px' : '0',
+                margin: isClickable ? '-4px -6px' : '0',
+                borderRadius: isClickable ? '6px' : '0',
+                transition: 'background-color 0.1s',
+              }}
+              onMouseOver={isClickable ? (e) => e.currentTarget.style.backgroundColor = '#faf5ff' : undefined}
+              onMouseOut={isClickable ? (e) => e.currentTarget.style.backgroundColor = 'transparent' : undefined}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>{s.label}</span>
+                <span style={{ fontSize: '15px', color: s.color, fontWeight: '800' }}>
+                  {s.avg_minutes != null ? `${s.avg_minutes} min` : '—'}
+                  <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
+                    n={s.n}
+                  </span>
+                </span>
+              </div>
+              <div style={{ height: '8px', backgroundColor: '#f3e8ff', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{
+                  width: `${width}%`, height: '100%',
+                  backgroundColor: s.color, transition: 'width 0.3s ease',
+                }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 // ─── Main component ─────────────────────────────────────────────────────────
 
@@ -198,6 +320,12 @@ export default function GreetsReports() {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Drill-down state — { metric, segment, title } when a card or segment
+  // was clicked; null when the modal is closed.
+  const [drill, setDrill] = useState(null);
+  const openDrill = (metric, segment, title) => setDrill({ metric, segment, title });
+  const closeDrill = () => setDrill(null);
 
   // Fetch profile once on mount
   useEffect(() => {
@@ -400,60 +528,94 @@ export default function GreetsReports() {
                   value={s1.oil_change_greets > 0 ? `${Math.round((s1.engine_prep_attach / s1.oil_change_greets) * 100)}%` : '—'}
                   sub={`${s1.engine_prep_attach} of ${s1.oil_change_greets}`}
                   color="#f59e0b"
+                  onClick={() => openDrill('engine_prep_attach', 'attached', 'Engine Prep — Attached')}
                 />
               </div>
 
-              {/* Bars: classification, TM, rotation, wait pref */}
+              {/* Bars: classification, TM, oil tier, rec acceptance, rotation, wait pref, CAW */}
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 <BreakdownCard
                   title="EXPRESS vs FULL"
                   total={s1.oil_change_greets}
                   segments={[
-                    { label: 'EXPRESS',  count: s1.classification_mix.express, color: '#ef4444' },
-                    { label: 'FULL',     count: s1.classification_mix.full,    color: '#10b981' },
-                    ...(s1.classification_mix.other > 0 ? [{ label: 'Other', count: s1.classification_mix.other, color: '#cbd5e1' }] : []),
+                    { key: 'express', label: 'EXPRESS', count: s1.classification_mix.express, color: '#ef4444' },
+                    { key: 'full',    label: 'FULL',    count: s1.classification_mix.full,    color: '#10b981' },
+                    ...(s1.classification_mix.other > 0 ? [{ key: null, label: 'Other', count: s1.classification_mix.other, color: '#cbd5e1' }] : []),
                   ]}
                   tooltip="Denominator: oil-change greets only."
+                  onSegmentClick={(seg) => openDrill('classification_mix', seg, `${seg.toUpperCase()} — Oil-Change Greets`)}
+                />
+                <BreakdownCard
+                  title="Oil Tier Selected"
+                  total={s1.oil_change_greets}
+                  segments={[
+                    { key: 'synthetic',         label: 'Synthetic',        count: s1.oil_tier_mix?.synthetic || 0,         color: '#7c3aed' },
+                    { key: 'blend',             label: 'Blend',            count: s1.oil_tier_mix?.blend || 0,             color: '#a78bfa' },
+                    { key: 'european',          label: 'European',         count: s1.oil_tier_mix?.european || 0,          color: '#3b82f6' },
+                    { key: 'diesel_synthetic',  label: 'Diesel Synth',     count: s1.oil_tier_mix?.diesel_synthetic || 0,  color: '#0ea5e9' },
+                    ...(s1.oil_tier_mix?.other > 0 ? [{ key: null, label: 'Other', count: s1.oil_tier_mix.other, color: '#cbd5e1' }] : []),
+                  ].filter((seg) => seg.count > 0)}
+                  tooltip="What customers actually selected for oil tier."
+                  onSegmentClick={(seg) => openDrill('oil_tier_mix', seg, `Oil Tier — ${formatOilTier(seg)}`)}
+                />
+                <BreakdownCard
+                  title="Recommendation Acceptance"
+                  total={(s1.oil_tier_rec_acceptance?.accepted || 0)
+                       + (s1.oil_tier_rec_acceptance?.downgraded || 0)
+                       + (s1.oil_tier_rec_acceptance?.upgraded || 0)
+                       + (s1.oil_tier_rec_acceptance?.other || 0)}
+                  segments={[
+                    { key: 'accepted',   label: '✓ Accepted',   count: s1.oil_tier_rec_acceptance?.accepted   || 0, color: '#10b981' },
+                    { key: 'downgraded', label: '↓ Downgraded', count: s1.oil_tier_rec_acceptance?.downgraded || 0, color: '#ef4444' },
+                    { key: 'upgraded',   label: '↑ Upgraded',   count: s1.oil_tier_rec_acceptance?.upgraded   || 0, color: '#3b82f6' },
+                    ...(s1.oil_tier_rec_acceptance?.other > 0 ? [{ key: 'other', label: 'Other',  count: s1.oil_tier_rec_acceptance.other, color: '#cbd5e1' }] : []),
+                  ].filter((seg) => seg.count > 0)}
+                  tooltip="Customers who took the kiosk's recommended oil tier, vs. those who downgraded or upgraded. 'No rec' greets excluded from the bar."
+                  onSegmentClick={(seg) => openDrill('oil_tier_rec_acceptance', seg, `Recommendation — ${formatRecOutcome(seg)}`)}
                 />
                 <BreakdownCard
                   title="TM Package Attach"
                   total={s1.oil_change_greets}
                   segments={[
-                    { label: 'Max Protect',  count: s1.tm_attach.by_tier.max_protect,     color: '#7c3aed' },
-                    { label: 'VIP',          count: s1.tm_attach.by_tier.vip,             color: '#9b59b6' },
-                    { label: 'High Mileage', count: s1.tm_attach.by_tier.high_mileage,    color: '#a78bfa' },
-                    { label: 'Basic Synth',  count: s1.tm_attach.by_tier.basic_synthetic, color: '#c4b5fd' },
-                    { label: '— None',       count: s1.tm_attach.by_tier.none,            color: '#e5e7eb' },
+                    { key: 'max_protect',     label: 'Max Protect',  count: s1.tm_attach.by_tier.max_protect,     color: '#7c3aed' },
+                    { key: 'vip',             label: 'VIP',          count: s1.tm_attach.by_tier.vip,             color: '#9b59b6' },
+                    { key: 'high_mileage',    label: 'High Mileage', count: s1.tm_attach.by_tier.high_mileage,    color: '#a78bfa' },
+                    { key: 'basic_synthetic', label: 'Basic Synth',  count: s1.tm_attach.by_tier.basic_synthetic, color: '#c4b5fd' },
+                    { key: 'none',            label: '— None',       count: s1.tm_attach.by_tier.none,            color: '#e5e7eb' },
                   ].filter((seg) => seg.count > 0)}
                   tooltip="Denominator: oil-change greets only."
+                  onSegmentClick={(seg) => openDrill('tm_attach', seg, `TM Package — ${formatTmPackage(seg) === '—' ? 'None' : formatTmPackage(seg)}`)}
                 />
                 <BreakdownCard
                   title="Tire Rotation"
                   total={s1.oil_change_greets}
                   segments={[
-                    { label: 'Yes',      count: s1.rotation_attach.yes,      color: '#10b981' },
-                    { label: 'No',       count: s1.rotation_attach.no,       color: '#ef4444' },
-                    { label: 'Not sure', count: s1.rotation_attach.not_sure, color: '#f59e0b' },
+                    { key: 'yes',      label: 'Yes',      count: s1.rotation_attach.yes,      color: '#10b981' },
+                    { key: 'no',       label: 'No',       count: s1.rotation_attach.no,       color: '#ef4444' },
+                    { key: 'not_sure', label: 'Not sure', count: s1.rotation_attach.not_sure, color: '#f59e0b' },
                   ].filter((seg) => seg.count > 0)}
+                  onSegmentClick={(seg) => openDrill('rotation_attach', seg, `Tire Rotation — ${formatRotation(seg)}`)}
                 />
                 <BreakdownCard
                   title="Wait Preference"
                   total={s1.total_greets}
                   segments={[
-                    { label: 'Lobby',    count: s1.wait_preference.lobby,    color: '#3b82f6' },
-                    { label: 'In car',   count: s1.wait_preference.in_car,   color: '#f59e0b' },
-                    { label: 'Drop off', count: s1.wait_preference.drop_off, color: '#7c3aed' },
+                    { key: 'lobby',    label: 'Lobby',    count: s1.wait_preference.lobby,    color: '#3b82f6' },
+                    { key: 'in_car',   label: 'In car',   count: s1.wait_preference.in_car,   color: '#f59e0b' },
+                    { key: 'drop_off', label: 'Drop off', count: s1.wait_preference.drop_off, color: '#7c3aed' },
                   ].filter((seg) => seg.count > 0)}
                   tooltip="All greets (not just oil-change)."
+                  onSegmentClick={(seg) => openDrill('wait_preference', seg, `Wait Preference — ${formatWaitPref(seg)}`)}
                 />
                 <BreakdownCard
                   title="CAW Upsell"
                   total={s1.caw.offered}
                   segments={[
-                    { label: 'Accepted', count: s1.caw.accepted,                       color: '#10b981' },
-                    { label: 'Declined', count: Math.max(s1.caw.offered - s1.caw.accepted, 0), color: '#ef4444' },
+                    { key: 'accepted', label: 'Accepted', count: s1.caw.accepted,                                color: '#10b981' },
+                    { key: 'declined', label: 'Declined', count: Math.max(s1.caw.offered - s1.caw.accepted, 0),  color: '#ef4444' },
                   ].filter((seg) => seg.count > 0)}
-                  tooltip="Denominator: greets where CAW was offered (returning customers with eligible items)."
+                  tooltip="Denominator: greets where CAW was actually offered (returning customers with eligible items). 'Not offered' rows are excluded."
+                  onSegmentClick={(seg) => openDrill('caw', seg, `CAW — ${seg === 'accepted' ? 'Accepted' : 'Declined'}`)}
                 />
               </div>
             </div>
@@ -470,6 +632,7 @@ export default function GreetsReports() {
                   sub={`${(s2.match_breakdown.exact_vin + s2.match_breakdown.exact_plate)} of ${s2.total_for_match} greets`}
                   color="#3b82f6"
                   highlight={matchRatePct != null}
+                  onClick={() => openDrill('match_breakdown', null, 'Match Breakdown — All Greets')}
                 />
                 <KpiCard
                   label="Avg Estimate (matched)"
@@ -491,6 +654,7 @@ export default function GreetsReports() {
                   sub={estVsActualDelta != null ? (estVsActualDelta >= 0 ? 'actual > estimate' : 'actual < estimate') : ''}
                   color={estVsActualDelta != null && estVsActualDelta >= 0 ? '#10b981' : '#ef4444'}
                   highlight={estVsActualDelta != null}
+                  onClick={() => openDrill('delta_vs_estimate', null, 'Δ vs Estimate — Matched Greets')}
                 />
                 <KpiCard
                   label="Avg Total (paid)"
@@ -503,6 +667,7 @@ export default function GreetsReports() {
                   value={s2.avg_promo_discount != null ? formatCurrency(s2.avg_promo_discount) : '—'}
                   sub={s2.avg_promo_pct_of_gross != null ? `${s2.avg_promo_pct_of_gross}% of gross` : ''}
                   color="#f59e0b"
+                  onClick={() => openDrill('promo_discount', null, 'Discounts — Matched Greets')}
                 />
               </div>
 
@@ -511,43 +676,32 @@ export default function GreetsReports() {
                   title="Match Breakdown"
                   total={s2.total_for_match}
                   segments={[
-                    { label: 'VIN exact',   count: s2.match_breakdown.exact_vin,   color: '#10b981' },
-                    { label: 'Plate exact', count: s2.match_breakdown.exact_plate, color: '#3b82f6' },
-                    { label: 'No match',    count: s2.match_breakdown.no_match,    color: '#ef4444' },
+                    { key: 'exact_vin',   label: 'VIN exact',   count: s2.match_breakdown.exact_vin,   color: '#10b981' },
+                    { key: 'exact_plate', label: 'Plate exact', count: s2.match_breakdown.exact_plate, color: '#3b82f6' },
+                    { key: 'no_match',    label: 'No match',    count: s2.match_breakdown.no_match,    color: '#ef4444' },
                   ]}
                   tooltip="See section title for what unmatched means."
+                  onSegmentClick={(seg) => openDrill('match_breakdown', seg, `Match — ${formatMatchQuality(seg)}`)}
                 />
-                <BreakdownCard
-                  title="Avg Bay Duration by Classification"
-                  total={(s2.bay_duration_by_classification.express.n || 0) + (s2.bay_duration_by_classification.full.n || 0)}
-                  segments={[
-                    {
-                      label: `EXPRESS · ${s2.bay_duration_by_classification.express.avg_minutes != null ? `${s2.bay_duration_by_classification.express.avg_minutes} min` : '—'}`,
-                      count: s2.bay_duration_by_classification.express.n || 0,
-                      color: '#ef4444',
-                    },
-                    {
-                      label: `FULL · ${s2.bay_duration_by_classification.full.avg_minutes != null ? `${s2.bay_duration_by_classification.full.avg_minutes} min` : '—'}`,
-                      count: s2.bay_duration_by_classification.full.n || 0,
-                      color: '#10b981',
-                    },
-                  ].filter((seg) => seg.count > 0)}
-                  tooltip={`Outliers excluded: ${s2.outliers_excluded}. Bay times outside 2-180 min are dropped from the average.`}
+                <BayDurationCard
+                  data={s2.bay_duration_by_classification}
+                  outliers={s2.outliers_excluded}
+                  onSegmentClick={(seg) => openDrill('bay_duration', seg, `Bay Duration — ${seg.toUpperCase()}`)}
                 />
               </div>
             </div>
 
             {/* ── Section 3 — Customer satisfaction ──────────────────────── */}
             <div style={{ marginBottom: '32px' }}>
-              <SectionTitle tooltip={`Net Promoter Score. Only shown when there are at least ${s3.min_n_for_score} responses in the range.`}>
+              <SectionTitle tooltip="Net Promoter Score. Shown whenever at least one response is in range; n is always surfaced so you can weight it.">
                 Customer Satisfaction (NPS)
               </SectionTitle>
 
-              {s3.response_count < s3.min_n_for_score ? (
+              {s3.response_count === 0 ? (
                 <div style={{ backgroundColor: '#f8f9fa', border: '1px solid #eee', borderRadius: '12px', padding: '24px', textAlign: 'center', color: '#888' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Not enough NPS responses yet</div>
+                  <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>No NPS responses yet in this range</div>
                   <div style={{ fontSize: '12px' }}>
-                    {s3.response_count} response{s3.response_count !== 1 ? 's' : ''} in range. NPS shown when there are at least {s3.min_n_for_score}.
+                    Surveys arrive days after the visit. Widen the date range or check back later.
                   </div>
                 </div>
               ) : (
@@ -558,27 +712,398 @@ export default function GreetsReports() {
                     sub={`${s3.response_count} response${s3.response_count !== 1 ? 's' : ''}`}
                     color="#10b981"
                     highlight={s3.avg_nps != null}
+                    onClick={() => openDrill('nps', null, 'NPS — All Responses')}
                   />
                   <KpiCard
                     label="NPS · EXPRESS"
                     value={s3.by_classification.express.avg != null ? String(s3.by_classification.express.avg) : '—'}
-                    sub={`n=${s3.by_classification.express.n}${s3.by_classification.express.avg == null ? ' (too few)' : ''}`}
+                    sub={`n=${s3.by_classification.express.n}`}
                     color="#ef4444"
+                    onClick={s3.by_classification.express.n > 0 ? () => openDrill('nps', 'express', 'NPS — EXPRESS Visits') : undefined}
                   />
                   <KpiCard
                     label="NPS · FULL"
                     value={s3.by_classification.full.avg != null ? String(s3.by_classification.full.avg) : '—'}
-                    sub={`n=${s3.by_classification.full.n}${s3.by_classification.full.avg == null ? ' (too few)' : ''}`}
+                    sub={`n=${s3.by_classification.full.n}`}
                     color="#10b981"
+                    onClick={s3.by_classification.full.n > 0 ? () => openDrill('nps', 'full', 'NPS — FULL Visits') : undefined}
                   />
                 </div>
               )}
             </div>
           </>
         )}
+
+        {/* Drill-down modal */}
+        {drill && (
+          <DrillDownModal
+            open={true}
+            onClose={closeDrill}
+            metric={drill.metric}
+            segment={drill.segment}
+            scope={{ store_id: storeFilter, date_from: dateFrom, date_to: dateTo }}
+            title={drill.title}
+          />
+        )}
+        )}
       </div>
     </div>
   );
+}
+
+// ============================================================================
+// DrillDownModal — universal row-level drill into any metric/segment.
+// Opens when the user clicks a card or a segment of a bar. Calls
+// greets-analytics-drill with the (metric, segment, scope) tuple and renders
+// an adaptive table — universal columns first, then metric-specific columns.
+// Always offers a CSV export of the visible rows.
+// ============================================================================
+function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [rows, setRows] = useState([]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true); setError(null); setRows([]);
+      try {
+        const res = await apiCall(`${API_BASE}/greets-analytics-drill`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            metric, segment,
+            store_id: scope.store_id,
+            date_from: scope.date_from,
+            date_to: scope.date_to,
+          }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (!data.success) throw new Error(data.error || 'Unknown error');
+        setRows(data.rows || []);
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, metric, segment, scope.store_id, scope.date_from, scope.date_to]);
+
+  if (!open) return null;
+
+  // Define columns per metric — universal first, then metric-specific.
+  const columns = (() => {
+    const universal = [
+      { key: 'short_code',    label: 'Code',    render: (r) => r.short_code },
+      { key: 'created_at',    label: 'Date',    render: (r) => formatDateShort(r.created_at) },
+      { key: 'customer_name', label: 'Customer', render: (r) => r.customer_name },
+      { key: 'vehicle',       label: 'Vehicle', render: (r) => r.vehicle },
+    ];
+    switch (metric) {
+      case 'promo_discount': return [
+        ...universal,
+        { key: 'promo_discount', label: 'Discount',    render: (r) => formatCurrency(r.promo_discount), right: true, bold: true },
+        { key: 'invoice_gross',  label: 'Gross',       render: (r) => r.invoice_gross != null ? formatCurrency(r.invoice_gross) : '—', right: true },
+        { key: 'invoice_net',    label: 'Net',         render: (r) => r.invoice_net != null ? formatCurrency(r.invoice_net) : '—', right: true },
+        { key: 'invoice_total',  label: 'Total Paid',  render: (r) => r.invoice_total != null ? formatCurrency(r.invoice_total) : '—', right: true },
+        { key: 'promo_pct',      label: '% of Gross',  render: (r) => r.promo_pct_of_gross != null ? `${r.promo_pct_of_gross}%` : '—', right: true },
+      ];
+      case 'match_breakdown': return [
+        ...universal,
+        { key: 'match_quality', label: 'Match',       render: (r) => formatMatchQuality(r.match_quality) },
+        { key: 'classification',label: 'Service',     render: (r) => r.classification?.toUpperCase() || '—' },
+        { key: 'invoice_net',   label: 'Net',         render: (r) => r.invoice_net != null ? formatCurrency(r.invoice_net) : '—', right: true },
+        { key: 'invoice_total', label: 'Total Paid',  render: (r) => r.invoice_total != null ? formatCurrency(r.invoice_total) : '—', right: true },
+      ];
+      case 'delta_vs_estimate': return [
+        ...universal,
+        { key: 'kiosk_estimate', label: 'Estimate',   render: (r) => formatCurrency(r.kiosk_estimate), right: true },
+        { key: 'invoice_net',    label: 'Actual Net', render: (r) => formatCurrency(r.invoice_net), right: true },
+        { key: 'delta',          label: 'Δ',          render: (r) => `${r.delta >= 0 ? '+' : ''}${formatCurrency(r.delta)}`, right: true, bold: true, color: (r) => r.delta >= 0 ? '#10b981' : '#ef4444' },
+        { key: 'promo_discount', label: 'Discount',   render: (r) => r.promo_discount != null ? formatCurrency(r.promo_discount) : '—', right: true },
+      ];
+      case 'classification_mix': return [
+        ...universal,
+        { key: 'classification', label: 'Service',  render: (r) => r.classification?.toUpperCase() || '—' },
+        { key: 'oil_tier',       label: 'Oil Tier', render: (r) => formatOilTier(r.oil_tier) },
+        { key: 'tm_package',     label: 'TM Pkg',   render: (r) => formatTmPackage(r.tm_package) },
+        { key: 'estimate',       label: 'Estimate', render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
+      ];
+      case 'tm_attach': return [
+        ...universal,
+        { key: 'tm_package', label: 'TM Pkg',   render: (r) => formatTmPackage(r.tm_package), bold: true },
+        { key: 'oil_tier',   label: 'Oil Tier', render: (r) => formatOilTier(r.oil_tier) },
+        { key: 'estimate',   label: 'Estimate', render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
+      ];
+      case 'oil_tier_mix': return [
+        ...universal,
+        { key: 'oil_tier_selected', label: 'Selected', render: (r) => formatOilTier(r.oil_tier_selected), bold: true },
+        { key: 'oil_tier_rec',      label: 'Recommended', render: (r) => r.oil_tier_recommendation ? formatOilTier(r.oil_tier_recommendation) : '—' },
+        { key: 'estimate',          label: 'Estimate',  render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
+      ];
+      case 'oil_tier_rec_acceptance': return [
+        ...universal,
+        { key: 'rec_outcome',       label: 'Outcome',    render: (r) => formatRecOutcome(r.rec_outcome), bold: true, color: (r) => recOutcomeColor(r.rec_outcome) },
+        { key: 'oil_tier_rec',      label: 'Recommended', render: (r) => r.oil_tier_recommendation ? formatOilTier(r.oil_tier_recommendation) : '—' },
+        { key: 'oil_tier_selected', label: 'Selected',    render: (r) => formatOilTier(r.oil_tier_selected) },
+        { key: 'estimate',          label: 'Estimate',    render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
+      ];
+      case 'rotation_attach': return [
+        ...universal,
+        { key: 'rotation', label: 'Rotation Choice', render: (r) => formatRotation(r.rotation_choice), bold: true },
+        { key: 'estimate', label: 'Estimate',         render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
+      ];
+      case 'engine_prep_attach': return [
+        ...universal,
+        { key: 'prep',       label: 'Engine Prep', render: (r) => r.has_engine_prep ? '✓ Attached' : '—', bold: true },
+        { key: 'tm_package', label: 'TM Pkg',      render: (r) => formatTmPackage(r.tm_package) },
+        { key: 'oil_tier',   label: 'Oil Tier',    render: (r) => formatOilTier(r.oil_tier) },
+      ];
+      case 'caw': return [
+        ...universal,
+        { key: 'caw_response', label: 'CAW Response', render: (r) => (r.caw_response || '—').toUpperCase(), bold: true },
+        { key: 'caw_items',    label: 'Items',
+          render: (r) => Array.isArray(r.caw_items_accepted) && r.caw_items_accepted.length > 0
+            ? r.caw_items_accepted.join(', ')
+            : '—' },
+      ];
+      case 'wait_preference': return [
+        ...universal,
+        { key: 'wait_preference', label: 'Wait Pref',  render: (r) => formatWaitPref(r.wait_preference), bold: true },
+        { key: 'qualifier',       label: 'Qualifier',  render: (r) => r.qualifier || '—' },
+      ];
+      case 'bay_duration': return [
+        ...universal,
+        { key: 'classification', label: 'Service',    render: (r) => r.classification?.toUpperCase() || '—' },
+        { key: 'bay_minutes',    label: 'Bay Mins',   render: (r) => `${r.bay_minutes} min${r.is_outlier ? ' ⚠' : ''}`, right: true, bold: true },
+        { key: 'started',        label: 'Started',    render: (r) => formatTimeShort(r.invoice_started_at) },
+        { key: 'completed',      label: 'Completed',  render: (r) => formatTimeShort(r.invoice_completed_at) },
+      ];
+      case 'nps': return [
+        ...universal,
+        { key: 'nps_score',     label: 'NPS',         render: (r) => String(r.nps_score), bold: true, color: (r) => npsBucketColor(r.nps_bucket) },
+        { key: 'nps_bucket',    label: 'Bucket',      render: (r) => r.nps_bucket?.toUpperCase() || '—' },
+        { key: 'classification',label: 'Service',     render: (r) => r.classification?.toUpperCase() || '—' },
+        { key: 'invoice_total', label: 'Total Paid',  render: (r) => r.invoice_total != null ? formatCurrency(r.invoice_total) : '—', right: true },
+      ];
+      default: return universal;
+    }
+  })();
+
+  const exportCsv = () => {
+    if (rows.length === 0) return;
+    const headers = columns.map((c) => c.label);
+    const csvRows = rows.map((r) => columns.map((c) => {
+      const v = c.render(r);
+      const s = (v == null ? '' : String(v));
+      // Escape CSV: wrap if contains comma, quote, or newline; double internal quotes
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }));
+    const csv = [headers, ...csvRows].map((row) => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `greets-${metric}${segment ? '-' + segment : ''}-${scope.date_from}_to_${scope.date_to}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+        zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '40px 20px',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: 'white', borderRadius: '15px',
+          maxWidth: '1100px', width: '100%', maxHeight: '85vh',
+          display: 'flex', flexDirection: 'column',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.25)', overflow: 'hidden',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          backgroundColor: '#9b59b6', color: 'white',
+          padding: '16px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: '800', letterSpacing: '0.3px' }}>{title}</div>
+            <div style={{ fontSize: '11px', opacity: 0.85, marginTop: '2px' }}>
+              {rows.length} record{rows.length !== 1 ? 's' : ''} · {scope.date_from === scope.date_to ? scope.date_from : `${scope.date_from} → ${scope.date_to}`}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={exportCsv}
+              disabled={rows.length === 0}
+              style={{
+                backgroundColor: rows.length === 0 ? 'rgba(255,255,255,0.3)' : 'white',
+                color: rows.length === 0 ? 'rgba(255,255,255,0.7)' : '#9b59b6',
+                border: 'none', padding: '8px 14px', borderRadius: '18px',
+                fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px',
+                cursor: rows.length === 0 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              ⤓ CSV
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                backgroundColor: 'transparent', color: 'white',
+                border: '1px solid rgba(255,255,255,0.5)', padding: '6px 14px',
+                borderRadius: '18px', fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+              }}
+            >
+              CLOSE ×
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          {loading && (
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#888' }}>Loading…</div>
+          )}
+          {error && (
+            <div style={{ padding: '20px 22px', color: '#991b1b', backgroundColor: '#fee2e2' }}>
+              Error: {error}
+            </div>
+          )}
+          {!loading && !error && rows.length === 0 && (
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#888' }}>
+              No records match this segment.
+            </div>
+          )}
+          {!loading && !error && rows.length > 0 && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 1 }}>
+                <tr>
+                  {columns.map((c) => (
+                    <th key={c.key} style={{
+                      padding: '10px 14px', textAlign: c.right ? 'right' : 'left',
+                      fontSize: '10px', fontWeight: '700', color: '#888',
+                      letterSpacing: '1px', textTransform: 'uppercase',
+                      borderBottom: '2px solid #eee', whiteSpace: 'nowrap',
+                    }}>{c.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, idx) => (
+                  <tr key={`${r.short_code || idx}-${idx}`} style={{ backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa' }}>
+                    {columns.map((c) => {
+                      const color = typeof c.color === 'function' ? c.color(r) : (c.color || '#333');
+                      return (
+                        <td key={c.key} style={{
+                          padding: '10px 14px', textAlign: c.right ? 'right' : 'left',
+                          fontSize: '13px', fontWeight: c.bold ? '700' : '400',
+                          color, borderBottom: '1px solid #f5f5f5', whiteSpace: 'nowrap',
+                        }}>
+                          {c.render(r)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── formatting helpers (also used by main page) ─────────────────────────────
+function formatDateShort(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  } catch { return '—'; }
+}
+function formatTimeShort(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  } catch { return '—'; }
+}
+function formatMatchQuality(q) {
+  if (q === 'exact_vin')   return 'VIN';
+  if (q === 'exact_plate') return 'PLATE';
+  if (q === 'no_match')    return 'NO MATCH';
+  return q || '—';
+}
+function formatOilTier(t) {
+  if (!t) return '—';
+  if (t === 'blend')             return 'Blend';
+  if (t === 'synthetic')         return 'Synthetic';
+  if (t === 'european')          return 'European';
+  if (t === 'diesel_synthetic')  return 'Diesel Synth';
+  return t;
+}
+function formatTmPackage(t) {
+  if (!t || t === 'none')         return '—';
+  if (t === 'max_protect')        return 'Max Protect';
+  if (t === 'vip')                return 'VIP';
+  if (t === 'high_mileage')       return 'High Mileage';
+  if (t === 'basic_synthetic')    return 'Basic Synth';
+  return t;
+}
+function formatRotation(r) {
+  if (r === 'yes')       return 'Yes';
+  if (r === 'no')        return 'No';
+  if (r === 'not_sure')  return 'Not sure';
+  return r || '—';
+}
+function formatWaitPref(w) {
+  if (w === 'lobby')    return 'Lobby';
+  if (w === 'in_car')   return 'In car';
+  if (w === 'drop_off') return 'Drop off';
+  return w || '—';
+}
+function formatRecOutcome(o) {
+  if (o === 'accepted')   return '✓ Accepted';
+  if (o === 'downgraded') return '↓ Downgraded';
+  if (o === 'upgraded')   return '↑ Upgraded';
+  if (o === 'no_rec')     return 'No rec';
+  return 'Other';
+}
+function recOutcomeColor(o) {
+  if (o === 'accepted')   return '#10b981';
+  if (o === 'downgraded') return '#ef4444';
+  if (o === 'upgraded')   return '#3b82f6';
+  return '#888';
+}
+function npsBucketColor(b) {
+  if (b === 'promoter')  return '#10b981';
+  if (b === 'detractor') return '#ef4444';
+  if (b === 'passive')   return '#f59e0b';
+  return '#888';
 }
 
 // ─── Reports tab pill row (shared visual between Tires and Greets reports) ──
