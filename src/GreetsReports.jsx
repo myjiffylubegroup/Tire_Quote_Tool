@@ -745,7 +745,6 @@ export default function GreetsReports() {
             title={drill.title}
           />
         )}
-        )}
       </div>
     </div>
   );
