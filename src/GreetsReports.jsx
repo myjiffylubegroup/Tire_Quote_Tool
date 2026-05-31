@@ -665,7 +665,16 @@ export default function GreetsReports() {
                 <KpiCard
                   label="Avg Promo Discount"
                   value={s2.avg_promo_discount != null ? formatCurrency(s2.avg_promo_discount) : '—'}
-                  sub={s2.avg_promo_pct_of_gross != null ? `${s2.avg_promo_pct_of_gross}% of gross` : ''}
+                  sub="across all matched tickets"
+                  color="#f59e0b"
+                  onClick={() => openDrill('promo_discount', null, 'Discounts — Matched Greets')}
+                />
+                <KpiCard
+                  label="Discount Rate"
+                  value={s2.discount_rate != null ? `${s2.discount_rate}%` : '—'}
+                  sub={s2.discounted_count != null && s2.matched_count != null
+                    ? `${s2.discounted_count} of ${s2.matched_count} matched`
+                    : ''}
                   color="#f59e0b"
                   onClick={() => openDrill('promo_discount', null, 'Discounts — Matched Greets')}
                 />
