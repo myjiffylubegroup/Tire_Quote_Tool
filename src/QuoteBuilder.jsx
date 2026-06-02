@@ -1017,7 +1017,7 @@ export default function QuoteBuilder() {
     setCustomerLookupLoading(true);
     setError(null);
     try {
-      const response = await apiCall(`${API_BASE}/customer-lookup?plate=${encodeURIComponent(licensePlate)}&state=${licenseState}`);
+      const response = await apiCall(`${API_BASE}/customer-lookup?plate=${encodeURIComponent(licensePlate)}&state=${licenseState}&store_id=${encodeURIComponent(selectedStore)}`);
       const data = await response.json();
       if (data.success && data.found) {
         setCustomerFound(true);
