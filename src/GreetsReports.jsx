@@ -520,15 +520,62 @@ export default function GreetsReports() {
             <div style={{ marginBottom: '32px' }}>
               <SectionTitle>Kiosk Activity</SectionTitle>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                <KpiCard label="Total Greets"        value={formatNum(s1.total_greets)}      sub={`${dateFrom === dateTo ? dateFrom : `${dateFrom} → ${dateTo}`}`} />
-                <KpiCard label="Oil-Change Greets"   value={formatNum(s1.oil_change_greets)} sub="denominator for attach rates" color="#3b82f6" />
+                <KpiCard label="Total Greets"        value={formatNum(s1.total_greets)}       sub={`${dateFrom === dateTo ? dateFrom : `${dateFrom} → ${dateTo}`}`} />
+                <KpiCard label="TM-Eligible Greets"  value={formatNum(s1.tm_eligible_greets)} sub="oil + smog + rideshare paths" color="#3b82f6" />
                 <KpiCard label="Avg Kiosk Estimate"  value={s1.avg_kiosk_estimate != null ? formatCurrency(s1.avg_kiosk_estimate) : '—'} sub="oil-change greets, pre-tax" color="#10b981" />
                 <KpiCard
                   label="Engine Prep Attach"
-                  value={s1.oil_change_greets > 0 ? `${Math.round((s1.engine_prep_attach / s1.oil_change_greets) * 100)}%` : '—'}
-                  sub={`${s1.engine_prep_attach} of ${s1.oil_change_greets}`}
+                  value={s1.tm_eligible_greets > 0 ? `${Math.round((s1.engine_prep_attach / s1.tm_eligible_greets) * 100)}%` : '—'}
+                  sub={`${s1.engine_prep_attach} of ${s1.tm_eligible_greets}`}
                   color="#f59e0b"
                   onClick={() => openDrill('engine_prep_attach', 'attached', 'Engine Prep — Attached')}
+                />
+              </div>
+
+              {/* TM Retention row — Phase 12 redesign metrics. Surfaced as
+                  its own row because retention is a distinct funnel from
+                  initial attach, and the save rate is the headline number. */}
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <KpiCard
+                  label="Retention Pitch Shown"
+                  value={formatNum(s1.tm_retention?.shown || 0)}
+                  sub={s1.tm_retention?.shown_pct_of_declines != null
+                    ? `${s1.tm_retention.shown_pct_of_declines}% of initial declines`
+                    : 'no initial declines'}
+                  color="#9b59b6"
+                  onClick={s1.tm_retention?.shown > 0
+                    ? () => openDrill('tm_retention', 'shown', 'Retention Pitch — Shown')
+                    : undefined}
+                />
+                <KpiCard
+                  label="Retention Save Rate"
+                  value={s1.tm_retention?.save_rate_pct != null ? `${s1.tm_retention.save_rate_pct}%` : '—'}
+                  sub={s1.tm_retention?.shown > 0
+                    ? `${s1.tm_retention.saved} of ${s1.tm_retention.shown} saved`
+                    : 'no pitches shown'}
+                  color="#10b981"
+                  highlight={s1.tm_retention?.save_rate_pct != null && s1.tm_retention.save_rate_pct >= 30}
+                  onClick={s1.tm_retention?.saved > 0
+                    ? () => openDrill('tm_retention', 'saved', 'Retention — Saves')
+                    : undefined}
+                />
+                <KpiCard
+                  label="Retention Missed"
+                  value={formatNum(s1.tm_retention?.missed || 0)}
+                  sub="saw pitch, still declined"
+                  color="#ef4444"
+                  onClick={s1.tm_retention?.missed > 0
+                    ? () => openDrill('tm_retention', 'missed', 'Retention — Missed')
+                    : undefined}
+                />
+                <KpiCard
+                  label="Free Engine Prep Given"
+                  value={formatNum(s1.tm_retention?.free_eps_total || 0)}
+                  sub="welcome offer + retention combined"
+                  color="#f59e0b"
+                  onClick={s1.tm_retention?.free_eps_total > 0
+                    ? () => openDrill('tm_retention', 'free_eps', 'Free Engine Prep — Given')
+                    : undefined}
                 />
               </div>
 
@@ -536,14 +583,14 @@ export default function GreetsReports() {
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 <BreakdownCard
                   title="EXPRESS vs FULL"
-                  total={s1.oil_change_greets}
+                  total={s1.tm_eligible_greets}
                   segments={[
                     { key: 'express', label: 'EXPRESS', count: s1.classification_mix.express, color: '#ef4444' },
                     { key: 'full',    label: 'FULL',    count: s1.classification_mix.full,    color: '#10b981' },
                     ...(s1.classification_mix.other > 0 ? [{ key: null, label: 'Other', count: s1.classification_mix.other, color: '#cbd5e1' }] : []),
                   ]}
-                  tooltip="Denominator: oil-change greets only."
-                  onSegmentClick={(seg) => openDrill('classification_mix', seg, `${seg.toUpperCase()} — Oil-Change Greets`)}
+                  tooltip="Denominator: TM-eligible greets (oil + smog + rideshare paths)."
+                  onSegmentClick={(seg) => openDrill('classification_mix', seg, `${seg.toUpperCase()} — TM-Eligible Greets`)}
                 />
                 <BreakdownCard
                   title="Oil Tier Selected"
@@ -575,7 +622,7 @@ export default function GreetsReports() {
                 />
                 <BreakdownCard
                   title="TM Package Attach"
-                  total={s1.oil_change_greets}
+                  total={s1.tm_eligible_greets}
                   segments={[
                     { key: 'max_protect',     label: 'Max Protect',  count: s1.tm_attach.by_tier.max_protect,     color: '#7c3aed' },
                     { key: 'vip',             label: 'VIP',          count: s1.tm_attach.by_tier.vip,             color: '#9b59b6' },
@@ -583,17 +630,18 @@ export default function GreetsReports() {
                     { key: 'basic_synthetic', label: 'Basic Synth',  count: s1.tm_attach.by_tier.basic_synthetic, color: '#c4b5fd' },
                     { key: 'none',            label: '— None',       count: s1.tm_attach.by_tier.none,            color: '#e5e7eb' },
                   ].filter((seg) => seg.count > 0)}
-                  tooltip="Denominator: oil-change greets only."
+                  tooltip="Denominator: TM-eligible greets (oil + smog + rideshare paths)."
                   onSegmentClick={(seg) => openDrill('tm_attach', seg, `TM Package — ${formatTmPackage(seg) === '—' ? 'None' : formatTmPackage(seg)}`)}
                 />
                 <BreakdownCard
                   title="Tire Rotation"
-                  total={s1.oil_change_greets}
+                  total={s1.tm_eligible_greets}
                   segments={[
                     { key: 'yes',      label: 'Yes',      count: s1.rotation_attach.yes,      color: '#10b981' },
                     { key: 'no',       label: 'No',       count: s1.rotation_attach.no,       color: '#ef4444' },
                     { key: 'not_sure', label: 'Not sure', count: s1.rotation_attach.not_sure, color: '#f59e0b' },
                   ].filter((seg) => seg.count > 0)}
+                  tooltip="Denominator: TM-eligible greets (oil + smog + rideshare paths)."
                   onSegmentClick={(seg) => openDrill('rotation_attach', seg, `Tire Rotation — ${formatRotation(seg)}`)}
                 />
                 <BreakdownCard
@@ -859,6 +907,14 @@ function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
         { key: 'tm_package', label: 'TM Pkg',   render: (r) => formatTmPackage(r.tm_package), bold: true },
         { key: 'oil_tier',   label: 'Oil Tier', render: (r) => formatOilTier(r.oil_tier) },
         { key: 'estimate',   label: 'Estimate', render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
+      ];
+      case 'tm_retention': return [
+        ...universal,
+        { key: 'retention_offered',  label: 'Pitch Shown',   render: (r) => r.retention_offered  ? '✓' : '—', bold: true, color: (r) => r.retention_offered  ? '#9b59b6' : '#ccc' },
+        { key: 'retention_accepted', label: 'Saved',         render: (r) => r.retention_accepted ? '✓' : '—', bold: true, color: (r) => r.retention_accepted ? '#10b981' : '#ccc' },
+        { key: 'tm_package',         label: 'Final TM Pkg',  render: (r) => formatTmPackage(r.tm_package) },
+        { key: 'free_engine_prep',   label: 'Free EPS',      render: (r) => r.free_engine_prep ? '✓' : '—', color: (r) => r.free_engine_prep ? '#f59e0b' : '#ccc' },
+        { key: 'estimate',           label: 'Estimate',      render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
       ];
       case 'oil_tier_mix': return [
         ...universal,
