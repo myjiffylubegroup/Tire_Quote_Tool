@@ -532,49 +532,92 @@ export default function GreetsReports() {
                 />
               </div>
 
-              {/* TM Retention row — Phase 12 redesign metrics. Surfaced as
-                  its own row because retention is a distinct funnel from
-                  initial attach, and the save rate is the headline number. */}
+              {/* TM Retention — Phase 12 redesign, split by audience.
+                  Two short rows side by side: the Welcome funnel (first-time
+                  eligible — new prospects + customers who've never bought TM)
+                  and the Returning funnel (customers the kiosk flagged as
+                  prior TM holders). Spec baseline targets: ~30% save rate
+                  on both. Welcome volume dominates today; Returning will
+                  grow as the redesign rolls out to more stores.
+                  Free Engine Prep is shared across both funnels; one card
+                  at the end captures the total. */}
+              <div style={{ marginBottom: '6px', fontSize: '11px', fontWeight: '700', color: '#9b59b6', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                Welcome Funnel (first-time eligible)
+              </div>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
                 <KpiCard
-                  label="Retention Pitch Shown"
-                  value={formatNum(s1.tm_retention?.shown || 0)}
-                  sub={s1.tm_retention?.shown_pct_of_declines != null
-                    ? `${s1.tm_retention.shown_pct_of_declines}% of initial declines`
-                    : 'no initial declines'}
+                  label="Welcome Pitch Shown"
+                  value={formatNum(s1.tm_retention?.welcome?.shown || 0)}
+                  sub="initial decliners, welcome-eligible"
                   color="#9b59b6"
-                  onClick={s1.tm_retention?.shown > 0
-                    ? () => openDrill('tm_retention', 'shown', 'Retention Pitch — Shown')
+                  onClick={s1.tm_retention?.welcome?.shown > 0
+                    ? () => openDrill('tm_retention', 'welcome_shown', 'Welcome Retention — Pitch Shown')
                     : undefined}
                 />
                 <KpiCard
-                  label="Retention Save Rate"
-                  value={s1.tm_retention?.save_rate_pct != null ? `${s1.tm_retention.save_rate_pct}%` : '—'}
-                  sub={s1.tm_retention?.shown > 0
-                    ? `${s1.tm_retention.saved} of ${s1.tm_retention.shown} saved`
+                  label="Welcome Save Rate"
+                  value={s1.tm_retention?.welcome?.save_rate_pct != null ? `${s1.tm_retention.welcome.save_rate_pct}%` : '—'}
+                  sub={s1.tm_retention?.welcome?.shown > 0
+                    ? `${s1.tm_retention.welcome.saved} of ${s1.tm_retention.welcome.shown} saved`
                     : 'no pitches shown'}
                   color="#10b981"
-                  highlight={s1.tm_retention?.save_rate_pct != null && s1.tm_retention.save_rate_pct >= 30}
-                  onClick={s1.tm_retention?.saved > 0
-                    ? () => openDrill('tm_retention', 'saved', 'Retention — Saves')
+                  highlight={s1.tm_retention?.welcome?.save_rate_pct != null && s1.tm_retention.welcome.save_rate_pct >= 30}
+                  onClick={s1.tm_retention?.welcome?.saved > 0
+                    ? () => openDrill('tm_retention', 'welcome_saved', 'Welcome Retention — Saves')
                     : undefined}
                 />
                 <KpiCard
-                  label="Retention Missed"
-                  value={formatNum(s1.tm_retention?.missed || 0)}
+                  label="Welcome Missed"
+                  value={formatNum(s1.tm_retention?.welcome?.missed || 0)}
                   sub="saw pitch, still declined"
                   color="#ef4444"
-                  onClick={s1.tm_retention?.missed > 0
-                    ? () => openDrill('tm_retention', 'missed', 'Retention — Missed')
+                  onClick={s1.tm_retention?.welcome?.missed > 0
+                    ? () => openDrill('tm_retention', 'welcome_missed', 'Welcome Retention — Missed')
                     : undefined}
                 />
                 <KpiCard
                   label="Free Engine Prep Given"
                   value={formatNum(s1.tm_retention?.free_eps_total || 0)}
-                  sub="welcome offer + retention combined"
+                  sub="all paths — welcome + retention"
                   color="#f59e0b"
                   onClick={s1.tm_retention?.free_eps_total > 0
                     ? () => openDrill('tm_retention', 'free_eps', 'Free Engine Prep — Given')
+                    : undefined}
+                />
+              </div>
+
+              <div style={{ marginBottom: '6px', fontSize: '11px', fontWeight: '700', color: '#9b59b6', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                Returning Funnel (prior TM customers)
+              </div>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <KpiCard
+                  label="Returning Pitch Shown"
+                  value={formatNum(s1.tm_retention?.returning?.shown || 0)}
+                  sub="initial decliners, prior TM"
+                  color="#9b59b6"
+                  onClick={s1.tm_retention?.returning?.shown > 0
+                    ? () => openDrill('tm_retention', 'returning_shown', 'Returning Retention — Pitch Shown')
+                    : undefined}
+                />
+                <KpiCard
+                  label="Returning Save Rate"
+                  value={s1.tm_retention?.returning?.save_rate_pct != null ? `${s1.tm_retention.returning.save_rate_pct}%` : '—'}
+                  sub={s1.tm_retention?.returning?.shown > 0
+                    ? `${s1.tm_retention.returning.saved} of ${s1.tm_retention.returning.shown} saved`
+                    : 'no pitches shown'}
+                  color="#10b981"
+                  highlight={s1.tm_retention?.returning?.save_rate_pct != null && s1.tm_retention.returning.save_rate_pct >= 30}
+                  onClick={s1.tm_retention?.returning?.saved > 0
+                    ? () => openDrill('tm_retention', 'returning_saved', 'Returning Retention — Saves')
+                    : undefined}
+                />
+                <KpiCard
+                  label="Returning Missed"
+                  value={formatNum(s1.tm_retention?.returning?.missed || 0)}
+                  sub="saw pitch, still declined"
+                  color="#ef4444"
+                  onClick={s1.tm_retention?.returning?.missed > 0
+                    ? () => openDrill('tm_retention', 'returning_missed', 'Returning Retention — Missed')
                     : undefined}
                 />
               </div>
@@ -910,7 +953,8 @@ function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
       ];
       case 'tm_retention': return [
         ...universal,
-        { key: 'retention_offered',  label: 'Pitch Shown',   render: (r) => r.retention_offered  ? '✓' : '—', bold: true, color: (r) => r.retention_offered  ? '#9b59b6' : '#ccc' },
+        { key: 'audience',           label: 'Audience',      render: (r) => r.audience === 'welcome' ? 'Welcome' : r.audience === 'returning' ? 'Returning' : '—', bold: true },
+        { key: 'retention_offered',  label: 'Pitch Shown',   render: (r) => r.retention_offered  ? '✓' : '—', color: (r) => r.retention_offered  ? '#9b59b6' : '#ccc' },
         { key: 'retention_accepted', label: 'Saved',         render: (r) => r.retention_accepted ? '✓' : '—', bold: true, color: (r) => r.retention_accepted ? '#10b981' : '#ccc' },
         { key: 'tm_package',         label: 'Final TM Pkg',  render: (r) => formatTmPackage(r.tm_package) },
         { key: 'free_engine_prep',   label: 'Free EPS',      render: (r) => r.free_engine_prep ? '✓' : '—', color: (r) => r.free_engine_prep ? '#f59e0b' : '#ccc' },
