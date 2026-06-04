@@ -1632,6 +1632,23 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
       {/* Service summary */}
       <div style={{ fontSize: '13px', color: '#444', marginBottom: '6px' }}>
         {oilTierLabel(greet.oil_tier_selected) || 'No oil service'}
+        {greet.oil_tier_needs_confirmation === true && (
+          <span style={{
+            display: 'inline-block',
+            marginLeft: '8px',
+            backgroundColor: '#FEF3C7',
+            color: '#B45309',
+            border: '1px solid #FCD34D',
+            padding: '2px 8px',
+            borderRadius: '999px',
+            fontSize: '11px',
+            fontWeight: '700',
+            letterSpacing: '0.3px',
+            verticalAlign: 'middle',
+          }}>
+            ⚠ CONFIRM OIL
+          </span>
+        )}
         {greet.tm_package_selected && (
           <> + {tmPackageLabel(greet.tm_package_selected)}</>
         )}
