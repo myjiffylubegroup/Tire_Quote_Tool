@@ -1,7 +1,7 @@
 // =============================================================================
 // GreetsBoard.jsx — unattended back-counter "now arriving" wall display
 // =============================================================================
-// A full-bleed, dark, TV-optimized board that shows TODAY's most recent greets
+// A full-bleed, light, TV-optimized board that shows TODAY's most recent greets
 // at a single store, newest first. Built for ScreenCloud (or any device that
 // loads a URL): no login, no interaction, auto-refreshing.
 //
@@ -14,9 +14,11 @@
 // apiCallPublic (gateway anon key only) plus the X-Display-Key header. No PII
 // is ever in the payload — names arrive as first name + last initial.
 //
-// STAFF-ONLY SURFACE: this is mounted at the back counter, not customer-facing,
-// so GROW codes, estimated subtotal, oil tier, and Engine Prep callouts are all
-// fair game to show.
+// STAFF-ONLY SURFACE: mounted at the back counter, not customer-facing, so GROW
+// codes, estimated subtotal, oil tier, and Engine Prep callouts are fair game.
+//
+// THEME: light board for TV legibility. All colors live in the C palette below
+// so the look can be tuned in one place.
 // =============================================================================
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -32,6 +34,25 @@ const CLOCK_MS = 1000;
 // Default number of tiles shown (most recent N). Overridable via ?max=.
 const DEFAULT_MAX_TILES = 7;
 
+// ---- Palette (light) --------------------------------------------------------
+const C = {
+  pageBg: '#eef1f5',
+  cardBg: '#ffffff',
+  cardBorder: '#e4e8ee',
+  cardShadow: '0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04)',
+  textPrimary: '#0f172a',
+  textSecondary: '#475569',
+  textTertiary: '#94a3b8',
+  textFaint: '#64748b',
+  accent: '#7c3aed',          // purple — Greets identity
+  railNeutral: '#cbd5e1',
+  railExpress: '#dc2626',
+  railFull: '#16a34a',
+  divider: '#e2e8f0',
+  prepBg: '#facc15',
+  prepText: '#451a03',
+};
+
 // Store id → display name (header). Mirrors the STORES list in QuoteLookup.
 const STORE_NAMES = {
   609: 'Santa Maria',
@@ -44,18 +65,67 @@ const STORE_NAMES = {
   4182: 'Santa Barbara — State Street',
 };
 
-// Engine-prep GROW codes — kept in sync with QuoteLookup.jsx. If the kiosk
-// project changes these, update both places. Presence of any of these means
-// the Throttle Muscle Engine Prep is poured BEFORE the car pulls in (3-min
-// pre-treat), so the CSA needs to grab the bottle ahead of time — hence the
+// Engine-prep GROW codes — kept in sync with QuoteLookup.jsx. Presence of any
+// means the Throttle Muscle Engine Prep is poured BEFORE the car pulls in
+// (3-min pre-treat), so the CSA needs the bottle ahead of time — hence the
 // loud banner.
 const ENGINE_PREP_GROW_CODES = ['GREETTM3', 'GREETTM8', 'GREETTM13', 'GREETTM14', 'GREETTM15'];
+
+// ---- Service product images -------------------------------------------------
+// Bottles are static assets served from the render site at /images. If they
+// actually resolve at a different URL, change IMG_BASE only.
+const IMG_BASE = '/images';
+
+// oil_tier_selected -> bottle filename. The label under each bottle comes from
+// oilTierLabel() so it matches the staff tool exactly.
+//   NOTE: performance_synthetic and diesel_lightduty were assigned by
+//   elimination (the only gasoline / diesel files left). Confirm if either
+//   looks wrong on the board.
+const OIL_IMAGE_FILE = {
+  blend:                 'pennzoil-gold-blend.jpg',
+  synthetic:             'pennzoil-platinum-synthetic.jpg',
+  european:              'pennzoil-platinum-euro.jpg',
+  performance_synthetic: 'pennzoil-ultra-platinum-0w40.jpg',
+  diesel_conventional:   'rotella-t4-diesel-conventional.jpg',
+  diesel_synthetic:      'rotella-t6-diesel-synthetic.jpg',
+  diesel_lightduty:      'castrol-edge-dexosd-0w20.jpg',
+};
+
+// Throttle Muscle products: code -> { file, label }. Engine Prep (TM2745) is
+// intentionally NOT here — it lives in the banner only, per spec.
+const TM_PRODUCTS = {
+  TM3554:  { file: 'tm3554-engine-armor.png',    label: 'Engine Armor' },
+  TM5853A: { file: 'tm5853a-fuel-treatment.png', label: 'Fuel Treatment' },
+  TM3333:  { file: 'tm3333-high-mileage.png',    label: 'High Mileage' },
+  TM9259:  { file: 'tm9259-fuel-cleaner.png',    label: 'Fuel Cleaner' },
+  TM5555:  { file: 'tm5555-synfog.png',          label: 'SynFog' },
+};
+
+// tm_package_selected -> ordered list of TM product codes (gasoline).
+const TM_PACKAGE_PRODUCTS = {
+  max_protect:  ['TM3554', 'TM5853A'],
+  high_mileage: ['TM3333', 'TM9259'],
+  vip:          ['TM3554', 'TM5555'],
+};
+
+// Diesel overrides (applied when the oil tier is a diesel tier). Any package
+// not listed here falls back to the gasoline list above (e.g. VIP).
+//   max_protect (diesel)  -> two bottles of Engine Armor (TM3554)
+//   high_mileage (diesel) -> High Mileage only (TM3333). ASSUMPTION: a single
+//                            bottle, per the spec wording. If diesel high
+//                            mileage should be two like Max Protect, make this
+//                            ['TM3333', 'TM3333'].
+const TM_PACKAGE_PRODUCTS_DIESEL = {
+  max_protect:  ['TM3554', 'TM3554'],
+  high_mileage: ['TM3333'],
+};
+
+const DIESEL_OIL_TIERS = ['diesel_conventional', 'diesel_synthetic', 'diesel_lightduty'];
 
 // -----------------------------------------------------------------------------
 // Small pure helpers
 // -----------------------------------------------------------------------------
 
-// Read params out of the hash query string (#/board?store=609&key=...).
 function getHashParams() {
   const hash = window.location.hash || '';
   const qIndex = hash.indexOf('?');
@@ -73,8 +143,6 @@ function titleCase(s) {
 const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount) || 0);
 
-// "just now" / "3 min ago" / "2 hrs ago", computed against a passed-in `now`
-// so all tiles share one clock tick.
 function timeAgo(iso, now) {
   if (!iso) return '';
   const then = new Date(iso).getTime();
@@ -86,26 +154,19 @@ function timeAgo(iso, now) {
   return `${hr} hr${hr !== 1 ? 's' : ''} ago`;
 }
 
-// Pacific clock time, e.g. "3:14 PM". Forced to LA regardless of the device's
-// own timezone so the board always reads in store-local time.
 function pacificClock(ms) {
   return new Date(ms).toLocaleTimeString('en-US', {
-    timeZone: 'America/Los_Angeles',
-    hour: 'numeric',
-    minute: '2-digit',
+    timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit',
   });
 }
 
 function pacificTimeOf(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleTimeString('en-US', {
-    timeZone: 'America/Los_Angeles',
-    hour: 'numeric',
-    minute: '2-digit',
+    timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit',
   });
 }
 
-// Build "Paul K." from the redacted fields. Falls back gracefully.
 function displayName(greet) {
   const first = titleCase(greet.customer_first_name || '').trim();
   const initial = (greet.customer_last_initial || '').trim();
@@ -120,10 +181,8 @@ function hasEnginePrep(greet) {
   return codes.some((c) => ENGINE_PREP_GROW_CODES.includes(c));
 }
 
-// Contact-change alerts from field_verification — same rules as QuoteLookup's
-// contactAlerts(): fire on verified_new always, and on captured_unverified only
-// for a returning customer (new customers type everything fresh, so unverified
-// is normal noise for them).
+// Contact-change alerts — same rules as QuoteLookup's contactAlerts(): fire on
+// verified_new always, and on captured_unverified only for a returning customer.
 function contactAlerts(greet) {
   const fv = greet && greet.field_verification;
   if (!fv || typeof fv !== 'object') return [];
@@ -143,21 +202,19 @@ function contactAlerts(greet) {
   return out;
 }
 
-// Classification → rail color + chip styling. null for unknown ("other"), in
-// which case the tile uses a neutral gray rail and shows no classification chip.
+// Classification → rail color + chip styling (light). null for unknown
+// ("other") → neutral gray rail and no classification chip.
 function classificationMeta(code) {
   if (code === 'express') {
     return {
-      label: 'EXPRESS', icon: '⚡',
-      rail: '#ef4444',
-      chipBg: 'rgba(239,68,68,0.16)', chipText: '#fca5a5', chipBorder: 'rgba(239,68,68,0.45)',
+      label: 'EXPRESS', icon: '⚡', rail: C.railExpress,
+      chipBg: '#fee2e2', chipText: '#b91c1c', chipBorder: '#fecaca',
     };
   }
   if (code === 'full') {
     return {
-      label: 'FULL', icon: '🔧',
-      rail: '#22c55e',
-      chipBg: 'rgba(34,197,94,0.16)', chipText: '#86efac', chipBorder: 'rgba(34,197,94,0.45)',
+      label: 'FULL', icon: '🔧', rail: C.railFull,
+      chipBg: '#dcfce7', chipText: '#15803d', chipBorder: '#bbf7d0',
     };
   }
   return null;
@@ -170,24 +227,41 @@ function waitPreferenceChip(code) {
   return null;
 }
 
+function isDieselTier(tier) {
+  return typeof tier === 'string' && (DIESEL_OIL_TIERS.includes(tier) || tier.startsWith('diesel'));
+}
+
+// Ordered list of product bottles for a greet's service: the oil bottle (from
+// oil tier) followed by the TM package bottles (diesel override applied).
+// Returns [{ file, label }, ...]; empty when there's no oil and no TM package
+// (e.g. smog-only visits). Engine Prep is not included — it's the banner.
+function serviceProducts(greet) {
+  const out = [];
+  const tier = greet.oil_tier_selected;
+  if (tier && OIL_IMAGE_FILE[tier]) {
+    out.push({ file: OIL_IMAGE_FILE[tier], label: oilTierLabel(tier) || 'Oil' });
+  }
+  const pkg = greet.tm_package_selected;
+  if (pkg) {
+    const codes = (isDieselTier(tier) && TM_PACKAGE_PRODUCTS_DIESEL[pkg]) || TM_PACKAGE_PRODUCTS[pkg] || [];
+    codes.forEach((code) => {
+      const p = TM_PRODUCTS[code];
+      if (p) out.push({ file: p.file, label: p.label });
+    });
+  }
+  return out;
+}
+
 // -----------------------------------------------------------------------------
 // Reusable chip
 // -----------------------------------------------------------------------------
 function Chip({ children, bg, text, border, bold }) {
   return (
     <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '6px',
-      fontSize: '16px',
-      fontWeight: bold ? 800 : 600,
-      letterSpacing: '0.3px',
-      color: text,
-      backgroundColor: bg,
-      border: `1.5px solid ${border}`,
-      padding: '4px 12px',
-      borderRadius: '10px',
-      whiteSpace: 'nowrap',
+      display: 'inline-flex', alignItems: 'center', gap: '6px',
+      fontSize: '16px', fontWeight: bold ? 800 : 600, letterSpacing: '0.3px',
+      color: text, backgroundColor: bg, border: `1.5px solid ${border}`,
+      padding: '4px 12px', borderRadius: '10px', whiteSpace: 'nowrap',
     }}>
       {children}
     </span>
@@ -199,10 +273,11 @@ function Chip({ children, bg, text, border, bold }) {
 // -----------------------------------------------------------------------------
 function GreetTile({ greet, now }) {
   const cls = classificationMeta(greet.service_classification);
-  const rail = cls ? cls.rail : '#475569';
+  const rail = cls ? cls.rail : C.railNeutral;
   const prep = hasEnginePrep(greet);
   const alerts = contactAlerts(greet);
   const wait = waitPreferenceChip(greet.wait_preference);
+  const products = serviceProducts(greet);
 
   const ageMin = Math.floor((now - new Date(greet.created_at).getTime()) / 60000);
   const isNew = ageMin < 3;
@@ -213,11 +288,11 @@ function GreetTile({ greet, now }) {
   return (
     <div style={{
       display: 'flex',
-      backgroundColor: '#161c26',
-      border: '1px solid #232b38',
+      backgroundColor: C.cardBg,
+      border: `1px solid ${C.cardBorder}`,
       borderRadius: '14px',
       overflow: 'hidden',
-      boxShadow: isNew ? `0 0 0 2px ${rail}66` : 'none',
+      boxShadow: isNew ? `0 0 0 3px ${rail}33, ${C.cardShadow}` : C.cardShadow,
     }}>
       {/* Classification rail */}
       <div style={{ width: '8px', backgroundColor: rail, flexShrink: 0 }} />
@@ -226,12 +301,8 @@ function GreetTile({ greet, now }) {
         {/* Engine Prep takeover banner */}
         {prep && (
           <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '14px',
-            backgroundColor: '#facc15',
-            color: '#111827',
-            padding: '10px 20px',
+            display: 'flex', alignItems: 'center', gap: '14px',
+            backgroundColor: C.prepBg, color: C.prepText, padding: '10px 20px',
           }}>
             <img
               src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/engine_prep_bottle_64.png"
@@ -249,40 +320,40 @@ function GreetTile({ greet, now }) {
         )}
 
         <div style={{ padding: '16px 20px' }}>
-          {/* Top row: name + pills .... time + price */}
+          {/* Top row: code + name + pills .... time + price */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', flexWrap: 'wrap', minWidth: 0 }}>
-              <span style={{ fontSize: '17px', fontWeight: 700, color: '#a78bfa', letterSpacing: '1px' }}>
+              <span style={{ fontSize: '17px', fontWeight: 700, color: C.accent, letterSpacing: '1px' }}>
                 #{greet.short_code}
               </span>
-              <span style={{ fontSize: '28px', fontWeight: 800, color: '#f1f5f9', lineHeight: 1.1 }}>
+              <span style={{ fontSize: '28px', fontWeight: 800, color: C.textPrimary, lineHeight: 1.1 }}>
                 {displayName(greet)}
               </span>
               {isNew && (
                 <span style={{
                   fontSize: '13px', fontWeight: 800, letterSpacing: '0.8px',
-                  color: '#bbf7d0', backgroundColor: 'rgba(34,197,94,0.18)',
-                  border: '1.5px solid rgba(34,197,94,0.5)', borderRadius: '999px', padding: '2px 10px',
+                  color: '#15803d', backgroundColor: '#dcfce7',
+                  border: '1.5px solid #86efac', borderRadius: '999px', padding: '2px 10px',
                 }}>
                   NEW
                 </span>
               )}
               {greet.language === 'es' && (
-                <Chip bg="rgba(59,130,246,0.16)" text="#93c5fd" border="rgba(59,130,246,0.45)">🇲🇽 ES</Chip>
+                <Chip bg="#dbeafe" text="#1d4ed8" border="#bfdbfe">🇲🇽 ES</Chip>
               )}
               {greet.is_returning_vehicle && (
-                <Chip bg="rgba(34,197,94,0.14)" text="#86efac" border="rgba(34,197,94,0.4)">RETURNING</Chip>
+                <Chip bg="#dcfce7" text="#15803d" border="#bbf7d0">RETURNING</Chip>
               )}
               {greet.is_fleet_vehicle && (
-                <Chip bg="rgba(59,130,246,0.14)" text="#93c5fd" border="rgba(59,130,246,0.4)">FLEET</Chip>
+                <Chip bg="#dbeafe" text="#1d4ed8" border="#bfdbfe">FLEET</Chip>
               )}
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: '16px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '16px', color: C.textSecondary, whiteSpace: 'nowrap' }}>
                 {pacificTimeOf(greet.created_at)} · {timeAgo(greet.created_at, now)}
               </div>
               {greet.estimated_subtotal != null && (
-                <div style={{ fontSize: '26px', fontWeight: 800, color: '#f1f5f9', marginTop: '2px' }}>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: C.textPrimary, marginTop: '2px' }}>
                   {formatCurrency(greet.estimated_subtotal)}
                 </div>
               )}
@@ -290,14 +361,14 @@ function GreetTile({ greet, now }) {
           </div>
 
           {/* Vehicle line */}
-          <div style={{ fontSize: '19px', color: '#cbd5e1', marginTop: '6px' }}>
+          <div style={{ fontSize: '19px', color: C.textSecondary, marginTop: '6px' }}>
             {titleCase(greet.vehicle_display) || 'Vehicle unknown'}
             {greet.vehicle_mileage != null && (
-              <span style={{ color: '#64748b' }}> · {Number(greet.vehicle_mileage).toLocaleString()} mi</span>
+              <span style={{ color: C.textFaint }}> · {Number(greet.vehicle_mileage).toLocaleString()} mi</span>
             )}
           </div>
 
-          {/* Chips row: classification, wait, service summary, flags, alerts, codes */}
+          {/* Chips row */}
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '12px' }}>
             {cls && (
               <Chip bg={cls.chipBg} text={cls.chipText} border={cls.chipBorder} bold>
@@ -305,43 +376,59 @@ function GreetTile({ greet, now }) {
               </Chip>
             )}
             {wait && (
-              <Chip bg="rgba(148,163,184,0.12)" text="#cbd5e1" border="rgba(148,163,184,0.35)">
+              <Chip bg="#f1f5f9" text="#475569" border="#e2e8f0">
                 {wait.icon} {wait.label}
               </Chip>
             )}
 
-            <Chip bg="rgba(148,163,184,0.08)" text="#e2e8f0" border="rgba(148,163,184,0.25)">
+            <Chip bg="#f8fafc" text="#334155" border="#e2e8f0">
               {oil || 'No oil service'}{tm ? ` + ${tm}` : ''}
             </Chip>
 
             {greet.oil_tier_needs_confirmation && (
-              <Chip bg="rgba(245,158,11,0.16)" text="#fcd34d" border="rgba(245,158,11,0.5)" bold>
-                ⚠ CONFIRM OIL
-              </Chip>
+              <Chip bg="#fef3c7" text="#b45309" border="#fde68a" bold>⚠ CONFIRM OIL</Chip>
             )}
 
             {alerts.map((a) => (
-              <Chip key={a} bg="rgba(245,158,11,0.16)" text="#fcd34d" border="rgba(245,158,11,0.5)" bold>
-                ⚠ {a.toUpperCase()}
-              </Chip>
+              <Chip key={a} bg="#fef3c7" text="#b45309" border="#fde68a" bold>⚠ {a.toUpperCase()}</Chip>
             ))}
 
             {Array.isArray(greet.grow_codes) && greet.grow_codes.map((code, i) => (
               <span key={`${code}-${i}`} style={{
                 fontFamily: "'SF Mono', 'Consolas', 'Monaco', monospace",
-                fontSize: '15px',
-                fontWeight: 700,
-                letterSpacing: '0.5px',
-                color: '#c7d2fe',
-                backgroundColor: 'rgba(99,102,241,0.16)',
-                border: '1.5px solid rgba(99,102,241,0.4)',
-                padding: '4px 10px',
-                borderRadius: '8px',
+                fontSize: '15px', fontWeight: 700, letterSpacing: '0.5px',
+                color: '#4338ca', backgroundColor: '#eef2ff',
+                border: '1.5px solid #c7d2fe', padding: '4px 10px', borderRadius: '8px',
               }}>
                 {code}
               </span>
             ))}
           </div>
+
+          {/* Service product bottles — oil tier + Throttle Muscle package.
+              Engine Prep stays in the banner above. Hidden entirely when
+              there's no oil and no TM package. A bottle whose image fails to
+              load hides itself, leaving its text label as the fallback. */}
+          {products.length > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px',
+              marginTop: '14px', paddingTop: '14px', borderTop: `1px solid ${C.divider}`,
+            }}>
+              {products.map((p, i) => (
+                <div key={`${p.file}-${i}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', width: '82px' }}>
+                  <img
+                    src={`${IMG_BASE}/${p.file}`}
+                    alt={p.label}
+                    style={{ height: '64px', width: 'auto', maxWidth: '82px', objectFit: 'contain' }}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: C.textFaint, textAlign: 'center', lineHeight: 1.2 }}>
+                    {p.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -369,8 +456,6 @@ export default function GreetsBoard() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [now, setNow] = useState(Date.now());
 
-  // Keep the latest good data when a refresh fails, so the board never blanks
-  // on a transient network blip — it just goes "stale" until the next success.
   const hasDataRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -389,7 +474,6 @@ export default function GreetsBoard() {
         hasDataRef.current = true;
         setErrorMsg('');
       } else {
-        // Bad key (401) or other server error.
         setErrorMsg(data.error || `Request failed (${res.status})`);
         setStatus(hasDataRef.current ? 'stale' : 'error');
       }
@@ -399,7 +483,6 @@ export default function GreetsBoard() {
     }
   }, [configValid, key, storeId]);
 
-  // Initial load + polling.
   useEffect(() => {
     if (!configValid) return;
     load();
@@ -407,7 +490,6 @@ export default function GreetsBoard() {
     return () => clearInterval(id);
   }, [configValid, load]);
 
-  // Clock tick (header time + time-ago freshness).
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), CLOCK_MS);
     return () => clearInterval(id);
@@ -415,26 +497,25 @@ export default function GreetsBoard() {
 
   const page = {
     minHeight: '100vh',
-    backgroundColor: '#0b0f14',
-    color: '#f1f5f9',
+    backgroundColor: C.pageBg,
+    color: C.textPrimary,
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     padding: '24px 28px 32px',
     boxSizing: 'border-box',
   };
 
-  // --- Config error (missing/invalid store or key) -------------------------
   if (!configValid) {
     return (
       <div style={{ ...page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ maxWidth: '640px', textAlign: 'center' }}>
           <div style={{ fontSize: '32px', fontWeight: 800, marginBottom: '14px' }}>Greets Board — setup needed</div>
-          <div style={{ fontSize: '19px', color: '#94a3b8', lineHeight: 1.6 }}>
+          <div style={{ fontSize: '19px', color: C.textSecondary, lineHeight: 1.6 }}>
             This screen needs a store and a display key in its URL. Point the device at:
           </div>
           <div style={{
-            marginTop: '18px', fontFamily: 'monospace', fontSize: '17px', color: '#c7d2fe',
-            backgroundColor: '#161c26', border: '1px solid #232b38', borderRadius: '12px', padding: '16px 18px',
-            wordBreak: 'break-all',
+            marginTop: '18px', fontFamily: 'monospace', fontSize: '17px', color: '#4338ca',
+            backgroundColor: C.cardBg, border: `1px solid ${C.cardBorder}`, borderRadius: '12px',
+            padding: '16px 18px', wordBreak: 'break-all',
           }}>
             tires.myjiffylube.ai/#/board?store=609&amp;key=YOUR_DISPLAY_KEY
           </div>
@@ -443,7 +524,7 @@ export default function GreetsBoard() {
     );
   }
 
-  const statusDot = status === 'live' ? '#22c55e' : status === 'loading' ? '#eab308' : '#ef4444';
+  const statusDot = status === 'live' ? '#16a34a' : status === 'loading' ? '#ca8a04' : '#dc2626';
   const statusText =
     status === 'live' ? 'Live'
       : status === 'loading' ? 'Connecting…'
@@ -460,35 +541,34 @@ export default function GreetsBoard() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         gap: '16px', flexWrap: 'wrap',
         paddingBottom: '16px', marginBottom: '18px',
-        borderBottom: '1px solid #232b38',
+        borderBottom: `1px solid ${C.divider}`,
       }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '30px', fontWeight: 800, color: '#f1f5f9' }}>{storeName}</span>
-          <span style={{ fontSize: '20px', fontWeight: 700, color: '#a78bfa', letterSpacing: '0.5px' }}>
+          <span style={{ fontSize: '30px', fontWeight: 800, color: C.textPrimary }}>{storeName}</span>
+          <span style={{ fontSize: '20px', fontWeight: 700, color: C.accent, letterSpacing: '0.5px' }}>
             👋 GREETS · NOW ARRIVING
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '22px', flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '16px', color: '#94a3b8' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '16px', color: C.textSecondary }}>
             <span style={{ width: '11px', height: '11px', borderRadius: '50%', backgroundColor: statusDot, display: 'inline-block' }} />
             {statusText}
             {lastUpdated && status !== 'loading' && (
-              <span style={{ color: '#64748b' }}>· updated {timeAgo(new Date(lastUpdated).toISOString(), now) || 'just now'}</span>
+              <span style={{ color: C.textFaint }}>· updated {timeAgo(new Date(lastUpdated).toISOString(), now) || 'just now'}</span>
             )}
           </span>
-          <span style={{ fontSize: '18px', color: '#cbd5e1' }}>
-            <strong style={{ color: '#f1f5f9' }}>{greets.length}</strong> today
+          <span style={{ fontSize: '18px', color: C.textSecondary }}>
+            <strong style={{ color: C.textPrimary }}>{greets.length}</strong> today
           </span>
-          <span style={{ fontSize: '30px', fontWeight: 800, color: '#f1f5f9' }}>{pacificClock(now)}</span>
+          <span style={{ fontSize: '30px', fontWeight: 800, color: C.textPrimary }}>{pacificClock(now)}</span>
         </div>
       </div>
 
-      {/* Error overlay when we have no data at all */}
       {status === 'error' && (
         <div style={{
-          backgroundColor: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)',
+          backgroundColor: '#fef2f2', border: '1px solid #fecaca',
           borderRadius: '12px', padding: '16px 20px', marginBottom: '18px',
-          fontSize: '18px', color: '#fca5a5', fontWeight: 600,
+          fontSize: '18px', color: '#b91c1c', fontWeight: 600,
         }}>
           {errorMsg === 'Unauthorized'
             ? 'Display key rejected — check the key in this screen’s URL.'
@@ -496,9 +576,8 @@ export default function GreetsBoard() {
         </div>
       )}
 
-      {/* Feed */}
       {greets.length === 0 && status === 'live' ? (
-        <div style={{ textAlign: 'center', padding: '80px 0', color: '#64748b', fontSize: '24px', fontWeight: 600 }}>
+        <div style={{ textAlign: 'center', padding: '80px 0', color: C.textFaint, fontSize: '24px', fontWeight: 600 }}>
           No greets yet today.
         </div>
       ) : (
@@ -510,7 +589,7 @@ export default function GreetsBoard() {
       )}
 
       {overflow > 0 && (
-        <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '16px', color: '#64748b' }}>
+        <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '16px', color: C.textFaint }}>
           + {overflow} more earlier today
         </div>
       )}
