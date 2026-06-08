@@ -323,44 +323,35 @@ function GreetTile({ greet, now }) {
           <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
           {/* Left: all text (name, vehicle, chips) */}
           <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Top row: code + name + pills .... time + price */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', flexWrap: 'wrap', minWidth: 0 }}>
-              <span style={{ fontSize: '17px', fontWeight: 700, color: C.accent, letterSpacing: '1px' }}>
-                #{greet.short_code}
+          {/* Top row: code + name + pills + arrival time (all left-aligned) */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', flexWrap: 'wrap', minWidth: 0 }}>
+            <span style={{ fontSize: '17px', fontWeight: 700, color: C.accent, letterSpacing: '1px' }}>
+              #{greet.short_code}
+            </span>
+            <span style={{ fontSize: '28px', fontWeight: 800, color: C.textPrimary, lineHeight: 1.1 }}>
+              {displayName(greet)}
+            </span>
+            {isNew && (
+              <span style={{
+                fontSize: '13px', fontWeight: 800, letterSpacing: '0.8px',
+                color: '#15803d', backgroundColor: '#dcfce7',
+                border: '1.5px solid #86efac', borderRadius: '999px', padding: '2px 10px',
+              }}>
+                NEW
               </span>
-              <span style={{ fontSize: '28px', fontWeight: 800, color: C.textPrimary, lineHeight: 1.1 }}>
-                {displayName(greet)}
-              </span>
-              {isNew && (
-                <span style={{
-                  fontSize: '13px', fontWeight: 800, letterSpacing: '0.8px',
-                  color: '#15803d', backgroundColor: '#dcfce7',
-                  border: '1.5px solid #86efac', borderRadius: '999px', padding: '2px 10px',
-                }}>
-                  NEW
-                </span>
-              )}
-              {greet.language === 'es' && (
-                <Chip bg="#dbeafe" text="#1d4ed8" border="#bfdbfe">🇲🇽 ES</Chip>
-              )}
-              {greet.is_returning_vehicle && (
-                <Chip bg="#dcfce7" text="#15803d" border="#bbf7d0">RETURNING</Chip>
-              )}
-              {greet.is_fleet_vehicle && (
-                <Chip bg="#dbeafe" text="#1d4ed8" border="#bfdbfe">FLEET</Chip>
-              )}
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: '16px', color: C.textSecondary, whiteSpace: 'nowrap' }}>
-                {pacificTimeOf(greet.created_at)} · {timeAgo(greet.created_at, now)}
-              </div>
-              {greet.estimated_subtotal != null && (
-                <div style={{ fontSize: '26px', fontWeight: 800, color: C.textPrimary, marginTop: '2px' }}>
-                  {formatCurrency(greet.estimated_subtotal)}
-                </div>
-              )}
-            </div>
+            )}
+            {greet.language === 'es' && (
+              <Chip bg="#dbeafe" text="#1d4ed8" border="#bfdbfe">🇲🇽 ES</Chip>
+            )}
+            {greet.is_returning_vehicle && (
+              <Chip bg="#dcfce7" text="#15803d" border="#bbf7d0">RETURNING</Chip>
+            )}
+            {greet.is_fleet_vehicle && (
+              <Chip bg="#dbeafe" text="#1d4ed8" border="#bfdbfe">FLEET</Chip>
+            )}
+            <span style={{ fontSize: '16px', color: C.textSecondary, whiteSpace: 'nowrap' }}>
+              · {pacificTimeOf(greet.created_at)} · {timeAgo(greet.created_at, now)}
+            </span>
           </div>
 
           {/* Vehicle line */}
