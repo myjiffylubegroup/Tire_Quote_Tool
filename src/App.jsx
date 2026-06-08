@@ -15,6 +15,7 @@ import TermsConditions from './TermsConditions';
 import DoNotSell from './DoNotSell';
 import Reports from './Reports';
 import GreetsReports from './GreetsReports';
+import GreetsBoard from './GreetsBoard';
 
 // Simple hash-based router (no additional dependencies needed)
 export default function App() {
@@ -38,6 +39,8 @@ export default function App() {
   // #/privacy-policy -> PrivacyPolicy
   // #/terms -> TermsConditions
   // #/do-not-sell -> DoNotSell (CCPA compliance)
+  // #/board -> GreetsBoard (unattended back-counter wall display; gated by
+  //            display key in the URL, not StaffPinGate)
   //
   // PROTECTED ROUTES (staff PIN required):
   // #/quotes -> QuoteLookup
@@ -70,6 +73,14 @@ export default function App() {
 
   if (path === '/do-not-sell') {
     return <DoNotSell />;
+  }
+
+  // GreetsBoard - public route for the unattended back-counter wall display.
+  // No StaffPinGate: a ScreenCloud screen has no one to PIN in. Access to the
+  // (redacted, PII-free) data is enforced by the display key the board reads
+  // from the URL and sends to the greets-display function.
+  if (path === '/board') {
+    return <GreetsBoard />;
   }
   
   // QuoteView - public (customer has the short code link)
