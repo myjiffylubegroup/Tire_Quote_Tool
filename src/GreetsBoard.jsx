@@ -320,6 +320,9 @@ function GreetTile({ greet, now }) {
         )}
 
         <div style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+          {/* Left: all text (name, vehicle, chips) */}
+          <div style={{ flex: 1, minWidth: 0 }}>
           {/* Top row: code + name + pills .... time + price */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', flexWrap: 'wrap', minWidth: 0 }}>
@@ -404,31 +407,31 @@ function GreetTile({ greet, now }) {
               </span>
             ))}
           </div>
+          </div>{/* end left text column */}
 
-          {/* Service product bottles — oil tier + Throttle Muscle package.
-              Engine Prep stays in the banner above. Hidden entirely when
-              there's no oil and no TM package. A bottle whose image fails to
-              load hides itself, leaving its text label as the fallback. */}
+          {/* Service product bottles — inline on the right so they use the
+              widescreen width instead of adding card height. Oil tier +
+              Throttle Muscle package; Engine Prep stays in the banner above.
+              Hidden when there's no oil and no TM package. A bottle whose image
+              fails to load hides itself, leaving its text label as fallback. */}
           {products.length > 0 && (
-            <div style={{
-              display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px',
-              marginTop: '14px', paddingTop: '14px', borderTop: `1px solid ${C.divider}`,
-            }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', flexShrink: 0 }}>
               {products.map((p, i) => (
-                <div key={`${p.file}-${i}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', width: '82px' }}>
+                <div key={`${p.file}-${i}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', width: '64px' }}>
                   <img
                     src={`${IMG_BASE}/${p.file}`}
                     alt={p.label}
-                    style={{ height: '64px', width: 'auto', maxWidth: '82px', objectFit: 'contain' }}
+                    style={{ height: '54px', width: 'auto', maxWidth: '64px', objectFit: 'contain' }}
                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: C.textFaint, textAlign: 'center', lineHeight: 1.2 }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: C.textFaint, textAlign: 'center', lineHeight: 1.15 }}>
                     {p.label}
                   </span>
                 </div>
               ))}
             </div>
           )}
+          </div>{/* end outer flex row */}
         </div>
       </div>
     </div>
