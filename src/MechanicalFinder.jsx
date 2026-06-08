@@ -1401,7 +1401,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                             {searchTerm && <div style={{ fontSize: '10px', color: '#94a3b8' }}>{op.motor_db_section} › {op.motor_db_subgroup}</div>}
                             {op.motor_db_description && <div style={{ fontSize: '11px', color: '#475569', fontWeight: '500', marginBottom: '2px' }}>{op.motor_db_description}</div>}
                             <div style={{ fontSize: '11px', color: '#64748b' }}>
-                              {op.motor_time} hrs × $189.99 =&nbsp;
+                              {op.motor_time} hrs × $199.99 =&nbsp;
                               <strong style={{ color: DARK }}>{formatCurrency(op.labor_price)}</strong>
                             </div>
                             {op.motor_db_footnote && <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>ℹ️ {op.motor_db_footnote}</div>}
@@ -1520,7 +1520,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                         const hrs  = parseFloat(manualLaborForm.hours);
                         if (!desc || !hrs) return;
                         // Display price only — server recomputes from quote_config on save
-                        const displayLaborRate = 189.99;
+                        const displayLaborRate = 199.99;
                         setCart((prev) => [...prev, {
                           client_id:                nextClientId(),
                           is_manual:                true,
