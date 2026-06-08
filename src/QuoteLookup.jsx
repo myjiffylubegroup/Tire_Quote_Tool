@@ -1546,6 +1546,23 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
               · {formatPhone(greet.customer_phone)}
             </span>
           )}
+          {greet.language === 'es' && (
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              backgroundColor: '#DBEAFE',
+              color: '#1E40AF',
+              border: '1px solid #93C5FD',
+              padding: '2px 8px',
+              borderRadius: '999px',
+              fontSize: '11px',
+              fontWeight: '700',
+              letterSpacing: '0.3px',
+            }}>
+              🇲🇽 ES
+            </span>
+          )}
         </div>
         <span style={{ fontSize: '12px', color: '#888', whiteSpace: 'nowrap' }}>
           {timePacific(greet.created_at)} · {timeAgo(greet.created_at)}
