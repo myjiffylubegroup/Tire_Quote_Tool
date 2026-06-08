@@ -23,7 +23,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiCallPublic } from './apiClient';
-import { oilTierLabel, tmPackageLabel } from './concernLabels';
+import { oilTierLabel } from './concernLabels';
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
 
@@ -89,6 +89,16 @@ const OIL_IMAGE_FILE = {
   diesel_conventional:   'rotella-t4-diesel-conventional.jpg',
   diesel_synthetic:      'rotella-t6-diesel-synthetic.jpg',
   diesel_lightduty:      'castrol-edge-dexosd-0w20.jpg',
+};
+
+// Clean bottle captions. oilTierLabel() already covers the gasoline tiers with
+// the Pennzoil product names shown in the staff tool; the diesel tiers aren't
+// in oilTierLabel, so caption those here to avoid raw codes ("diesel_synthetic")
+// showing on the board.
+const OIL_LABEL_OVERRIDE = {
+  diesel_conventional: 'Diesel Conventional',
+  diesel_synthetic:    'Diesel Synthetic',
+  diesel_lightduty:    'Diesel Light-Duty',
 };
 
 // Throttle Muscle products: code -> { file, label }. Engine Prep (TM2745) is
@@ -239,7 +249,7 @@ function serviceProducts(greet) {
   const out = [];
   const tier = greet.oil_tier_selected;
   if (tier && OIL_IMAGE_FILE[tier]) {
-    out.push({ file: OIL_IMAGE_FILE[tier], label: oilTierLabel(tier) || 'Oil' });
+    out.push({ file: OIL_IMAGE_FILE[tier], label: OIL_LABEL_OVERRIDE[tier] || oilTierLabel(tier) || 'Oil' });
   }
   const pkg = greet.tm_package_selected;
   if (pkg) {
@@ -281,9 +291,6 @@ function GreetTile({ greet, now }) {
 
   const ageMin = Math.floor((now - new Date(greet.created_at).getTime()) / 60000);
   const isNew = ageMin < 3;
-
-  const oil = oilTierLabel(greet.oil_tier_selected);
-  const tm = greet.tm_package_selected ? tmPackageLabel(greet.tm_package_selected) : null;
 
   return (
     <div style={{
@@ -375,9 +382,9 @@ function GreetTile({ greet, now }) {
               </Chip>
             )}
 
-            <Chip bg="#f8fafc" text="#334155" border="#e2e8f0">
-              {oil || 'No oil service'}{tm ? ` + ${tm}` : ''}
-            </Chip>
+            {!greet.oil_tier_selected && (
+              <Chip bg="#f8fafc" text="#334155" border="#e2e8f0">No oil service</Chip>
+            )}
 
             {greet.oil_tier_needs_confirmation && (
               <Chip bg="#fef3c7" text="#b45309" border="#fde68a" bold>⚠ CONFIRM OIL</Chip>
