@@ -364,6 +364,97 @@ const TmAttachByThemeCard = ({ data, onSegmentClick }) => {
   );
 };
 
+// Check-in time (Phase 12 duration handover) — customer's total kiosk time,
+// landing CTA → submit, from greets.duration_seconds. MEDIAN is the primary
+// number per theme (right-skewed distribution; mean would lie), p90 + n as
+// sub-labels. Bars scale relative to the slowest theme's median so the
+// comparison reads directly. NULL-duration greets (pre-deploy, or start
+// anchor never fired) and >30-min abandon-and-resume outliers are excluded
+// server-side; the outlier count surfaces in the tooltip.
+//
+// This is the customer's PRE-BAY segment — NOT comparable to Promised Time
+// Delivery (hood-up → ring-out). Keep the two on separate tiles, always.
+const CheckinDurationCard = ({ data, onSegmentClick }) => {
+  const ORDER = ['racing', 'soccer', 'standard', 'other'];
+  const byTheme = (data && data.by_theme) || {};
+  const segments = ORDER
+    .filter((k) => byTheme[k] && (byTheme[k].n || 0) > 0)
+    .map((k) => ({ key: k, label: formatTheme(k), color: themeColor(k), ...byTheme[k] }));
+  const overall = data && data.overall;
+  const outliers = (data && data.outliers_excluded) || 0;
+  const maxMedian = Math.max(...segments.map((s) => s.median_sec || 0), 0);
+  return (
+    <div style={{
+      backgroundColor: 'white', border: '1px solid #eee', borderRadius: '12px',
+      padding: '18px 20px', flex: '1 1 280px', minWidth: '260px',
+    }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        CHECK-IN TIME
+        <span title={`Median customer kiosk time (landing tap → submit), by theme. p90 and n shown per row. Median, not mean — the distribution is right-skewed. Excluded: greets with no timing data (pre-June-2026 kiosk, or start never fired) and ${outliers} abandon-and-resume outlier${outliers === 1 ? '' : 's'} over 30 min. This is the customer's PRE-BAY segment — not comparable to Promised Time Delivery.`} style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: '14px', height: '14px', borderRadius: '50%',
+          backgroundColor: '#f0f0f0', color: '#888',
+          fontSize: '9px', fontWeight: '700', cursor: 'help',
+        }}>?</span>
+      </div>
+      {segments.length === 0 ? (
+        <div style={{ fontSize: '12px', color: '#aaa' }}>No timing data yet</div>
+      ) : (
+        <>
+          {overall && overall.median_sec != null && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid #f3f4f6' }}>
+              <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>All themes</span>
+              <span style={{ fontSize: '18px', color: '#9b59b6', fontWeight: '800' }}>
+                {formatDuration(overall.median_sec)}
+                <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
+                  p90 {formatDuration(overall.p90_sec)} · n={overall.n}
+                </span>
+              </span>
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {segments.map((s) => {
+              const width = maxMedian > 0 ? ((s.median_sec || 0) / maxMedian) * 100 : 0;
+              const isClickable = typeof onSegmentClick === 'function';
+              return (
+                <div
+                  key={s.key}
+                  onClick={isClickable ? () => onSegmentClick(s.key) : undefined}
+                  style={{
+                    cursor: isClickable ? 'pointer' : 'default',
+                    padding: isClickable ? '4px 6px' : '0',
+                    margin: isClickable ? '-4px -6px' : '0',
+                    borderRadius: isClickable ? '6px' : '0',
+                    transition: 'background-color 0.1s',
+                  }}
+                  onMouseOver={isClickable ? (e) => e.currentTarget.style.backgroundColor = '#faf5ff' : undefined}
+                  onMouseOut={isClickable ? (e) => e.currentTarget.style.backgroundColor = 'transparent' : undefined}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>{s.label}</span>
+                    <span style={{ fontSize: '15px', color: s.color, fontWeight: '800' }}>
+                      {formatDuration(s.median_sec)}
+                      <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
+                        p90 {formatDuration(s.p90_sec)} · n={s.n}
+                      </span>
+                    </span>
+                  </div>
+                  <div style={{ height: '8px', backgroundColor: '#f3e8ff', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${width}%`, height: '100%',
+                      backgroundColor: s.color, transition: 'width 0.3s ease',
+                    }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function GreetsReports() {
@@ -806,6 +897,12 @@ export default function GreetsReports() {
                     onSegmentClick={(seg) => openDrill('theme_mix', seg, `Kiosk Theme — ${formatTheme(seg)}`)}
                   />
                 )}
+                {s1.checkin_duration && (
+                  <CheckinDurationCard
+                    data={s1.checkin_duration}
+                    onSegmentClick={(seg) => openDrill('checkin_duration', seg, `Check-In Time — ${formatTheme(seg)}`)}
+                  />
+                )}
               </div>
             </div>
 
@@ -1066,6 +1163,12 @@ function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
         { key: 'tm_package', label: 'TM Pkg',    render: (r) => formatTmPackage(r.tm_package) },
         { key: 'estimate',   label: 'Estimate',  render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
       ];
+      case 'checkin_duration': return [
+        ...universal,
+        { key: 'duration', label: 'Check-In', render: (r) => `${formatDuration(r.duration_seconds)}${r.is_outlier ? ' ⚠' : ''}`, right: true, bold: true },
+        { key: 'theme',     label: 'Theme',    render: (r) => formatTheme(r.theme), color: (r) => themeColor(r.theme) },
+        { key: 'qualifier', label: 'Qualifier', render: (r) => r.qualifier || '—' },
+      ];
       case 'oil_tier_mix': return [
         ...universal,
         { key: 'oil_tier_selected', label: 'Selected', render: (r) => formatOilTier(r.oil_tier_selected), bold: true },
@@ -1321,6 +1424,15 @@ function themeColor(t) {
   if (t === 'soccer')   return '#16a34a';
   if (t === 'standard') return '#9ca3af';
   return '#e5e7eb';
+}
+// Seconds → "m:ss" (e.g. 247 → "4:07"). Check-in durations live in the
+// 2–10 minute range, so minutes:seconds reads naturally.
+function formatDuration(sec) {
+  if (sec == null || !Number.isFinite(Number(sec))) return '—';
+  const s = Math.round(Number(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, '0')}`;
 }
 function recOutcomeColor(o) {
   if (o === 'accepted')   return '#10b981';
