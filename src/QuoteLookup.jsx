@@ -111,6 +111,20 @@ const hasEnginePrep = (greet) => {
   return codes.some((c) => ENGINE_PREP_GROW_CODES.includes(c));
 };
 
+// Kiosk theme indicator (Phase 12, June 2026). Racing is the production
+// default since 2026-06-12; soccer means the customer tapped the World
+// Soccer Tournament unlock. Standard (the fallback URL) gets no chip —
+// it's the absence of a theme, not a signal. Why CSAs care: customers use
+// the THEMED package names ("Pit Stop High Mileage", "Hat Trick Max
+// Protect", "Champion's Treatment") — the chip tells the CSA which naming
+// universe the customer is speaking from. The DB always stores canonical
+// keys; this is display-side only.
+const themeChip = (theme) => {
+  if (theme === 'racing') return { icon: '🏁', label: 'RACING', color: '#991B1B', bg: '#FEE2E2', border: '#FCA5A5' };
+  if (theme === 'soccer') return { icon: '⚽', label: 'SOCCER', color: '#166534', bg: '#DCFCE7', border: '#86EFAC' };
+  return null;
+};
+
 // Build the customer's display name from first + last. Graceful when either
 // is missing (older greets may have first name only). Falls back to 'Customer'.
 const greetFullName = (greet) => {
@@ -1538,6 +1552,23 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
           <span style={{ fontSize: '18px', fontWeight: '700', color: '#9b59b6', letterSpacing: '1px' }}>
             #{greet.short_code}
           </span>
+          {greet.is_demo === true && (
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              backgroundColor: '#FEF3C7',
+              color: '#92400E',
+              border: '2px solid #F59E0B',
+              padding: '2px 10px',
+              borderRadius: '999px',
+              fontSize: '11px',
+              fontWeight: '800',
+              letterSpacing: '0.5px',
+            }}>
+              ⚠ DEMO
+            </span>
+          )}
           <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
             {greetFullName(greet)}
           </span>
@@ -1563,6 +1594,26 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
               🇲🇽 ES
             </span>
           )}
+          {themeChip(greet.theme) && (() => {
+            const t = themeChip(greet.theme);
+            return (
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                backgroundColor: t.bg,
+                color: t.color,
+                border: `1px solid ${t.border}`,
+                padding: '2px 8px',
+                borderRadius: '999px',
+                fontSize: '11px',
+                fontWeight: '700',
+                letterSpacing: '0.3px',
+              }}>
+                {t.icon} {t.label}
+              </span>
+            );
+          })()}
         </div>
         <span style={{ fontSize: '12px', color: '#888', whiteSpace: 'nowrap' }}>
           {timePacific(greet.created_at)} · {timeAgo(greet.created_at)}
@@ -1835,8 +1886,25 @@ function GreetDetailModal({ greet, onClose, loading }) {
           alignItems: 'center'
         }}>
           <div>
-            <div style={{ fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>
+            <div style={{ fontSize: '22px', fontWeight: '700', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               #{greet.short_code}
+              {greet.is_demo === true && (
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  backgroundColor: '#FEF3C7',
+                  color: '#92400E',
+                  border: '2px solid #F59E0B',
+                  padding: '3px 12px',
+                  borderRadius: '999px',
+                  fontSize: '12px',
+                  fontWeight: '800',
+                  letterSpacing: '0.5px',
+                }}>
+                  ⚠ DEMO — NOT A REAL CUSTOMER
+                </span>
+              )}
             </div>
             <div style={{ fontSize: '12px', opacity: 0.85, marginTop: '2px' }}>
               Submitted {timePacific(greet.created_at)} · {timeAgo(greet.created_at)} · {timePressureLabel(greet.time_pressure)}
@@ -1927,13 +1995,19 @@ function GreetDetailModal({ greet, onClose, loading }) {
                 value={`${formatDate(greet.last_visit_date)}${greet.last_visit_mileage != null ? ' @ ' + greet.last_visit_mileage.toLocaleString() + ' mi' : ''}`}
               />
             )}
-            <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+            <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
               {greet.is_returning_vehicle && (
                 <span style={badgePill('#065f46', '#d1fae5')}>RETURNING</span>
               )}
               {greet.is_fleet_vehicle && (
                 <span style={badgePill('#1e40af', '#dbeafe')}>FLEET</span>
               )}
+              {themeChip(greet.theme) && (() => {
+                const t = themeChip(greet.theme);
+                return (
+                  <span style={badgePill(t.color, t.bg)}>{t.icon} {t.label}</span>
+                );
+              })()}
             </div>
           </Section>
 

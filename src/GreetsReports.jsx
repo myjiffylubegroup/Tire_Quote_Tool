@@ -290,6 +290,80 @@ const BayDurationCard = ({ data, outliers, onSegmentClick }) => {
   );
 };
 
+// TM attach rate by kiosk theme (Phase 12) — the first business question
+// from the theming launch: does the racing vs soccer framing move TM
+// selection? Rate comparison, not a count distribution, so it follows the
+// BayDurationCard stat-row pattern: the attach % is the primary number,
+// "selected of eligible" is the sub-label, and bars are on an ABSOLUTE
+// 0–100% scale so the themes compare honestly.
+//
+// CAUTION (established rule, leaderboards project): this is kiosk selection
+// rate among TM-eligible greets — NOT the employee bottles-per-car TM
+// attachment metric. Never put the two on one dashboard axis.
+const TmAttachByThemeCard = ({ data, onSegmentClick }) => {
+  const ORDER = ['racing', 'soccer', 'standard', 'other'];
+  const segments = ORDER
+    .filter((k) => data && data[k] && (data[k].eligible || 0) > 0)
+    .map((k) => ({ key: k, label: formatTheme(k), color: themeColor(k), ...data[k] }));
+  return (
+    <div style={{
+      backgroundColor: 'white', border: '1px solid #eee', borderRadius: '12px',
+      padding: '18px 20px', flex: '1 1 280px', minWidth: '260px',
+    }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        TM ATTACH BY THEME
+        <span title="Kiosk TM selection rate among TM-eligible greets, split by theme. This is what customers picked at the kiosk — not the employee bottles-per-car TM metric. Soccer is a self-selected audience (chooser conversions), so expect it to skew until a soccer-direct QR launches." style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: '14px', height: '14px', borderRadius: '50%',
+          backgroundColor: '#f0f0f0', color: '#888',
+          fontSize: '9px', fontWeight: '700', cursor: 'help',
+        }}>?</span>
+      </div>
+      {segments.length === 0 ? (
+        <div style={{ fontSize: '12px', color: '#aaa' }}>No data</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {segments.map((s) => {
+            const width = s.pct != null ? Math.min(s.pct, 100) : 0;
+            const isClickable = typeof onSegmentClick === 'function';
+            return (
+              <div
+                key={s.key}
+                onClick={isClickable ? () => onSegmentClick(s.key) : undefined}
+                style={{
+                  cursor: isClickable ? 'pointer' : 'default',
+                  padding: isClickable ? '4px 6px' : '0',
+                  margin: isClickable ? '-4px -6px' : '0',
+                  borderRadius: isClickable ? '6px' : '0',
+                  transition: 'background-color 0.1s',
+                }}
+                onMouseOver={isClickable ? (e) => e.currentTarget.style.backgroundColor = '#faf5ff' : undefined}
+                onMouseOut={isClickable ? (e) => e.currentTarget.style.backgroundColor = 'transparent' : undefined}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>{s.label}</span>
+                  <span style={{ fontSize: '15px', color: s.color, fontWeight: '800' }}>
+                    {s.pct != null ? `${s.pct}%` : '—'}
+                    <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
+                      {s.selected} of {s.eligible}
+                    </span>
+                  </span>
+                </div>
+                <div style={{ height: '8px', backgroundColor: '#f3e8ff', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${width}%`, height: '100%',
+                    backgroundColor: s.color, transition: 'width 0.3s ease',
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function GreetsReports() {
@@ -708,6 +782,30 @@ export default function GreetsReports() {
                   tooltip="Denominator: greets where CAW was actually offered (returning customers with eligible items). 'Not offered' rows are excluded."
                   onSegmentClick={(seg) => openDrill('caw', seg, `CAW — ${seg === 'accepted' ? 'Accepted' : 'Declined'}`)}
                 />
+                {/* Phase 12 theming cards — guarded on payload presence so the
+                    frontend deploy doesn't depend on greets-analytics v2 being
+                    live first (Render auto-deploys; the function is a manual
+                    CLI deploy). */}
+                {s1.theme_mix && (
+                  <BreakdownCard
+                    title="Kiosk Theme"
+                    total={s1.total_greets}
+                    segments={[
+                      { key: 'racing',   label: '🏁 Racing',  count: s1.theme_mix.racing,   color: themeColor('racing') },
+                      { key: 'soccer',   label: '⚽ Soccer',  count: s1.theme_mix.soccer,   color: themeColor('soccer') },
+                      { key: 'standard', label: 'Standard',   count: s1.theme_mix.standard, color: themeColor('standard') },
+                      { key: 'other',    label: 'Other',      count: s1.theme_mix.other,    color: themeColor('other') },
+                    ].filter((seg) => seg.count > 0)}
+                    tooltip="Racing is the production default since June 12, 2026 — every plain store-QR lands there. Soccer = customer tapped the World Soccer Tournament unlock (a chooser conversion, until a soccer-direct QR campaign launches — don't over-read soccer counts after that). Standard after the flip means someone used the fallback URL."
+                    onSegmentClick={(seg) => openDrill('theme_mix', seg, `Kiosk Theme — ${formatTheme(seg)}`)}
+                  />
+                )}
+                {s1.tm_attach_by_theme && (
+                  <TmAttachByThemeCard
+                    data={s1.tm_attach_by_theme}
+                    onSegmentClick={(seg) => openDrill('theme_mix', seg, `Kiosk Theme — ${formatTheme(seg)}`)}
+                  />
+                )}
               </div>
             </div>
 
@@ -960,6 +1058,14 @@ function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
         { key: 'free_engine_prep',   label: 'Free EPS',      render: (r) => r.free_engine_prep ? '✓' : '—', color: (r) => r.free_engine_prep ? '#f59e0b' : '#ccc' },
         { key: 'estimate',           label: 'Estimate',      render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
       ];
+      case 'theme_mix': return [
+        ...universal,
+        { key: 'theme',      label: 'Theme',     render: (r) => formatTheme(r.theme), bold: true, color: (r) => themeColor(r.theme) },
+        { key: 'qualifier',  label: 'Qualifier', render: (r) => r.qualifier || '—' },
+        { key: 'oil_tier',   label: 'Oil Tier',  render: (r) => formatOilTier(r.oil_tier) },
+        { key: 'tm_package', label: 'TM Pkg',    render: (r) => formatTmPackage(r.tm_package) },
+        { key: 'estimate',   label: 'Estimate',  render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
+      ];
       case 'oil_tier_mix': return [
         ...universal,
         { key: 'oil_tier_selected', label: 'Selected', render: (r) => formatOilTier(r.oil_tier_selected), bold: true },
@@ -1200,6 +1306,21 @@ function formatRecOutcome(o) {
   if (o === 'upgraded')   return '↑ Upgraded';
   if (o === 'no_rec')     return 'No rec';
   return 'Other';
+}
+// Kiosk theme (Phase 12, June 2026). Racing is the production default since
+// 2026-06-12; soccer greets are chooser conversions (until a soccer-direct
+// QR campaign launches); standard after the flip means the fallback URL.
+function formatTheme(t) {
+  if (t === 'racing')   return '🏁 Racing';
+  if (t === 'soccer')   return '⚽ Soccer';
+  if (t === 'standard') return 'Standard';
+  return t || '—';
+}
+function themeColor(t) {
+  if (t === 'racing')   return '#dc2626';
+  if (t === 'soccer')   return '#16a34a';
+  if (t === 'standard') return '#9ca3af';
+  return '#e5e7eb';
 }
 function recOutcomeColor(o) {
   if (o === 'accepted')   return '#10b981';
