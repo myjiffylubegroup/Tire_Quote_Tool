@@ -1044,6 +1044,15 @@ export default function TireFinder() {
       } else {
         sessionStorage.removeItem('jl_quote_customer');
       }
+      // Greet link → QuoteBuilder stamps it onto the generated quote (Phase 2)
+      if (greetHandoff?.greet_short_code) {
+        sessionStorage.setItem('jl_quote_greet_link', JSON.stringify({
+          short_code: greetHandoff.greet_short_code,
+          store_id: greetHandoff.store_id ?? null,
+        }));
+      } else {
+        sessionStorage.removeItem('jl_quote_greet_link');
+      }
       
       window.location.hash = '#/quote/build';
       return;
@@ -1118,6 +1127,15 @@ export default function TireFinder() {
       sessionStorage.setItem('jl_quote_customer', JSON.stringify(quoteCustomer));
     } else {
       sessionStorage.removeItem('jl_quote_customer');
+    }
+    // Greet link → QuoteBuilder stamps it onto the generated quote (Phase 2)
+    if (greetHandoff?.greet_short_code) {
+      sessionStorage.setItem('jl_quote_greet_link', JSON.stringify({
+        short_code: greetHandoff.greet_short_code,
+        store_id: greetHandoff.store_id ?? null,
+      }));
+    } else {
+      sessionStorage.removeItem('jl_quote_greet_link');
     }
     
     // Navigate to quote builder

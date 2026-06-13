@@ -307,6 +307,9 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   const [custPlateState, setCustPlateState] = useState('CA');
   const [custDataSource, setCustDataSource] = useState('manual');
   const [custVin,        setCustVin]        = useState('');
+  // Greet linkage (Phase 2) — set from the greet handoff, sent on generate so
+  // the quote links back to the originating greet. Pairs code + store.
+  const [greetLink,      setGreetLink]      = useState(null);
   const [quoteNotes,     setQuoteNotes]     = useState('');
 
   // ── Loading / error ──
@@ -408,7 +411,10 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       if (parsed.plate) { setCustPlate(parsed.plate.toUpperCase()); setCustPlateState(parsed.state || 'CA'); }
       if (c.vin)        setCustVin(c.vin);
       setCustDataSource('greet');
-      // parsed.greet_short_code rides along for Phase 2 (quote→greet link).
+      // Capture the greet link so generate-mechanical-quote can stamp it.
+      if (parsed.greet_short_code) {
+        setGreetLink({ short_code: parsed.greet_short_code, store_id: parsed.store_id ?? null });
+      }
     } catch (e) {
       console.error('Failed to parse greet handoff:', e);
     }
@@ -990,6 +996,8 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           quantity:                 op.quantity || 1,
         })),
         notes: quoteNotes || undefined,
+        from_greet_short_code: greetLink?.short_code || undefined,
+        from_greet_store_id:   greetLink?.store_id ?? undefined,
       };
 
       const res  = await apiCall(`${API_BASE}/generate-mechanical-quote`, {
