@@ -212,9 +212,19 @@ const AdvancedSearchModal = ({ onSelect, onClose }) => {
 
 export default function MechanicalFinder({ revisionMode: revisionModeProp = false }) {
   // ── Store (persisted) ──
-  const [selectedStore, setSelectedStore] = useState(() =>
-    localStorage.getItem('jl_tire_store') || '609'
-  );
+  const [selectedStore, setSelectedStore] = useState(() => {
+    // Greet handoff: default to the greet's store (changeable, not locked)
+    if (typeof window !== 'undefined') {
+      try {
+        const gh = sessionStorage.getItem('jl_greet_handoff');
+        if (gh) {
+          const parsed = JSON.parse(gh);
+          if (parsed.store_id) return parsed.store_id.toString();
+        }
+      } catch (e) { /* fall through */ }
+    }
+    return localStorage.getItem('jl_tire_store') || '609';
+  });
   useEffect(() => {
     localStorage.setItem('jl_tire_store', selectedStore);
   }, [selectedStore]);
@@ -371,6 +381,38 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       }
     }
   }, [revisionModeProp]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Greet handoff (greet → mechanical quote)
+  // ─────────────────────────────────────────────────────────────────────────
+  // Seeds the plate-entry field and the customer block from a greet. We do NOT
+  // reuse the revision-context path: that injects already-resolved VCdb IDs,
+  // which a greet doesn't have. Instead we pre-fill the plate the CSA will tap
+  // "Look up" on (its own customer-lookup → PartsTech decode resolves the
+  // VCdb vehicle), and pre-fill the customer so a new kiosk customer keeps
+  // their name even if the decode returns vehicle-only. Consume-on-read.
+  useEffect(() => {
+    const gh = sessionStorage.getItem('jl_greet_handoff');
+    if (!gh) return;
+    sessionStorage.removeItem('jl_greet_handoff');
+    try {
+      const parsed = JSON.parse(gh);
+      setLookupMode('plate');
+      if (parsed.plate) setPlateInput(parsed.plate.toUpperCase());
+      if (parsed.state) setPlateState(parsed.state);
+      const c = parsed.customer || {};
+      if (c.first_name) setCustFirstName(c.first_name);
+      if (c.last_name)  setCustLastName(c.last_name);
+      if (c.phone || c.phone_raw) setCustPhone(formatPhone(c.phone_raw || c.phone) || '');
+      if (c.email)      setCustEmail(c.email);
+      if (parsed.plate) { setCustPlate(parsed.plate.toUpperCase()); setCustPlateState(parsed.state || 'CA'); }
+      if (c.vin)        setCustVin(c.vin);
+      setCustDataSource('greet');
+      // parsed.greet_short_code rides along for Phase 2 (quote→greet link).
+    } catch (e) {
+      console.error('Failed to parse greet handoff:', e);
+    }
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Fetch years + employees

@@ -45,6 +45,15 @@ import { apiCall, apiCallPublic, getStaffToken } from './apiClient';
  *                                                      lookup because the Edge Function uses it to
  *                                                      authenticate against PartsTech for the
  *                                                      external plate decode fallback.
+ *   initialPlate           (string,   optional) — seeds the plate field on mount. Used by the
+ *                                                 greet → tire-quote handoff so the CSA lands on a
+ *                                                 pre-filled plate and only has to tap "Look up"
+ *                                                 (we intentionally do NOT auto-fire the lookup —
+ *                                                 a mis-decode on arrival would be confusing).
+ *                                                 Enterprise/Fleet/normal TireFinder omit it, so
+ *                                                 their behavior is unchanged.
+ *   initialState           (string,   optional) — seeds the state dropdown on mount (defaults to
+ *                                                 'CA' when not provided), paired with initialPlate.
  */
 
 const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
@@ -79,10 +88,15 @@ export default function CustomerVehicleLookup({
   tireSpecsCount = 0,
   hideStaffSigninHint = false,
   storeId,
+  initialPlate = '',
+  initialState = 'CA',
 }) {
   // ── Input state ──
-  const [plate, setPlate] = useState('');
-  const [stateCode, setStateCode] = useState('CA');
+  // initialPlate/initialState seed the plate path for the greet handoff. They
+  // only seed the INITIAL render (lazy useState) — the CSA can freely edit or
+  // clear afterward, and we never auto-fire the lookup off them.
+  const [plate, setPlate] = useState(() => (initialPlate || '').toUpperCase());
+  const [stateCode, setStateCode] = useState(initialState || 'CA');
   const [vinInput, setVinInput] = useState('');
 
   // ── Network state ──

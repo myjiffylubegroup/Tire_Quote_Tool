@@ -133,6 +133,45 @@ const greetFullName = (greet) => {
   return parts.length ? parts.join(' ') : 'Customer';
 };
 
+// ── Greet → quote handoff ────────────────────────────────────────────────
+// Builds the customer object the destination quote tool seeds from, writes a
+// single sessionStorage payload (consumed on the other side's mount), and
+// routes. The destination pre-fills the plate the CSA taps "Look up" on (we
+// never auto-fire) and the customer block — so a new kiosk customer keeps the
+// name/phone/email they typed even if the plate decode returns vehicle-only.
+// greet_short_code rides along now and is used in Phase 2 to link the
+// resulting quote back to the originating greet.
+const buildGreetHandoff = (greet) => ({
+  source: 'greet',
+  greet_short_code: greet.short_code,
+  store_id: greet.store_id,
+  plate: greet.vehicle_license_plate || '',
+  state: greet.vehicle_license_state || 'CA',
+  customer: {
+    first_name: greet.customer_first_name || '',
+    last_name: greet.customer_last_name || '',
+    full_name: greetFullName(greet),
+    phone: greet.customer_phone || '',
+    phone_raw: greet.customer_phone || '',
+    email: greet.customer_email || '',
+    license_plate: greet.vehicle_license_plate || '',
+    license_state: greet.vehicle_license_state || 'CA',
+    vin: greet.vehicle_vin || null,
+    data_source: 'greet',
+  },
+});
+
+const startQuoteFromGreet = (greet, kind) => {
+  try {
+    sessionStorage.setItem('jl_greet_handoff', JSON.stringify(buildGreetHandoff(greet)));
+  } catch (e) {
+    console.error('Failed to write greet handoff:', e);
+    return;
+  }
+  // tire → TireFinder (#/), mechanical → MechanicalFinder (#/mechanical)
+  window.location.hash = kind === 'mechanical' ? '#/mechanical' : '#/';
+};
+
 // EXPRESS vs FULL classification badge + card styling.
 //   express → red, reads as urgency / get them through fast
 //   full    → green, reads as worth the time
@@ -1790,7 +1829,45 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
           </span>
         )}
       </div>
+
+      {/* Start-a-quote actions. Hidden in edit (multi-select) mode. Each button
+          stops propagation so it launches the quote instead of opening the
+          detail modal. */}
+      {!editMode && (
+        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }} onClick={(e) => e.stopPropagation()}>
+          <GreetQuoteButton kind="tire" onClick={() => startQuoteFromGreet(greet, 'tire')} />
+          <GreetQuoteButton kind="mechanical" onClick={() => startQuoteFromGreet(greet, 'mechanical')} />
+        </div>
+      )}
     </div>
+  );
+}
+
+// Start-a-quote button used on the greet card and in the detail modal.
+// tire → purple (consumer tire theme), mechanical → slate (MechanicalFinder).
+function GreetQuoteButton({ kind, onClick }) {
+  const tire = kind === 'tire';
+  return (
+    <button
+      onClick={onClick}
+      onMouseOver={(e) => { e.currentTarget.style.opacity = '0.88'; }}
+      onMouseOut={(e) => { e.currentTarget.style.opacity = '1'; }}
+      style={{
+        flex: 1,
+        padding: '9px 12px',
+        borderRadius: '8px',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: '12px',
+        fontWeight: '700',
+        letterSpacing: '0.3px',
+        color: '#ffffff',
+        backgroundColor: tire ? '#9b59b6' : '#334155',
+        transition: 'opacity 0.15s',
+      }}
+    >
+      {tire ? '🛞 Start Tire Quote' : '🔧 Start Mechanical Quote'}
+    </button>
   );
 }
 
@@ -1929,6 +2006,14 @@ function GreetDetailModal({ greet, onClose, loading }) {
 
         {/* Body */}
         <div style={{ padding: '25px' }}>
+          {/* Start-a-quote actions — pre-fill the destination tool with this
+              greet's customer + plate. Close the modal first so the CSA isn't
+              left with a stale overlay if they navigate back. */}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <GreetQuoteButton kind="tire" onClick={() => { onClose && onClose(); startQuoteFromGreet(greet, 'tire'); }} />
+            <GreetQuoteButton kind="mechanical" onClick={() => { onClose && onClose(); startQuoteFromGreet(greet, 'mechanical'); }} />
+          </div>
+
           {loading && (
             <div style={{ fontSize: '11px', color: '#888', marginBottom: '12px', textAlign: 'right' }}>
               Refreshing...

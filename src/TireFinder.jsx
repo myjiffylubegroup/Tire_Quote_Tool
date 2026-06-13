@@ -739,6 +739,14 @@ export default function TireFinder() {
           }
         }
       } catch (e) { /* fall through */ }
+      // Greet handoff: default store to the greet's store (changeable, not locked)
+      try {
+        const gh = sessionStorage.getItem('jl_greet_handoff');
+        if (gh) {
+          const parsed = JSON.parse(gh);
+          if (parsed.store_id) return parsed.store_id.toString();
+        }
+      } catch (e) { /* fall through */ }
       return localStorage.getItem('jl_tire_store') || '609';
     }
     return '609';
@@ -828,6 +836,11 @@ export default function TireFinder() {
 
   // Re-Quote mode: data carried forward from a previous quote
   const [reQuoteData, setReQuoteData] = useState(null);
+  // Greet handoff (greet → tire quote). Holds the seed plate/state for the
+  // lookup component and the greet's customer object so it carries through to
+  // QuoteBuilder even when the plate decode returns no customer (new kiosk
+  // customer not yet in Turbo). greet_short_code rides along for Phase 2.
+  const [greetHandoff, setGreetHandoff] = useState(null);
 
   const handleSelectionChange = (role, tire) => {
     setSelections(prev => ({ ...prev, [role]: tire }));
@@ -899,6 +912,24 @@ export default function TireFinder() {
     setReQuoteData(null);
   };
 
+  // Check for greet-handoff data on mount (greet → tire quote). Distinct from
+  // re-quote: there is no tire size to auto-search — the CSA picks tires. We
+  // only seed the store (already handled in the initializer) and stash the
+  // payload so the lookup field can be pre-filled and the greet customer can
+  // ride through handleContinueToQuote. Consume-on-read so it can't re-fire if
+  // the CSA navigates back here later.
+  useEffect(() => {
+    const gh = sessionStorage.getItem('jl_greet_handoff');
+    if (!gh) return;
+    sessionStorage.removeItem('jl_greet_handoff');
+    try {
+      const parsed = JSON.parse(gh);
+      setGreetHandoff(parsed);
+    } catch (e) {
+      console.error('Failed to parse greet handoff:', e);
+    }
+  }, []);
+
   // ── Customer Vehicle Lookup callbacks ─────────────────────────────────────
   // The CustomerVehicleLookup component handles all input, network, and error
   // state internally. These callbacks let it surface its result so the rest of
@@ -930,6 +961,31 @@ export default function TireFinder() {
     setInventoryResults(null);
   };
 
+
+  // Resolve which customer object to carry into QuoteBuilder. The greet's
+  // customer wins over the plate-lookup result so a new kiosk customer (one
+  // not yet in Turbo, where the plate decode returns vehicle-only) keeps the
+  // name/phone/email they typed at the kiosk. We still fold in plate/state
+  // from whichever source has them so QuoteBuilder's plate field populates.
+  const resolveQuoteCustomer = () => {
+    const lookup = plateLookupResult?.customer || null;
+    const greet = greetHandoff?.customer || null;
+    if (!greet && !lookup) return null;
+    if (!greet) return lookup;
+    // Greet-first merge: prefer greet identity fields, backfill from lookup.
+    return {
+      first_name:    greet.first_name    || lookup?.first_name    || '',
+      last_name:     greet.last_name     || lookup?.last_name     || '',
+      full_name:     greet.full_name     || lookup?.full_name     || '',
+      phone:         greet.phone         || lookup?.phone         || '',
+      phone_raw:     greet.phone_raw     || lookup?.phone_raw     || '',
+      email:         greet.email         || lookup?.email         || '',
+      license_plate: greet.license_plate || lookup?.license_plate || greetHandoff?.plate || '',
+      license_state: greet.license_state || lookup?.license_state || greetHandoff?.state || 'CA',
+      vin:           greet.vin           || lookup?.vin           || null,
+      data_source:   greet.data_source   || lookup?.data_source   || 'greet',
+    };
+  };
 
   // Handle continue to quote - save chosen tire + alternatives to sessionStorage
   const handleContinueToQuote = () => {
@@ -982,8 +1038,9 @@ export default function TireFinder() {
         sessionStorage.removeItem('jl_quote_vehicle');
       }
       
-      if (plateLookupResult?.customer) {
-        sessionStorage.setItem('jl_quote_customer', JSON.stringify(plateLookupResult.customer));
+      const quoteCustomer = resolveQuoteCustomer();
+      if (quoteCustomer) {
+        sessionStorage.setItem('jl_quote_customer', JSON.stringify(quoteCustomer));
       } else {
         sessionStorage.removeItem('jl_quote_customer');
       }
@@ -1054,9 +1111,11 @@ export default function TireFinder() {
     
     // jl_requote_data stays in sessionStorage — QuoteBuilder will read it for customer/treads/linkage
     
-    // Save customer data if from plate lookup (QuoteBuilder will pick this up)
-    if (plateLookupResult?.customer) {
-      sessionStorage.setItem('jl_quote_customer', JSON.stringify(plateLookupResult.customer));
+    // Save customer data (greet handoff wins over plate lookup so new kiosk
+    // customers keep their name; QuoteBuilder will pick this up)
+    const quoteCustomer = resolveQuoteCustomer();
+    if (quoteCustomer) {
+      sessionStorage.setItem('jl_quote_customer', JSON.stringify(quoteCustomer));
     } else {
       sessionStorage.removeItem('jl_quote_customer');
     }
@@ -1575,6 +1634,8 @@ export default function TireFinder() {
             onSingleSpecResolved={handleLookupSingleSpec}
             tireSpecsCount={tireSpecs ? tireSpecs.length : 0}
             storeId={selectedStore}
+            initialPlate={greetHandoff?.plate || ''}
+            initialState={greetHandoff?.state || 'CA'}
           />
 
 
