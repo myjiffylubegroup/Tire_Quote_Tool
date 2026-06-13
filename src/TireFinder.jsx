@@ -839,8 +839,21 @@ export default function TireFinder() {
   // Greet handoff (greet → tire quote). Holds the seed plate/state for the
   // lookup component and the greet's customer object so it carries through to
   // QuoteBuilder even when the plate decode returns no customer (new kiosk
-  // customer not yet in Turbo). greet_short_code rides along for Phase 2.
-  const [greetHandoff, setGreetHandoff] = useState(null);
+  // customer not yet in Turbo). greet_short_code rides along for the quote
+  // link. Read SYNCHRONOUSLY here (not in a useEffect) so the value is present
+  // on the first render — CustomerVehicleLookup seeds its plate field from
+  // initialPlate in a one-time useState initializer, so a value that only
+  // arrives after mount would be missed.
+  const [greetHandoff] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const gh = sessionStorage.getItem('jl_greet_handoff');
+      if (gh) return JSON.parse(gh);
+    } catch (e) {
+      console.error('Failed to parse greet handoff:', e);
+    }
+    return null;
+  });
 
   const handleSelectionChange = (role, tire) => {
     setSelections(prev => ({ ...prev, [role]: tire }));
@@ -912,21 +925,11 @@ export default function TireFinder() {
     setReQuoteData(null);
   };
 
-  // Check for greet-handoff data on mount (greet → tire quote). Distinct from
-  // re-quote: there is no tire size to auto-search — the CSA picks tires. We
-  // only seed the store (already handled in the initializer) and stash the
-  // payload so the lookup field can be pre-filled and the greet customer can
-  // ride through handleContinueToQuote. Consume-on-read so it can't re-fire if
-  // the CSA navigates back here later.
+  // Consume the handoff key once mounted so it can't re-fire if the CSA
+  // navigates back to TireFinder later (greetHandoff state already holds it).
   useEffect(() => {
-    const gh = sessionStorage.getItem('jl_greet_handoff');
-    if (!gh) return;
-    sessionStorage.removeItem('jl_greet_handoff');
-    try {
-      const parsed = JSON.parse(gh);
-      setGreetHandoff(parsed);
-    } catch (e) {
-      console.error('Failed to parse greet handoff:', e);
+    if (greetHandoff) {
+      try { sessionStorage.removeItem('jl_greet_handoff'); } catch (e) { /* ignore */ }
     }
   }, []);
 
