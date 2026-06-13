@@ -1828,6 +1828,35 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
             ✓ Accepted CAW
           </span>
         )}
+        {/* Quote-exists badges (Phase 2): a quote of this type has been
+            generated from this greet. Factual record of a CSA action, not a
+            prediction of need. */}
+        {greet.has_tire_quote && (
+          <span style={{
+            fontSize: '11px',
+            color: '#5b21b6',
+            backgroundColor: '#ede9fe',
+            border: '1px solid #c4b5fd',
+            padding: '3px 8px',
+            borderRadius: '10px',
+            fontWeight: '700',
+          }}>
+            🛞 Tire quote{greet.tire_quote_count > 1 ? ` ×${greet.tire_quote_count}` : ''}
+          </span>
+        )}
+        {greet.has_mechanical_quote && (
+          <span style={{
+            fontSize: '11px',
+            color: '#1e293b',
+            backgroundColor: '#e2e8f0',
+            border: '1px solid #94a3b8',
+            padding: '3px 8px',
+            borderRadius: '10px',
+            fontWeight: '700',
+          }}>
+            🔧 Mech quote{greet.mechanical_quote_count > 1 ? ` ×${greet.mechanical_quote_count}` : ''}
+          </span>
+        )}
       </div>
 
       {/* Start-a-quote actions. Hidden in edit (multi-select) mode. Each button

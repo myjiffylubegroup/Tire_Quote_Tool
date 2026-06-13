@@ -455,6 +455,59 @@ const CheckinDurationCard = ({ data, onSegmentClick }) => {
   );
 };
 
+// Greet → quote conversion (Phase 2). Of the (non-demo) greets created in the
+// selected range, the share that produced at least one quote. The headline is
+// distinct greets converted (any quote type); tire and mechanical are shown as
+// independent sub-rates since one greet can produce both. Bars are on an
+// ABSOLUTE 0–100% scale so the three rates read honestly against each other.
+const GreetToQuoteCard = ({ data }) => {
+  if (!data) return null;
+  const denom = data.greets_in_range || 0;
+  const rows = [
+    { key: 'any',  label: 'Any quote',  count: data.converted_any,        pct: data.pct_any,        color: '#9b59b6' },
+    { key: 'tire', label: '🛞 Tire',    count: data.converted_tire,       pct: data.pct_tire,       color: '#7c3aed' },
+    { key: 'mech', label: '🔧 Mechanical', count: data.converted_mechanical, pct: data.pct_mechanical, color: '#334155' },
+  ];
+  return (
+    <div style={{
+      backgroundColor: 'white', border: '1px solid #eee', borderRadius: '12px',
+      padding: '18px 20px', flex: '1 1 280px', minWidth: '260px',
+    }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        GREET → QUOTE CONVERSION
+        <span title={`Of the ${denom} non-demo greet${denom === 1 ? '' : 's'} in this range, how many produced at least one quote (started from the greet card and actually generated). "Any quote" counts each greet once even if it produced both a tire and a mechanical quote, so it is not the sum of the two sub-rates. A greet converts whenever its quote is generated, even if that's after this range's end date.`} style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: '14px', height: '14px', borderRadius: '50%',
+          backgroundColor: '#f0f0f0', color: '#888',
+          fontSize: '9px', fontWeight: '700', cursor: 'help',
+        }}>?</span>
+      </div>
+      {denom === 0 ? (
+        <div style={{ fontSize: '12px', color: '#aaa' }}>No greets in range</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {rows.map((r) => (
+            <div key={r.key}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>{r.label}</span>
+                <span style={{ fontSize: '15px', color: r.color, fontWeight: '800' }}>
+                  {r.pct != null ? `${r.pct}%` : '—'}
+                  <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
+                    {r.count} of {denom}
+                  </span>
+                </span>
+              </div>
+              <div style={{ height: '8px', backgroundColor: '#f3e8ff', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${r.pct != null ? Math.min(r.pct, 100) : 0}%`, height: '100%', backgroundColor: r.color, transition: 'width 0.3s ease' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function GreetsReports() {
@@ -902,6 +955,9 @@ export default function GreetsReports() {
                     data={s1.checkin_duration}
                     onSegmentClick={(seg) => openDrill('checkin_duration', seg, `Check-In Time — ${formatTheme(seg)}`)}
                   />
+                )}
+                {s1.greet_to_quote && (
+                  <GreetToQuoteCard data={s1.greet_to_quote} />
                 )}
               </div>
             </div>
