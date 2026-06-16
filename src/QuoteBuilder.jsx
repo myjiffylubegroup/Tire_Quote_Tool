@@ -747,6 +747,10 @@ export default function QuoteBuilder() {
 
   // Revision tracking
   const [revisedFromQuoteId, setRevisedFromQuoteId] = useState(null);
+  // Greet linkage (Phase 2) — read from sessionStorage on mount (set by
+  // TireFinder's greet handoff), sent on generate so the quote links back to
+  // the originating greet. Pairs short_code + store_id.
+  const [greetLink, setGreetLink] = useState(null);
   const [reviseLoading, setReviseLoading] = useState(false);
 
   const updateTread = (tire, position, value) => {
@@ -826,6 +830,20 @@ export default function QuoteBuilder() {
           console.error('Failed to parse saved customer data:', e);
         }
       }
+    }
+  }, []);
+
+  // Greet link read (Phase 2). Set by TireFinder's greet handoff; consumed
+  // once here. Sent on generate so the quote stamps from_greet_* and links
+  // back to the originating greet.
+  useEffect(() => {
+    const gl = sessionStorage.getItem('jl_quote_greet_link');
+    if (!gl) return;
+    sessionStorage.removeItem('jl_quote_greet_link');
+    try {
+      setGreetLink(JSON.parse(gl));
+    } catch (e) {
+      console.error('Failed to parse greet link:', e);
     }
   }, []);
 
@@ -1225,7 +1243,10 @@ export default function QuoteBuilder() {
           warranty_miles: altBestTire.warranty ? parseInt(altBestTire.warranty) : (altBestTire.warranty_miles || null)
         } : null,
         // Revision linkage
-        revised_from_quote_id: revisedFromQuoteId || null
+        revised_from_quote_id: revisedFromQuoteId || null,
+        // Greet linkage (Phase 2)
+        from_greet_short_code: greetLink?.short_code || null,
+        from_greet_store_id: greetLink?.store_id ?? null
       };
       
       const response = await apiCall(`${API_BASE}/generate-quote`, {

@@ -290,6 +290,224 @@ const BayDurationCard = ({ data, outliers, onSegmentClick }) => {
   );
 };
 
+// TM attach rate by kiosk theme (Phase 12) — the first business question
+// from the theming launch: does the racing vs soccer framing move TM
+// selection? Rate comparison, not a count distribution, so it follows the
+// BayDurationCard stat-row pattern: the attach % is the primary number,
+// "selected of eligible" is the sub-label, and bars are on an ABSOLUTE
+// 0–100% scale so the themes compare honestly.
+//
+// CAUTION (established rule, leaderboards project): this is kiosk selection
+// rate among TM-eligible greets — NOT the employee bottles-per-car TM
+// attachment metric. Never put the two on one dashboard axis.
+const TmAttachByThemeCard = ({ data, onSegmentClick }) => {
+  const ORDER = ['racing', 'soccer', 'standard', 'other'];
+  const segments = ORDER
+    .filter((k) => data && data[k] && (data[k].eligible || 0) > 0)
+    .map((k) => ({ key: k, label: formatTheme(k), color: themeColor(k), ...data[k] }));
+  return (
+    <div style={{
+      backgroundColor: 'white', border: '1px solid #eee', borderRadius: '12px',
+      padding: '18px 20px', flex: '1 1 280px', minWidth: '260px',
+    }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        TM ATTACH BY THEME
+        <span title="Kiosk TM selection rate among TM-eligible greets, split by theme. This is what customers picked at the kiosk — not the employee bottles-per-car TM metric. Soccer is a self-selected audience (chooser conversions), so expect it to skew until a soccer-direct QR launches." style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: '14px', height: '14px', borderRadius: '50%',
+          backgroundColor: '#f0f0f0', color: '#888',
+          fontSize: '9px', fontWeight: '700', cursor: 'help',
+        }}>?</span>
+      </div>
+      {segments.length === 0 ? (
+        <div style={{ fontSize: '12px', color: '#aaa' }}>No data</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {segments.map((s) => {
+            const width = s.pct != null ? Math.min(s.pct, 100) : 0;
+            const isClickable = typeof onSegmentClick === 'function';
+            return (
+              <div
+                key={s.key}
+                onClick={isClickable ? () => onSegmentClick(s.key) : undefined}
+                style={{
+                  cursor: isClickable ? 'pointer' : 'default',
+                  padding: isClickable ? '4px 6px' : '0',
+                  margin: isClickable ? '-4px -6px' : '0',
+                  borderRadius: isClickable ? '6px' : '0',
+                  transition: 'background-color 0.1s',
+                }}
+                onMouseOver={isClickable ? (e) => e.currentTarget.style.backgroundColor = '#faf5ff' : undefined}
+                onMouseOut={isClickable ? (e) => e.currentTarget.style.backgroundColor = 'transparent' : undefined}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>{s.label}</span>
+                  <span style={{ fontSize: '15px', color: s.color, fontWeight: '800' }}>
+                    {s.pct != null ? `${s.pct}%` : '—'}
+                    <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
+                      {s.selected} of {s.eligible}
+                    </span>
+                  </span>
+                </div>
+                <div style={{ height: '8px', backgroundColor: '#f3e8ff', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${width}%`, height: '100%',
+                    backgroundColor: s.color, transition: 'width 0.3s ease',
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Check-in time (Phase 12 duration handover) — customer's total kiosk time,
+// landing CTA → submit, from greets.duration_seconds. MEDIAN is the primary
+// number per theme (right-skewed distribution; mean would lie), p90 + n as
+// sub-labels. Bars scale relative to the slowest theme's median so the
+// comparison reads directly. NULL-duration greets (pre-deploy, or start
+// anchor never fired) and >30-min abandon-and-resume outliers are excluded
+// server-side; the outlier count surfaces in the tooltip.
+//
+// This is the customer's PRE-BAY segment — NOT comparable to Promised Time
+// Delivery (hood-up → ring-out). Keep the two on separate tiles, always.
+const CheckinDurationCard = ({ data, onSegmentClick }) => {
+  const ORDER = ['racing', 'soccer', 'standard', 'other'];
+  const byTheme = (data && data.by_theme) || {};
+  const segments = ORDER
+    .filter((k) => byTheme[k] && (byTheme[k].n || 0) > 0)
+    .map((k) => ({ key: k, label: formatTheme(k), color: themeColor(k), ...byTheme[k] }));
+  const overall = data && data.overall;
+  const outliers = (data && data.outliers_excluded) || 0;
+  const maxMedian = Math.max(...segments.map((s) => s.median_sec || 0), 0);
+  return (
+    <div style={{
+      backgroundColor: 'white', border: '1px solid #eee', borderRadius: '12px',
+      padding: '18px 20px', flex: '1 1 280px', minWidth: '260px',
+    }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        CHECK-IN TIME
+        <span title={`Median customer kiosk time (landing tap → submit), by theme. p90 and n shown per row. Median, not mean — the distribution is right-skewed. Excluded: greets with no timing data (pre-June-2026 kiosk, or start never fired) and ${outliers} abandon-and-resume outlier${outliers === 1 ? '' : 's'} over 30 min. This is the customer's PRE-BAY segment — not comparable to Promised Time Delivery.`} style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: '14px', height: '14px', borderRadius: '50%',
+          backgroundColor: '#f0f0f0', color: '#888',
+          fontSize: '9px', fontWeight: '700', cursor: 'help',
+        }}>?</span>
+      </div>
+      {segments.length === 0 ? (
+        <div style={{ fontSize: '12px', color: '#aaa' }}>No timing data yet</div>
+      ) : (
+        <>
+          {overall && overall.median_sec != null && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid #f3f4f6' }}>
+              <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>All themes</span>
+              <span style={{ fontSize: '18px', color: '#9b59b6', fontWeight: '800' }}>
+                {formatDuration(overall.median_sec)}
+                <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
+                  p90 {formatDuration(overall.p90_sec)} · n={overall.n}
+                </span>
+              </span>
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {segments.map((s) => {
+              const width = maxMedian > 0 ? ((s.median_sec || 0) / maxMedian) * 100 : 0;
+              const isClickable = typeof onSegmentClick === 'function';
+              return (
+                <div
+                  key={s.key}
+                  onClick={isClickable ? () => onSegmentClick(s.key) : undefined}
+                  style={{
+                    cursor: isClickable ? 'pointer' : 'default',
+                    padding: isClickable ? '4px 6px' : '0',
+                    margin: isClickable ? '-4px -6px' : '0',
+                    borderRadius: isClickable ? '6px' : '0',
+                    transition: 'background-color 0.1s',
+                  }}
+                  onMouseOver={isClickable ? (e) => e.currentTarget.style.backgroundColor = '#faf5ff' : undefined}
+                  onMouseOut={isClickable ? (e) => e.currentTarget.style.backgroundColor = 'transparent' : undefined}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>{s.label}</span>
+                    <span style={{ fontSize: '15px', color: s.color, fontWeight: '800' }}>
+                      {formatDuration(s.median_sec)}
+                      <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
+                        p90 {formatDuration(s.p90_sec)} · n={s.n}
+                      </span>
+                    </span>
+                  </div>
+                  <div style={{ height: '8px', backgroundColor: '#f3e8ff', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${width}%`, height: '100%',
+                      backgroundColor: s.color, transition: 'width 0.3s ease',
+                    }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Greet → quote conversion (Phase 2). Of the (non-demo) greets created in the
+// selected range, the share that produced at least one quote. The headline is
+// distinct greets converted (any quote type); tire and mechanical are shown as
+// independent sub-rates since one greet can produce both. Bars are on an
+// ABSOLUTE 0–100% scale so the three rates read honestly against each other.
+const GreetToQuoteCard = ({ data }) => {
+  if (!data) return null;
+  const denom = data.greets_in_range || 0;
+  const rows = [
+    { key: 'any',  label: 'Any quote',  count: data.converted_any,        pct: data.pct_any,        color: '#9b59b6' },
+    { key: 'tire', label: '🛞 Tire',    count: data.converted_tire,       pct: data.pct_tire,       color: '#7c3aed' },
+    { key: 'mech', label: '🔧 Mechanical', count: data.converted_mechanical, pct: data.pct_mechanical, color: '#334155' },
+  ];
+  return (
+    <div style={{
+      backgroundColor: 'white', border: '1px solid #eee', borderRadius: '12px',
+      padding: '18px 20px', flex: '1 1 280px', minWidth: '260px',
+    }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        GREET → QUOTE CONVERSION
+        <span title={`Of the ${denom} non-demo greet${denom === 1 ? '' : 's'} in this range, how many produced at least one quote (started from the greet card and actually generated). "Any quote" counts each greet once even if it produced both a tire and a mechanical quote, so it is not the sum of the two sub-rates. A greet converts whenever its quote is generated, even if that's after this range's end date.`} style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: '14px', height: '14px', borderRadius: '50%',
+          backgroundColor: '#f0f0f0', color: '#888',
+          fontSize: '9px', fontWeight: '700', cursor: 'help',
+        }}>?</span>
+      </div>
+      {denom === 0 ? (
+        <div style={{ fontSize: '12px', color: '#aaa' }}>No greets in range</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {rows.map((r) => (
+            <div key={r.key}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>{r.label}</span>
+                <span style={{ fontSize: '15px', color: r.color, fontWeight: '800' }}>
+                  {r.pct != null ? `${r.pct}%` : '—'}
+                  <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
+                    {r.count} of {denom}
+                  </span>
+                </span>
+              </div>
+              <div style={{ height: '8px', backgroundColor: '#f3e8ff', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${r.pct != null ? Math.min(r.pct, 100) : 0}%`, height: '100%', backgroundColor: r.color, transition: 'width 0.3s ease' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function GreetsReports() {
@@ -708,6 +926,39 @@ export default function GreetsReports() {
                   tooltip="Denominator: greets where CAW was actually offered (returning customers with eligible items). 'Not offered' rows are excluded."
                   onSegmentClick={(seg) => openDrill('caw', seg, `CAW — ${seg === 'accepted' ? 'Accepted' : 'Declined'}`)}
                 />
+                {/* Phase 12 theming cards — guarded on payload presence so the
+                    frontend deploy doesn't depend on greets-analytics v2 being
+                    live first (Render auto-deploys; the function is a manual
+                    CLI deploy). */}
+                {s1.theme_mix && (
+                  <BreakdownCard
+                    title="Kiosk Theme"
+                    total={s1.total_greets}
+                    segments={[
+                      { key: 'racing',   label: '🏁 Racing',  count: s1.theme_mix.racing,   color: themeColor('racing') },
+                      { key: 'soccer',   label: '⚽ Soccer',  count: s1.theme_mix.soccer,   color: themeColor('soccer') },
+                      { key: 'standard', label: 'Standard',   count: s1.theme_mix.standard, color: themeColor('standard') },
+                      { key: 'other',    label: 'Other',      count: s1.theme_mix.other,    color: themeColor('other') },
+                    ].filter((seg) => seg.count > 0)}
+                    tooltip="Racing is the production default since June 12, 2026 — every plain store-QR lands there. Soccer = customer tapped the World Soccer Tournament unlock (a chooser conversion, until a soccer-direct QR campaign launches — don't over-read soccer counts after that). Standard after the flip means someone used the fallback URL."
+                    onSegmentClick={(seg) => openDrill('theme_mix', seg, `Kiosk Theme — ${formatTheme(seg)}`)}
+                  />
+                )}
+                {s1.tm_attach_by_theme && (
+                  <TmAttachByThemeCard
+                    data={s1.tm_attach_by_theme}
+                    onSegmentClick={(seg) => openDrill('theme_mix', seg, `Kiosk Theme — ${formatTheme(seg)}`)}
+                  />
+                )}
+                {s1.checkin_duration && (
+                  <CheckinDurationCard
+                    data={s1.checkin_duration}
+                    onSegmentClick={(seg) => openDrill('checkin_duration', seg, `Check-In Time — ${formatTheme(seg)}`)}
+                  />
+                )}
+                {s1.greet_to_quote && (
+                  <GreetToQuoteCard data={s1.greet_to_quote} />
+                )}
               </div>
             </div>
 
@@ -960,6 +1211,20 @@ function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
         { key: 'free_engine_prep',   label: 'Free EPS',      render: (r) => r.free_engine_prep ? '✓' : '—', color: (r) => r.free_engine_prep ? '#f59e0b' : '#ccc' },
         { key: 'estimate',           label: 'Estimate',      render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
       ];
+      case 'theme_mix': return [
+        ...universal,
+        { key: 'theme',      label: 'Theme',     render: (r) => formatTheme(r.theme), bold: true, color: (r) => themeColor(r.theme) },
+        { key: 'qualifier',  label: 'Qualifier', render: (r) => r.qualifier || '—' },
+        { key: 'oil_tier',   label: 'Oil Tier',  render: (r) => formatOilTier(r.oil_tier) },
+        { key: 'tm_package', label: 'TM Pkg',    render: (r) => formatTmPackage(r.tm_package) },
+        { key: 'estimate',   label: 'Estimate',  render: (r) => r.estimated_subtotal != null ? formatCurrency(r.estimated_subtotal) : '—', right: true },
+      ];
+      case 'checkin_duration': return [
+        ...universal,
+        { key: 'duration', label: 'Check-In', render: (r) => `${formatDuration(r.duration_seconds)}${r.is_outlier ? ' ⚠' : ''}`, right: true, bold: true },
+        { key: 'theme',     label: 'Theme',    render: (r) => formatTheme(r.theme), color: (r) => themeColor(r.theme) },
+        { key: 'qualifier', label: 'Qualifier', render: (r) => r.qualifier || '—' },
+      ];
       case 'oil_tier_mix': return [
         ...universal,
         { key: 'oil_tier_selected', label: 'Selected', render: (r) => formatOilTier(r.oil_tier_selected), bold: true },
@@ -1200,6 +1465,30 @@ function formatRecOutcome(o) {
   if (o === 'upgraded')   return '↑ Upgraded';
   if (o === 'no_rec')     return 'No rec';
   return 'Other';
+}
+// Kiosk theme (Phase 12, June 2026). Racing is the production default since
+// 2026-06-12; soccer greets are chooser conversions (until a soccer-direct
+// QR campaign launches); standard after the flip means the fallback URL.
+function formatTheme(t) {
+  if (t === 'racing')   return '🏁 Racing';
+  if (t === 'soccer')   return '⚽ Soccer';
+  if (t === 'standard') return 'Standard';
+  return t || '—';
+}
+function themeColor(t) {
+  if (t === 'racing')   return '#dc2626';
+  if (t === 'soccer')   return '#16a34a';
+  if (t === 'standard') return '#9ca3af';
+  return '#e5e7eb';
+}
+// Seconds → "m:ss" (e.g. 247 → "4:07"). Check-in durations live in the
+// 2–10 minute range, so minutes:seconds reads naturally.
+function formatDuration(sec) {
+  if (sec == null || !Number.isFinite(Number(sec))) return '—';
+  const s = Math.round(Number(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, '0')}`;
 }
 function recOutcomeColor(o) {
   if (o === 'accepted')   return '#10b981';
