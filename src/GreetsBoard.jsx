@@ -25,7 +25,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiCallPublic } from './apiClient';
 import { oilTierLabel } from './concernLabels';
 
-const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
+import { API_BASE } from './config';
 
 // Poll cadence. 30s keeps the board feeling live without hammering the function.
 const POLL_MS = 30000;
@@ -312,8 +312,8 @@ function GreetTile({ greet, now }) {
             backgroundColor: C.prepBg, color: C.prepText, padding: '10px 20px',
           }}>
             <img
-              src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/engine_prep_bottle_64.png"
-              srcSet="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/engine_prep_bottle_64.png 1x, https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/engine_prep_bottle_128.png 2x"
+              src="/images/engine_prep_bottle_64.png"
+              srcSet="/images/engine_prep_bottle_64.png 1x, /images/engine_prep_bottle_128.png 2x"
               alt=""
               style={{ height: '40px', width: 'auto', flexShrink: 0 }}
             />

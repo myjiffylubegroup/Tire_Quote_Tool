@@ -4,7 +4,7 @@ import { apiCall, isStaffAuthenticated } from './apiClient';
 import StaffLoginForm from './StaffLoginForm';
 import { getStaffEmployee } from './StaffPinGate';
 
-const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
+import { API_BASE } from './config';
 const API_KEY = 'TIRES2026';
 
 // Store list with city names - matches TireFinder

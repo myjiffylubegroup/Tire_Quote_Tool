@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
 import { apiCall } from './apiClient';
 
-const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
+import { API_BASE } from './config';
 
 const STORES = [
   { id: 609,  name: 'Santa Maria',                 number: 609  },

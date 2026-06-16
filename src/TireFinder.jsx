@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
 import CustomerVehicleLookup from './CustomerVehicleLookup';
 
-const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
+import { API_BASE } from './config';
 const API_KEY = 'TIRES2026';
 
 // Store list with warehouse assignments and city names
@@ -1661,7 +1661,7 @@ export default function TireFinder() {
 
               {/* Car Image - top-down view like Nexen */}
               <img 
-                src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/Vehicle-image.png"
+                src="/images/Vehicle-image.png"
                 alt="Vehicle"
                 style={{ 
                   width: '100%', 

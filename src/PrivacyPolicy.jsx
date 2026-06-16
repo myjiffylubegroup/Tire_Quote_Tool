@@ -9,7 +9,7 @@
 
 import React from 'react';
 
-const JL_LOGO = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/assets/JL_Multicare_Horz_1C.png';
+const JL_LOGO = '/images/JL_Multicare_Horz_1C.png';
 
 // Shared page wrapper styles
 const pageStyles = {

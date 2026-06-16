@@ -39,7 +39,7 @@ const EXPIRES_KEY = 'jl_staff_token_expires'
 // Supabase project anon key — public, safe to expose. The gateway requires
 // Authorization: Bearer <anon-key> on every request before our function code
 // runs. The staff JWT goes in X-Staff-Token because Authorization is taken.
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6c2l0bGFzZmVramt2c2F1a21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2OTQ5OTcsImV4cCI6MjA3MDI3MDk5N30.5zvSk5uFo51IgyfhZzzAUvgfXO_p2tXX34_x0chkbnM'
+import { SUPABASE_ANON_KEY } from './config';
 
 /**
  * Read the current staff JWT, or null if missing/expired.

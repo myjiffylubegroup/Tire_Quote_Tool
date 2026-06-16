@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
 import CustomerVehicleLookup from './CustomerVehicleLookup';
 
-const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
+import { API_BASE } from './config';
 const API_KEY = 'TIRES2026';
 
 // Fleet brand colors (Auto Integrate inspired - professional blue)
@@ -1012,7 +1012,7 @@ export default function FleetTireFinder() {
 
               {/* Car Image */}
               <img 
-                src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/Vehicle-image.png"
+                src="/images/Vehicle-image.png"
                 alt="Vehicle"
                 style={{ 
                   width: '100%', 

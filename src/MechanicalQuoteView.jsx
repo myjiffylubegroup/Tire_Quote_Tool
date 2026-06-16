@@ -9,8 +9,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiCall, apiCallPublic } from './apiClient';
 
-const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
-const JL_LOGO  = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/assets/JL_Multicare_Horz_1C.png';
+import { API_BASE } from './config';
+const JL_LOGO  = '/images/JL_Multicare_Horz_1C.png';
 const MAROON   = '#8b1538';
 const DARK     = '#1e293b';
 const SLATE    = '#64748b';

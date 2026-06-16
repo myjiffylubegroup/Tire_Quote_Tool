@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { setStaffToken, apiCallPublic } from './apiClient';
 
-const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
+import { API_BASE } from './config';
 const STORAGE_KEY = 'jl_staff_auth';
 
 /**
@@ -78,7 +78,7 @@ export default function StaffLoginForm({ onSuccess, compact = false }) {
       {!compact && (
         <>
           <img
-            src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png"
+            src="/images/JL_Multicare_Horzblack.png"
             alt="Jiffy Lube Multicare"
             style={{ height: '50px', marginBottom: '30px', display: 'block', margin: '0 auto 30px' }}
           />

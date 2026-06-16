@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
 import { apiCall } from './apiClient';
 
-const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
+import { API_BASE, REST_BASE, SUPABASE_ANON_KEY } from './config';
 
 const STORES = [
   { id: 609, name: 'Santa Maria' },
@@ -876,10 +876,10 @@ export default function QuoteBuilder() {
         // dedicated config-fetch Edge Function and don't want to invent one
         // just for this — the anon key is fine for read-only public config.)
         const configResponse = await fetch(
-          `https://vzsitlasfekjkvsaukmh.supabase.co/rest/v1/quote_config?config_key=eq.nexen_rebate_2026&select=config_value`,
+          `${REST_BASE}/quote_config?config_key=eq.nexen_rebate_2026&select=config_value`,
           {
             headers: {
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6c2l0bGFzZmVramt2c2F1a21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2OTQ5OTcsImV4cCI6MjA3MDI3MDk5N30.5zvSk5uFo51IgyfhZzzAUvgfXO_p2tXX34_x0chkbnM',
+              'apikey': SUPABASE_ANON_KEY,
               'Content-Type': 'application/json'
             }
           }
@@ -1832,7 +1832,7 @@ export default function QuoteBuilder() {
                   {/* Center - Car Image */}
                   <div style={{ padding: '0 15px' }}>
                     <img 
-                      src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/Vehicle-image.png"
+                      src="/images/Vehicle-image.png"
                       alt="Vehicle"
                       style={{ width: '140px', opacity: 0.85 }}
                     />

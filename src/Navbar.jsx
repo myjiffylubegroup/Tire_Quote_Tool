@@ -60,10 +60,10 @@ const MAX_WIDTH = '1400px';
 const STORAGE_KEY = 'jl_staff_auth';
 
 // Image URLs (centralized so themes can pick the right logo)
-const LOGO_BLACK = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzblack.png';
-const LOGO_WHITE = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_Multicare_Horzwhite.png';
-const LOGO_FLEETCARE = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/JL_FleetCare_Horizontal.png';
-const LOGO_ENTERPRISE = 'https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/logo-enterprise.png';
+const LOGO_BLACK = '/images/JL_Multicare_Horzblack.png';
+const LOGO_WHITE = '/images/JL_Multicare_Horzwhite.png';
+const LOGO_FLEETCARE = '/images/JL_FleetCare_Horizontal.png';
+const LOGO_ENTERPRISE = '/images/logo-enterprise.png';
 
 // Theme tokens. Adding a new theme = add a new entry here.
 // `arrowColorHex` is the hex (no #) used inside the SVG data URL for the

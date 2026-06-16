@@ -15,7 +15,7 @@ import {
   waitPreferenceLabel,
 } from './concernLabels';
 
-const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
+import { API_BASE } from './config';
 
 const STORES = [
   { id: 609, name: 'Santa Maria' },
@@ -1499,8 +1499,8 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
           gap: '12px',
         }}>
           <img
-            src="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/engine_prep_bottle_64.png"
-            srcSet="https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/engine_prep_bottle_64.png 1x, https://vzsitlasfekjkvsaukmh.supabase.co/storage/v1/object/public/Images/engine_prep_bottle_128.png 2x"
+            src="/images/engine_prep_bottle_64.png"
+            srcSet="/images/engine_prep_bottle_64.png 1x, /images/engine_prep_bottle_128.png 2x"
             alt="Engine Prep bottle"
             style={{
               height: '52px',

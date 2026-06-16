@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import StaffLoginForm from './StaffLoginForm';
 import { setStaffToken, clearStaffToken, getStaffToken, apiCallPublic } from './apiClient';
 
-const API_BASE = 'https://vzsitlasfekjkvsaukmh.supabase.co/functions/v1';
+import { API_BASE } from './config';
 const STORAGE_KEY = 'jl_staff_auth';
 const SESSION_HOURS = 12;
 
