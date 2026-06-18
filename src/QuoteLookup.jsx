@@ -100,16 +100,12 @@ const waitPreferenceChip = (code) => {
 // the CSA needs to grab the bottle ahead of time. This drives a loud banner
 // at the top of the card.
 //
-// Display-only signal — we check whether any of the prep-eligible GROW codes
-// is present in the greet's grow_codes array (computed kiosk-side). Exact,
-// case-sensitive match. The codes themselves are owned by the Greets project;
-// if they change there, update this list.
-const ENGINE_PREP_GROW_CODES = ['GREETTM3', 'GREETTM8', 'GREETTM13', 'GREETTM14', 'GREETTM15'];
-const hasEnginePrep = (greet) => {
-  const codes = greet && greet.grow_codes;
-  if (!Array.isArray(codes) || codes.length === 0) return false;
-  return codes.some((c) => ENGINE_PREP_GROW_CODES.includes(c));
-};
+// Display-only signal — read the kiosk's tm_engine_prep_free flag (exposed via
+// v_greets_for_staff). True whenever the customer is getting a free Engine Prep
+// Service, by any path (Welcome offer or retention save). Replaces a hardcoded
+// GROW-code list that silently missed newer EP codes (e.g. the TM16–20
+// recaptures) and matches how greets-analytics counts engine prep.
+const hasEnginePrep = (greet) => greet?.tm_engine_prep_free === true;
 
 // Kiosk theme indicator (Phase 12, June 2026). Racing is the production
 // default since 2026-06-12; soccer means the customer tapped the World

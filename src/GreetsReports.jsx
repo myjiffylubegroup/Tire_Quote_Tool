@@ -508,6 +508,47 @@ const GreetToQuoteCard = ({ data }) => {
   );
 };
 
+// Relationship funnel group (June 2026) — one labeled row of KpiCards for a
+// single customer relationship (repeat / new-to-TM / brand-new). offered =
+// TM-eligible greets in the group; purchased = TM package selected; saved-by-EP
+// = recaptured via the retention gate's free Engine Prep (omitted for brand-new,
+// who get the Welcome EP automatically — there's nothing to "recapture").
+const RelationshipFunnel = ({ title, data, color, offeredLabel, purchasedLabel, showSavedEp, drillKey, openDrill }) => {
+  const d = data || { offered: 0, purchased: 0, purchase_rate_pct: null, saved_by_free_ep: 0 };
+  return (
+    <>
+      <div style={{ marginBottom: '6px', fontSize: '11px', fontWeight: '700', color: '#9b59b6', letterSpacing: '1px', textTransform: 'uppercase' }}>
+        {title}
+      </div>
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
+        <KpiCard
+          label={offeredLabel}
+          value={formatNum(d.offered)}
+          sub="saw the TM offer"
+          color={color}
+          onClick={d.offered > 0 ? () => openDrill('tm_funnels', `${drillKey}_offered`, `${title} — Offered`) : undefined}
+        />
+        <KpiCard
+          label={purchasedLabel}
+          value={d.purchase_rate_pct != null ? `${d.purchase_rate_pct}%` : '—'}
+          sub={d.offered > 0 ? `${d.purchased} of ${d.offered}` : 'none offered'}
+          color="#10b981"
+          onClick={d.purchased > 0 ? () => openDrill('tm_funnels', `${drillKey}_purchased`, `${title} — Purchased`) : undefined}
+        />
+        {showSavedEp && (
+          <KpiCard
+            label="Saved by Free EP"
+            value={formatNum(d.saved_by_free_ep)}
+            sub="recaptured via retention gate"
+            color="#f59e0b"
+            onClick={d.saved_by_free_ep > 0 ? () => openDrill('tm_funnels', `${drillKey}_saved_ep`, `${title} — Saved by Free EP`) : undefined}
+          />
+        )}
+      </div>
+    </>
+  );
+};
+
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function GreetsReports() {
@@ -749,6 +790,45 @@ export default function GreetsReports() {
                   onClick={() => openDrill('engine_prep_attach', 'attached', 'Engine Prep — Attached')}
                 />
               </div>
+
+              {/* ── TM Uptake by Customer Type (June 2026) ─────────────────────
+                  Three relationship funnels derived from the kiosk's
+                  first-time-eligible + returning-vehicle flags. Each shows who
+                  was offered TM, the purchase rate, and (for repeat / new-to-TM)
+                  how many were recaptured via the retention gate's free EP. */}
+              <div style={{ marginTop: '4px', marginBottom: '10px', fontSize: '13px', fontWeight: '800', color: '#374151', letterSpacing: '0.5px' }}>
+                TM Uptake by Customer Type
+              </div>
+              <RelationshipFunnel
+                title="Repeat (Returning TM)"
+                data={s1.tm_funnels?.repeat}
+                color="#9b59b6"
+                offeredLabel="Repeat — Offered"
+                purchasedLabel="Repeat — Purchased"
+                showSavedEp
+                drillKey="repeat"
+                openDrill={openDrill}
+              />
+              <RelationshipFunnel
+                title="New to TM (Returning Guest)"
+                data={s1.tm_funnels?.new_to_tm}
+                color="#3b82f6"
+                offeredLabel="New-to-TM — Offered"
+                purchasedLabel="New-to-TM — Purchased"
+                showSavedEp
+                drillKey="new_to_tm"
+                openDrill={openDrill}
+              />
+              <RelationshipFunnel
+                title="New Customer"
+                data={s1.tm_funnels?.brand_new}
+                color="#0ea5e9"
+                offeredLabel="New Customer — Opportunities"
+                purchasedLabel="New Customer — Uptake"
+                showSavedEp={false}
+                drillKey="brand_new"
+                openDrill={openDrill}
+              />
 
               {/* TM Retention — Phase 12 redesign, split by audience.
                   Two short rows side by side: the Welcome funnel (first-time
@@ -1248,6 +1328,12 @@ function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
         { key: 'prep',       label: 'Engine Prep', render: (r) => r.has_engine_prep ? '✓ Attached' : '—', bold: true },
         { key: 'tm_package', label: 'TM Pkg',      render: (r) => formatTmPackage(r.tm_package) },
         { key: 'oil_tier',   label: 'Oil Tier',    render: (r) => formatOilTier(r.oil_tier) },
+      ];
+      case 'tm_funnels': return [
+        ...universal,
+        { key: 'tm_package', label: 'TM Pkg',      render: (r) => formatTmPackage(r.tm_package), bold: true },
+        { key: 'purchased',  label: 'Purchased',   render: (r) => r.purchased ? '✓' : '—', color: (r) => r.purchased ? '#10b981' : '#ccc' },
+        { key: 'saved_ep',   label: 'Saved by EP', render: (r) => r.saved_by_free_ep ? '✓' : '—', color: (r) => r.saved_by_free_ep ? '#f59e0b' : '#ccc' },
       ];
       case 'caw': return [
         ...universal,

@@ -65,11 +65,15 @@ const STORE_NAMES = {
   4182: 'Santa Barbara — State Street',
 };
 
-// Engine-prep GROW codes — kept in sync with QuoteLookup.jsx. Presence of any
-// means the Throttle Muscle Engine Prep is poured BEFORE the car pulls in
-// (3-min pre-treat), so the CSA needs the bottle ahead of time — hence the
-// loud banner.
-const ENGINE_PREP_GROW_CODES = ['GREETTM3', 'GREETTM8', 'GREETTM13', 'GREETTM14', 'GREETTM15'];
+// Engine-prep detection. This drives a physical "pour BEFORE pull-in" banner,
+// so it must NEVER go dark. Prefer the kiosk's tm_engine_prep_free flag, but
+// greets-display is a redacted feed and may not carry it — so fall back to the
+// FULL set of free-EP package GROW codes (all Welcome-EP packages, including
+// the TM16–20 retention-recapture codes). Either path catches every free EP.
+const ENGINE_PREP_GROW_CODES = [
+  'GREETTM3', 'GREETTM8', 'GREETTM13', 'GREETTM14', 'GREETTM15',
+  'GREETTM16', 'GREETTM17', 'GREETTM18', 'GREETTM19', 'GREETTM20',
+];
 
 // ---- Service product images -------------------------------------------------
 // Bottles are static assets served from the render site at /images. If they
@@ -186,6 +190,7 @@ function displayName(greet) {
 }
 
 function hasEnginePrep(greet) {
+  if (greet?.tm_engine_prep_free === true) return true;
   const codes = greet && greet.grow_codes;
   if (!Array.isArray(codes) || codes.length === 0) return false;
   return codes.some((c) => ENGINE_PREP_GROW_CODES.includes(c));
