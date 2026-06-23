@@ -124,10 +124,17 @@ export const promotedReasonLabel = (code) =>
 // -----------------------------------------------------------------------------
 
 export const OIL_TIER_LABELS = {
-  blend:     'Gold Synthetic Blend',
-  synthetic: 'Platinum Synthetic',
-  european:  'European Synthetic',
-  diesel:    'Diesel Synthetic',
+  blend:                 'Gold Synthetic Blend',
+  synthetic:             'Platinum Synthetic',
+  performance_synthetic: 'Performance Synthetic',
+  european:              'European Synthetic',
+  // Diesel tiers — wording matches the GreetsBoard captions so the staff tool
+  // and the wall display read identically. (`diesel` is a legacy key kept for
+  // safety; the live data uses the three specific diesel tiers below.)
+  diesel:                'Diesel Synthetic',
+  diesel_synthetic:      'Diesel Synthetic',
+  diesel_conventional:   'Diesel Conventional',
+  diesel_lightduty:      'Diesel Light-Duty',
 };
 
 export const oilTierLabel = (code) =>

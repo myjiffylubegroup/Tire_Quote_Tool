@@ -1732,6 +1732,23 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
         </div>
       )}
 
+      {/* Vehicle identifiers — click-to-copy plate + full VIN, for fast paste
+          into Turbo / parts lookups without opening the modal. */}
+      {(greet.vehicle_license_plate || greet.vehicle_vin) && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '8px' }}>
+          {greet.vehicle_license_plate && (
+            <CopyChip
+              label="PLATE"
+              value={`${greet.vehicle_license_plate}${greet.vehicle_license_state ? ' (' + greet.vehicle_license_state + ')' : ''}`}
+              copyValue={greet.vehicle_license_plate}
+            />
+          )}
+          {greet.vehicle_vin && (
+            <CopyChip label="VIN" value={greet.vehicle_vin} />
+          )}
+        </div>
+      )}
+
       {/* Service summary */}
       <div style={{ fontSize: '13px', color: '#444', marginBottom: '6px' }}>
         {oilTierLabel(greet.oil_tier_selected) || 'No oil service'}
@@ -2403,6 +2420,60 @@ function GrowCodesSection({ codes, callouts }) {
 }
 
 // =============================================================================
+// CopyChip — generic click-to-copy chip for vehicle identifiers (plate, VIN).
+// Shows a label + monospace value; tapping copies the value (not the label).
+// Modeled on GrowCodeChip's copy handling, including the stopPropagation so a
+// copy never opens the greet card's detail modal.
+function CopyChip({ label, value, copyValue }) {
+  const [copied, setCopied] = useState(false);
+  if (!value) return null;
+  const toCopy = copyValue != null ? copyValue : value;
+  const handleCopy = async (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(toCopy);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = toCopy;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch (e) { /* value stays visible to read manually */ }
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      title={`Tap to copy ${label}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        fontFamily: "'SF Mono', 'Consolas', 'Monaco', monospace",
+        fontSize: '12px',
+        fontWeight: '600',
+        letterSpacing: '0.3px',
+        color: copied ? '#065f46' : '#475569',
+        backgroundColor: copied ? '#d1fae5' : '#f1f5f9',
+        border: copied ? '1px solid #34d399' : '1px solid #cbd5e1',
+        padding: '3px 9px',
+        borderRadius: '7px',
+        cursor: 'pointer',
+        transition: 'all 0.12s',
+      }}
+    >
+      <span style={{ fontFamily: 'inherit', color: '#94a3b8', fontWeight: '700' }}>{label}</span>
+      {copied ? '✓ Copied' : value}
+    </button>
+  );
+}
+
 // GrowCodeChip — a single prominent, click-to-copy GROW code.
 // =============================================================================
 function GrowCodeChip({ code, size = 'normal' }) {
