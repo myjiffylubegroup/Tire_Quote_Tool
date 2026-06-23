@@ -508,6 +508,85 @@ const GreetToQuoteCard = ({ data }) => {
   );
 };
 
+// Cart removals (June 2026) — what customers pulled back out of the cart at the
+// end-of-flow Summary edit, and the dollars walking out. Headline is % of
+// greets with a removal + total dollars; the breakdown is per item (label),
+// sorted by dollars. Drillable per item. Honest framing: this is removals
+// only (the kiosk records no "added/replaced" companion), so the card says
+// "removed," never "replaced."
+const CartRemovalsCard = ({ data, onSegmentClick }) => {
+  if (!data) return null;
+  const items = Array.isArray(data.by_label) ? data.by_label : [];
+  const maxDollars = Math.max(...items.map((i) => i.dollars_removed || 0), 0);
+  const prettyLabel = (l) => String(l || '—')
+    .split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return (
+    <div style={{
+      backgroundColor: 'white', border: '1px solid #eee', borderRadius: '12px',
+      padding: '18px 20px', flex: '1 1 280px', minWidth: '260px',
+    }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        CART REMOVALS
+        <span title="Items customers pulled back out of the cart at the end-of-flow Summary edit, and the dollars walking out. Headline is the share of (non-demo) greets where something was removed. The kiosk records only removals — there's no added/replaced companion — so this is a removals metric, not a remove-vs-replace split." style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: '14px', height: '14px', borderRadius: '50%',
+          backgroundColor: '#f0f0f0', color: '#888',
+          fontSize: '9px', fontWeight: '700', cursor: 'help',
+        }}>?</span>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid #f3f4f6' }}>
+        <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>Greets w/ a removal</span>
+        <span style={{ fontSize: '18px', color: '#dc2626', fontWeight: '800' }}>
+          {data.pct_with_removal != null ? `${data.pct_with_removal}%` : '—'}
+          <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
+            {data.greets_with_removal} of {data.total_greets} · {formatCurrency(data.total_dollars_removed || 0)} out
+          </span>
+        </span>
+      </div>
+
+      {items.length === 0 ? (
+        <div style={{ fontSize: '12px', color: '#aaa' }}>Nothing removed in range</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {items.map((it) => {
+            const width = maxDollars > 0 ? ((it.dollars_removed || 0) / maxDollars) * 100 : 0;
+            const clickable = typeof onSegmentClick === 'function';
+            return (
+              <div
+                key={it.label}
+                onClick={clickable ? () => onSegmentClick(it.label) : undefined}
+                style={{
+                  cursor: clickable ? 'pointer' : 'default',
+                  padding: clickable ? '4px 6px' : '0',
+                  margin: clickable ? '-4px -6px' : '0',
+                  borderRadius: clickable ? '6px' : '0',
+                  transition: 'background-color 0.1s',
+                }}
+                onMouseOver={clickable ? (e) => e.currentTarget.style.backgroundColor = '#fef2f2' : undefined}
+                onMouseOut={clickable ? (e) => e.currentTarget.style.backgroundColor = 'transparent' : undefined}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>{prettyLabel(it.label)}</span>
+                  <span style={{ fontSize: '15px', color: '#dc2626', fontWeight: '800' }}>
+                    {formatCurrency(it.dollars_removed || 0)}
+                    <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
+                      ×{it.times_removed}
+                    </span>
+                  </span>
+                </div>
+                <div style={{ height: '8px', backgroundColor: '#fee2e2', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: `${width}%`, height: '100%', backgroundColor: '#dc2626', transition: 'width 0.3s ease' }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Relationship funnel group (June 2026) — one labeled row of KpiCards for a
 // single customer relationship (repeat / new-to-TM / brand-new). offered =
 // TM-eligible greets in the group; purchased = TM package selected; saved-by-EP
@@ -949,6 +1028,12 @@ export default function GreetsReports() {
                 {s1.greet_to_quote && (
                   <GreetToQuoteCard data={s1.greet_to_quote} />
                 )}
+                {s1.cart_removals && (
+                  <CartRemovalsCard
+                    data={s1.cart_removals}
+                    onSegmentClick={(label) => openDrill('cart_removals', label, `Cart Removals — ${label}`)}
+                  />
+                )}
               </div>
             </div>
 
@@ -1213,6 +1298,12 @@ function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
         ...universal,
         { key: 'duration', label: 'Check-In', render: (r) => `${formatDuration(r.duration_seconds)}${r.is_outlier ? ' ⚠' : ''}`, right: true, bold: true },
         { key: 'theme',     label: 'Theme',    render: (r) => formatTheme(r.theme), color: (r) => themeColor(r.theme) },
+        { key: 'qualifier', label: 'Qualifier', render: (r) => r.qualifier || '—' },
+      ];
+      case 'cart_removals': return [
+        ...universal,
+        { key: 'dollars', label: 'Removed $', render: (r) => formatCurrency(r.dollars_removed || 0), right: true, bold: true },
+        { key: 'items',   label: 'Items',     render: (r) => r.removed_items || '—' },
         { key: 'qualifier', label: 'Qualifier', render: (r) => r.qualifier || '—' },
       ];
       case 'oil_tier_mix': return [
