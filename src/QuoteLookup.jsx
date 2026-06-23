@@ -129,6 +129,18 @@ const greetFullName = (greet) => {
   return parts.length ? parts.join(' ') : 'Customer';
 };
 
+// ── Cart removals ─────────────────────────────────────────────────────────
+// Items the customer pulled back out of the cart in the end-of-flow Summary
+// edit are recorded in greets.edit_removals ({ at, kind, label, price }). A
+// removed item is no longer part of the order, so it must NOT appear in the
+// service summary on the card or in the modal — only in the Cart Removals
+// report. Match by kind: 'tm' (the TM package, which also drops its bundled
+// free Engine Prep), 'rotation' (tire rotation), 'addon' (smog / rideshare).
+const greetRemovals = (greet) =>
+  Array.isArray(greet && greet.edit_removals) ? greet.edit_removals.filter(Boolean) : [];
+const tmRemoved = (greet) => greetRemovals(greet).some((ev) => ev.kind === 'tm');
+const rotationRemoved = (greet) => greetRemovals(greet).some((ev) => ev.kind === 'rotation');
+
 // ── Greet → quote handoff ────────────────────────────────────────────────
 // Builds the customer object the destination quote tool seeds from, writes a
 // single sessionStorage payload (consumed on the other side's mount), and
@@ -1769,7 +1781,7 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
             ⚠ CONFIRM OIL
           </span>
         )}
-        {greet.tm_package_selected && (
+        {greet.tm_package_selected && !tmRemoved(greet) && (
           <> + {tmPackageLabel(greet.tm_package_selected)}</>
         )}
         {greet.estimated_subtotal != null && (
@@ -2182,7 +2194,7 @@ function GreetDetailModal({ greet, onClose, loading }) {
             <DetailRow
               label="Add-on"
               value={
-                greet.tm_package_selected
+                greet.tm_package_selected && !tmRemoved(greet)
                   ? `${tmPackageLabel(greet.tm_package_selected)} (+${formatCurrency(TM_PACKAGE_ADDON_PRICE[greet.tm_package_selected] || 0)})`
                   : 'No add-on'
               }
@@ -2193,9 +2205,9 @@ function GreetDetailModal({ greet, onClose, loading }) {
           <Section title="Tire Rotation">
             <DetailRow
               label="Choice"
-              value={tireRotationLabel(greet.tire_rotation_choice)}
+              value={rotationRemoved(greet) ? 'No thanks' : tireRotationLabel(greet.tire_rotation_choice)}
             />
-            {greet.tire_rotation_choice === 'yes' && greet.tire_rotation_starts_at != null && (
+            {greet.tire_rotation_choice === 'yes' && !rotationRemoved(greet) && greet.tire_rotation_starts_at != null && (
               <DetailRow
                 label="Starting at"
                 value={formatCurrency(Number(greet.tire_rotation_starts_at))}
