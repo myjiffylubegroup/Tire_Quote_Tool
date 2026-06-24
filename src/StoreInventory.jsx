@@ -49,28 +49,43 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;');
 }
 
-// Summary card component
-const SummaryCard = ({ label, value, subtext }) => (
-  <div style={{
-    backgroundColor: '#f3e8ff',
-    padding: '15px 25px',
-    borderRadius: '10px',
-    textAlign: 'center',
-    minWidth: '120px',
-  }}>
-    <div style={{ fontSize: '11px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>
-      {label}
-    </div>
-    <div style={{ fontSize: '24px', fontWeight: '700', color: '#9b59b6' }}>
-      {value}
-    </div>
-    {subtext && (
-      <div style={{ fontSize: '11px', color: '#666', marginTop: '3px' }}>
-        {subtext}
+// Format an ISO/timestamptz value as a short "Mon D" date for printed sheets.
+// A printed sheet gets carried around, so an absolute date stays correct where
+// a relative "3d ago" would go stale.
+function formatShortDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Summary card component. `accent='red'` is used for the Out / Reorder tile so
+// it reads as an alert when there are depleted SKUs.
+const SummaryCard = ({ label, value, subtext, accent }) => {
+  const bg = accent === 'red' ? '#fdecea' : '#f3e8ff';
+  const valueColor = accent === 'red' ? '#c0392b' : '#9b59b6';
+  return (
+    <div style={{
+      backgroundColor: bg,
+      padding: '15px 25px',
+      borderRadius: '10px',
+      textAlign: 'center',
+      minWidth: '120px',
+    }}>
+      <div style={{ fontSize: '11px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>
+        {label}
       </div>
-    )}
-  </div>
-);
+      <div style={{ fontSize: '24px', fontWeight: '700', color: valueColor }}>
+        {value}
+      </div>
+      {subtext && (
+        <div style={{ fontSize: '11px', color: '#666', marginTop: '3px' }}>
+          {subtext}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function StoreInventory() {
   const [selectedStore, setSelectedStore] = useState('');
@@ -309,13 +324,19 @@ export default function StoreInventory() {
       const physical = parsePhysicalCount(item.location_text);
       const systemQoh = Math.round(item.quantity_on_hand);
       const mismatch = physical !== null && physical !== systemQoh;
+      const depleted = item.recently_depleted;
+      const rowClass = [mismatch ? 'mismatch' : '', depleted ? 'depleted' : ''].filter(Boolean).join(' ');
+      // Absolute date on paper: "0 — OUT (since Jun 18)" stays correct after printing.
+      const qohCell = depleted
+        ? `0 — OUT (since ${escapeHtml(formatShortDate(item.depleted_at))})`
+        : escapeHtml(systemQoh);
       return (
-        `<tr class="${mismatch ? 'mismatch' : ''}">` +
+        `<tr class="${rowClass}">` +
         `<td>${escapeHtml(item.tire_size || '-')}</td>` +
         `<td>${escapeHtml(item.item_code || '-')}</td>` +
         `<td>${escapeHtml(item.brand || '-')}</td>` +
         `<td class="desc">${escapeHtml(item.description || '')}</td>` +
-        `<td class="num">${escapeHtml(systemQoh)}</td>` +
+        `<td class="num">${qohCell}</td>` +
         `<td>${escapeHtml(item.location_text || '')}</td>` +
         `<td class="count"></td>` +
         `<td class="num">$${item.retail.toFixed(2)}</td>` +
@@ -342,6 +363,7 @@ export default function StoreInventory() {
       'td.desc { max-width: 320px; }' +
       'td.count { width: 70px; }' +
       'tr.mismatch td { background: #fdecea; }' +
+      'tr.depleted td { background: #fff0f0; }' +
       '.footer { margin-top: 18px; font-size: 12px; color: #333; }' +
       '</style></head><body>' +
       '<div class="sheet-header">' +
@@ -482,6 +504,12 @@ export default function StoreInventory() {
                   label="Brands"
                   value={summary.unique_brands}
                   subtext="available"
+                />
+                <SummaryCard
+                  label="Out / Reorder"
+                  value={summary.out_of_stock_skus ?? 0}
+                  subtext="0 qty · last 7 days"
+                  accent={(summary.out_of_stock_skus ?? 0) > 0 ? 'red' : undefined}
                 />
               </div>
 
@@ -669,13 +697,14 @@ export default function StoreInventory() {
                       const mismatch = physical !== null && physical !== systemQoh;
                       const status = rowStatus[id];
                       const draftVal = drafts[id] !== undefined ? drafts[id] : (item.location_text || '');
+                      const depleted = item.recently_depleted;
 
                       return (
                         <tr
                           key={id || idx}
                           style={{
                             borderBottom: '1px solid #eee',
-                            backgroundColor: item.quantity_on_hand <= 2 ? '#fff3cd' : 'white',
+                            backgroundColor: depleted ? '#fff0f0' : (item.quantity_on_hand <= 2 ? '#fff3cd' : 'white'),
                           }}
                         >
                           <td style={{ padding: '12px 10px', fontWeight: '600', color: '#9b59b6' }}>
@@ -694,9 +723,27 @@ export default function StoreInventory() {
                             padding: '12px 10px',
                             textAlign: 'center',
                             fontWeight: '700',
-                            color: item.quantity_on_hand <= 2 ? '#e67e22' : '#27ae60'
+                            color: depleted ? '#c0392b' : (item.quantity_on_hand <= 2 ? '#e67e22' : '#27ae60')
                           }}>
-                            {item.quantity_on_hand}
+                            {depleted ? (
+                              <div>
+                                <span style={{
+                                  display: 'inline-block',
+                                  backgroundColor: '#c0392b',
+                                  color: 'white',
+                                  fontSize: '10px',
+                                  fontWeight: '700',
+                                  padding: '2px 8px',
+                                  borderRadius: '10px',
+                                  letterSpacing: '0.5px',
+                                }}>OUT</span>
+                                <div style={{ fontSize: '10px', color: '#c0392b', fontWeight: '600', marginTop: '3px', whiteSpace: 'nowrap' }}>
+                                  {item.days_since_depleted === 0 ? 'depleted today' : `depleted ${item.days_since_depleted}d ago`} · reorder
+                                </div>
+                              </div>
+                            ) : (
+                              item.quantity_on_hand
+                            )}
                           </td>
 
                           {/* Location cell */}
@@ -791,6 +838,16 @@ export default function StoreInventory() {
                     borderRadius: '3px'
                   }}></div>
                   <span style={{ fontSize: '12px', color: '#666' }}>Physical count doesn't match system QOH</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    backgroundColor: '#fff0f0',
+                    border: '1px solid #ddd',
+                    borderRadius: '3px'
+                  }}></div>
+                  <span style={{ fontSize: '12px', color: '#666' }}>Out of stock — depleted within 7 days (reorder)</span>
                 </div>
               </div>
             </>
