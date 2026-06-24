@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import StaffLoginModal from './StaffLoginModal';
+import FeedbackModal from './FeedbackModal';
 
 /**
  * Navbar — shared header + navigation bar used by all main pages.
@@ -12,6 +13,7 @@ import StaffLoginModal from './StaffLoginModal';
  * Owns internally:
  *   - Auth state (read from localStorage.jl_staff_auth)
  *   - Login modal open/close
+ *   - Feedback modal open/close (staff-only "Report or Suggest")
  *   - BUSINESS ACCOUNTS dropdown open/close (with click-outside-to-close)
  *
  * Props:
@@ -54,6 +56,14 @@ const NAV_ITEMS = [
   },
   { key: 'reports',    label: 'REPORTS',         href: '#/reports' },
 ];
+
+// Maps the current page to a default "What is this about?" value for the
+// Feedback modal. Pages without a clean mapping leave it on "Select one".
+const AREA_BY_PAGE = {
+  tirefinder: 'tire_finder',
+  mechanical: 'mechanical',
+  reports:    'reports',
+};
 
 const PURPLE = '#9b59b6';
 const MAX_WIDTH = '1400px';
@@ -158,6 +168,10 @@ export default function Navbar({
   // ── Login modal ──
   const [loginModalOpen, setLoginModalOpen] = useState(false);
 
+  // ── Feedback modal (staff-only "Report or Suggest") ──
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const defaultFeedbackArea = AREA_BY_PAGE[currentPage] || '';
+
   // ── BUSINESS ACCOUNTS dropdown ──
   const [businessOpen, setBusinessOpen] = useState(false);
   const businessRef = useRef(null);
@@ -228,52 +242,81 @@ export default function Navbar({
             />
           </a>
 
-          {/* Right side of header. Precedence:
+          {/* Right side of header. The Feedback pill (staff-only) sits to the
+              LEFT of whatever context element follows. Precedence for that
+              context element:
               1. headerRight (explicit JSX from page) — e.g. Reports' scope label
               2. Store selector (when onStoreChange is given)
               3. Nothing */}
-          {headerRight ? (
-            headerRight
-          ) : onStoreChange ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: '600',
-                color: t.headerLabelColor,
-                letterSpacing: '1px',
-              }}>
-                STORE:
-              </span>
-              <select
-                value={selectedStore ?? ''}
-                onChange={(e) => onStoreChange(e.target.value)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {isAuthenticated && (
+              <button
+                onClick={() => setFeedbackOpen(true)}
+                title="Report a problem or suggest an improvement"
                 style={{
-                  padding: '8px 30px 8px 12px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
                   border: `2px solid ${t.accentColor}`,
                   borderRadius: '20px',
                   backgroundColor: 'white',
-                  color: '#333',
+                  color: t.accentColor,
                   fontSize: '12px',
                   fontWeight: '600',
+                  letterSpacing: '0.5px',
                   cursor: 'pointer',
-                  outline: 'none',
-                  appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23${t.arrowColorHex}' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 10px center',
+                  fontFamily: 'inherit',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                {showStorePlaceholder && (
-                  <option value="">Select Store</option>
-                )}
-                {STORES.map((store) => (
-                  <option key={store.id} value={store.id}>
-                    {store.id} - {store.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
+                🛟 Feedback
+              </button>
+            )}
+
+            {headerRight ? (
+              headerRight
+            ) : onStoreChange ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  color: t.headerLabelColor,
+                  letterSpacing: '1px',
+                }}>
+                  STORE:
+                </span>
+                <select
+                  value={selectedStore ?? ''}
+                  onChange={(e) => onStoreChange(e.target.value)}
+                  style={{
+                    padding: '8px 30px 8px 12px',
+                    border: `2px solid ${t.accentColor}`,
+                    borderRadius: '20px',
+                    backgroundColor: 'white',
+                    color: '#333',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23${t.arrowColorHex}' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 10px center',
+                  }}
+                >
+                  {showStorePlaceholder && (
+                    <option value="">Select Store</option>
+                  )}
+                  {STORES.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.id} - {store.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -436,6 +479,14 @@ export default function Navbar({
       <StaffLoginModal
         isOpen={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
+      />
+
+      {/* ── Feedback Modal (staff-only; opened from the header pill) ─────────── */}
+      <FeedbackModal
+        isOpen={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        auth={auth}
+        defaultArea={defaultFeedbackArea}
       />
     </>
   );
