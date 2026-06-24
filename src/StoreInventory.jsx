@@ -59,7 +59,7 @@ function formatShortDate(ts) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-// Summary card component. `accent='red'` is used for the Out / Reorder tile so
+// Summary card component. `accent='red'` is used for the Out of Stock tile so
 // it reads as an alert when there are depleted SKUs.
 const SummaryCard = ({ label, value, subtext, accent }) => {
   const bg = accent === 'red' ? '#fdecea' : '#f3e8ff';
@@ -506,7 +506,7 @@ export default function StoreInventory() {
                   subtext="available"
                 />
                 <SummaryCard
-                  label="Out / Reorder"
+                  label="Out of Stock"
                   value={summary.out_of_stock_skus ?? 0}
                   subtext="0 qty · last 7 days"
                   accent={(summary.out_of_stock_skus ?? 0) > 0 ? 'red' : undefined}
@@ -738,7 +738,7 @@ export default function StoreInventory() {
                                   letterSpacing: '0.5px',
                                 }}>OUT</span>
                                 <div style={{ fontSize: '10px', color: '#c0392b', fontWeight: '600', marginTop: '3px', whiteSpace: 'nowrap' }}>
-                                  {item.days_since_depleted === 0 ? 'depleted today' : `depleted ${item.days_since_depleted}d ago`} · reorder
+                                  {item.days_since_depleted === 0 ? 'depleted today' : `depleted ${item.days_since_depleted}d ago`}
                                 </div>
                               </div>
                             ) : (
@@ -847,7 +847,7 @@ export default function StoreInventory() {
                     border: '1px solid #ddd',
                     borderRadius: '3px'
                   }}></div>
-                  <span style={{ fontSize: '12px', color: '#666' }}>Out of stock — depleted within 7 days (reorder)</span>
+                  <span style={{ fontSize: '12px', color: '#666' }}>Out of stock — depleted within 7 days</span>
                 </div>
               </div>
             </>
