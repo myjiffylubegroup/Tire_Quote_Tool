@@ -2104,15 +2104,32 @@ function GreetDetailModal({ greet, onClose, loading }) {
 
           {/* Customer & Vehicle */}
           <Section title="Customer & Vehicle">
-            <DetailRow label="Name" value={greetFullName(greet)} />
+            <DetailRow
+              label="First Name"
+              value={greet.customer_first_name || '—'}
+              copyValue={greet.customer_first_name || ''}
+            />
+            <DetailRow
+              label="Last Name"
+              value={greet.customer_last_name || '—'}
+              copyValue={greet.customer_last_name || ''}
+            />
             {modalAlerts.first_name && (
               <ContactAlertRow detail={modalAlerts.first_name} />
             )}
-            <DetailRow label="Phone" value={greet.customer_phone ? formatPhone(greet.customer_phone) : '—'} />
+            <DetailRow
+              label="Phone"
+              value={greet.customer_phone ? formatPhone(greet.customer_phone) : '—'}
+              copyValue={greet.customer_phone ? formatPhone(greet.customer_phone) : ''}
+            />
             {modalAlerts.phone && (
               <ContactAlertRow detail={modalAlerts.phone} />
             )}
-            <DetailRow label="Email" value={greet.customer_email || '—'} />
+            <DetailRow
+              label="Email"
+              value={greet.customer_email || '—'}
+              copyValue={greet.customer_email || ''}
+            />
             {modalAlerts.email && (
               <ContactAlertRow detail={modalAlerts.email} />
             )}
@@ -2324,11 +2341,72 @@ function Section({ title, children }) {
   );
 }
 
-function DetailRow({ label, value }) {
+// DetailRow — label/value row inside the detail modal.
+// Opt-in click-to-copy: pass a non-empty `copyValue` and the value becomes a
+// tap-to-copy target with the same green "✓ Copied" flash used by CopyChip and
+// the GROW code chips. stopPropagation keeps a copy tap from bubbling to the
+// modal/card. Rows without `copyValue` render exactly as before (plain span).
+function DetailRow({ label, value, copyValue }) {
+  const [copied, setCopied] = useState(false);
+  const canCopy = copyValue != null && String(copyValue).trim().length > 0;
+
+  const handleCopy = async (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(copyValue);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = copyValue;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch (err) { /* value stays visible to read/copy manually */ }
+  };
+
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '4px 0', fontSize: '13px' }}>
       <span style={{ color: '#888', flexShrink: 0 }}>{label}</span>
-      <span style={{ color: '#333', textAlign: 'right', fontWeight: '500', wordBreak: 'break-word' }}>{value}</span>
+      {canCopy ? (
+        <button
+          onClick={handleCopy}
+          title={`Tap to copy ${label}`}
+          style={{
+            appearance: 'none',
+            background: copied ? '#d1fae5' : 'transparent',
+            border: copied ? '1px solid #34d399' : '1px solid transparent',
+            borderRadius: '6px',
+            padding: '1px 7px',
+            margin: '-1px -7px -1px 0',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: copied ? '#065f46' : '#333',
+            textAlign: 'right',
+            wordBreak: 'break-word',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.12s',
+            fontFamily: 'inherit',
+          }}
+        >
+          {copied ? '✓ Copied' : (
+            <>
+              <span>{value}</span>
+              <span style={{ color: '#b39ddb', fontSize: '12px', flexShrink: 0 }} aria-hidden="true">⧉</span>
+            </>
+          )}
+        </button>
+      ) : (
+        <span style={{ color: '#333', textAlign: 'right', fontWeight: '500', wordBreak: 'break-word' }}>{value}</span>
+      )}
     </div>
   );
 }
