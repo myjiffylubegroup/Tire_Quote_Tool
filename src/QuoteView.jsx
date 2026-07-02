@@ -510,10 +510,15 @@ const QuoteView = () => {
     setActionMessage(null);
 
     try {
-      const response = await apiCall(`${API_BASE}/create-paypal-invoice`, {
+      // create-paypal-invoice is public (JWT off, key + unguessable quote_id).
+      // Staff sessions use apiCall as usual; customers viewing their quote by
+      // short code use apiCallPublic — apiCall would bounce them to the PIN
+      // screen (no staff token) before any request was sent.
+      const invoiceFetch = isStaff ? apiCall : apiCallPublic;
+      const response = await invoiceFetch(`${API_BASE}/create-paypal-invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quote_id: quote.quote_id })
+        body: JSON.stringify({ key: 'TIRES2026', quote_id: quote.quote_id })
       });
 
       const data = await response.json();
