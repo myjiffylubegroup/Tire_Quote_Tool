@@ -13,6 +13,9 @@ import {
   followUpItemLabel,
   followUpResponseLabel,
   waitPreferenceLabel,
+  checkinRatingLabel,
+  checkinReasonLabel,
+  recoveryReasonLabel,
 } from './concernLabels';
 
 import { API_BASE } from './config';
@@ -1465,6 +1468,98 @@ export default function QuoteLookup() {
 }
 
 // =============================================================================
+// ── Check-in feedback (Screen 15 post-submit survey) ─────────────────────────
+// The guest rates the kiosk check-in experience after submitting. All of this
+// is display-only — the kiosk (greets-feedback) owns every write; the staff
+// side only reads.
+//
+// checkin_feedback_at is the authoritative "has feedback" test (NULL = nothing
+// to show — do NOT test checkin_rating, which is also NULL pre-submit).
+// checkin_rating is 'great' | 'okay' | 'rough'.
+const hasCheckinFeedback = (greet) => Boolean(greet && greet.checkin_feedback_at);
+
+// Visual treatment per rating. `rough` is the detractor a manager should catch
+// in person, so it gets the loud red treatment; `okay` a lighter amber neutral;
+// `great` a subtle green positive marker. Returns null for unknown values.
+const checkinRatingStyle = (rating) => {
+  if (rating === 'rough') return { color: '#991b1b', bg: '#fee2e2', border: '#fca5a5', icon: '⚠' };
+  if (rating === 'okay')  return { color: '#b45309', bg: '#fef3c7', border: '#fcd34d', icon: '•' };
+  if (rating === 'great') return { color: '#065f46', bg: '#d1fae5', border: '#6ee7b7', icon: '✓' };
+  return null;
+};
+
+// Humanize the checkin_reasons key array into labels (safe on null / empty).
+const checkinReasonLabels = (greet) =>
+  (Array.isArray(greet && greet.checkin_reasons) ? greet.checkin_reasons : [])
+    .filter(Boolean)
+    .map(checkinReasonLabel);
+
+// =============================================================================
+// RecoveryVoucherChip — the check-in recovery discount the cashier honors at
+// the register. Shows even if the guest forgot to show their phone, so it's the
+// staff's own copy of the code.
+//
+// Display-only: code / amount / reason are authoritative from the greet row
+// (issued by the kiosk's greets-feedback), never recomputed here. There is no
+// "mark redeemed" write path on the staff side, so this reflects whatever state
+// the row already holds — it can display REDEEMED (if some other path flips the
+// flag) but cannot set it. Renders nothing when there's no code.
+// =============================================================================
+function RecoveryVoucherChip({ greet, size = 'normal' }) {
+  const code = greet && greet.recovery_code;
+  if (!code) return null;
+
+  const compact = size === 'compact';
+  const amount = greet.recovery_amount != null ? formatCurrency(Number(greet.recovery_amount)) : null;
+  const reason = recoveryReasonLabel(greet.recovery_reason);
+  const redeemed = greet.recovery_redeemed === true;
+
+  if (redeemed) {
+    const by = greet.recovery_redeemed_by;
+    const at = greet.recovery_redeemed_at;
+    return (
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
+        backgroundColor: '#f1f5f9', color: '#64748b',
+        border: '1px solid #cbd5e1', borderRadius: '10px',
+        padding: compact ? '4px 10px' : '8px 14px',
+        fontSize: compact ? '11px' : '13px', fontWeight: '600',
+      }}>
+        <span>✓ Redeemed{amount ? ` · ${amount}` : ''} · {code}</span>
+        {(by || at) && !compact && (
+          <span style={{ fontSize: '11px', fontWeight: '500', opacity: 0.85 }}>
+            {by ? `by ${by}` : ''}{by && at ? ' · ' : ''}{at ? timePacific(at) : ''}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // Pending — the cashier's copy of the code. Made deliberately obvious.
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
+      backgroundColor: '#ecfdf5', border: '2px solid #6ee7b7', borderRadius: '10px',
+      padding: compact ? '5px 10px' : '10px 14px',
+    }}>
+      <span style={{
+        fontSize: compact ? '11px' : '13px', fontWeight: '800', letterSpacing: '0.3px',
+        color: '#065f46', textTransform: 'uppercase',
+      }}>
+        💸 {amount ? `${amount} ` : ''}{reason}
+      </span>
+      <GrowCodeChip code={code} size={compact ? 'compact' : 'normal'} />
+      <span style={{
+        fontSize: compact ? '10px' : '12px', fontWeight: '700', color: '#047857',
+        letterSpacing: '0.3px', textTransform: 'uppercase',
+      }}>
+        honor at register
+      </span>
+    </div>
+  );
+}
+
+// =============================================================================
 // GreetCard — list-view card for a single greet
 // =============================================================================
 function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggleSelect }) {
@@ -1590,6 +1685,35 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
               ⏱ 3-min pre-treat
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Needs-apology banner — a 'rough' check-in rating means the guest left
+          the kiosk unhappy. Loud red so a manager can catch them in person
+          before they pay. Sits under the Engine Prep banner when both fire.
+          Display-only; feedback is written by the kiosk. */}
+      {hasCheckinFeedback(greet) && greet.checkin_rating === 'rough' && (
+        <div style={{
+          margin: prepNeeded ? '0 -18px 12px -18px' : '-16px -18px 12px -18px',
+          backgroundColor: '#dc2626',
+          color: 'white',
+          padding: '10px 14px',
+          borderTopRightRadius: prepNeeded ? '0' : '9px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '3px',
+        }}>
+          <div style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.5px' }}>
+            ⚠ NEEDS APOLOGY — ROUGH CHECK-IN
+          </div>
+          {(checkinReasonLabels(greet).length > 0 || (greet.checkin_comment && greet.checkin_comment.trim())) && (
+            <div style={{ fontSize: '11px', fontWeight: '600', lineHeight: '1.35', opacity: 0.95 }}>
+              {checkinReasonLabels(greet).join(' · ')}
+              {greet.checkin_comment && greet.checkin_comment.trim() && (
+                <>{checkinReasonLabels(greet).length > 0 ? ' — ' : ''}“{greet.checkin_comment.trim()}”</>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1801,8 +1925,31 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
         </div>
       )}
 
+      {/* Recovery voucher — the cashier's copy of the check-in make-good code.
+          Independent of rating; driven by recovery_code so it shows even if the
+          guest forgot to show their phone. */}
+      {greet.recovery_code && (
+        <div style={{ marginBottom: '8px' }}>
+          <RecoveryVoucherChip greet={greet} size="compact" />
+        </div>
+      )}
+
       {/* Promote-up + concerns row */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Check-in feedback flag — okay (amber) / great (green). rough is
+            handled by its own loud banner above, so it's excluded here. */}
+        {hasCheckinFeedback(greet) && (greet.checkin_rating === 'okay' || greet.checkin_rating === 'great') && (() => {
+          const s = checkinRatingStyle(greet.checkin_rating);
+          return (
+            <span style={{
+              fontSize: '11px', fontWeight: '700',
+              color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}`,
+              padding: '3px 8px', borderRadius: '10px',
+            }}>
+              {s.icon} Check-in: {checkinRatingLabel(greet.checkin_rating)}
+            </span>
+          );
+        })()}
         {alerts.length > 0 && (
           <span style={{
             fontSize: '11px',
@@ -2093,6 +2240,59 @@ function GreetDetailModal({ greet, onClose, loading }) {
               {promoteSentence}
             </div>
           )}
+
+          {/* Check-in feedback (Screen 15 survey) + recovery voucher.
+              Read-only — the kiosk owns all writes. A 'rough' rating gets the
+              loud red treatment so a manager catches the guest before checkout;
+              the recovery code (if any) rides along for the cashier. */}
+          {hasCheckinFeedback(greet) && (() => {
+            const s = checkinRatingStyle(greet.checkin_rating) || checkinRatingStyle('okay');
+            const reasons = checkinReasonLabels(greet);
+            const comment = greet.checkin_comment && greet.checkin_comment.trim();
+            const rough = greet.checkin_rating === 'rough';
+            return (
+              <div style={{
+                backgroundColor: rough ? '#dc2626' : s.bg,
+                borderLeft: `4px solid ${rough ? '#991b1b' : s.border}`,
+                color: rough ? '#ffffff' : s.color,
+                padding: '14px 18px',
+                borderRadius: '8px',
+                marginBottom: '20px',
+              }}>
+                <div style={{
+                  fontWeight: '800', textTransform: 'uppercase', fontSize: '11px',
+                  letterSpacing: '1px', marginBottom: (reasons.length || comment || greet.recovery_code) ? '10px' : '0',
+                }}>
+                  {s.icon} {rough ? 'Needs apology — rough check-in' : `Check-in feedback — ${checkinRatingLabel(greet.checkin_rating)}`}
+                </div>
+                {reasons.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: comment ? '10px' : '0' }}>
+                    {reasons.map((label, i) => (
+                      <span key={i} style={{
+                        fontSize: '12px', fontWeight: '600',
+                        backgroundColor: rough ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.6)',
+                        border: `1px solid ${rough ? 'rgba(255,255,255,0.5)' : s.border}`,
+                        borderRadius: '999px', padding: '3px 10px',
+                        color: rough ? '#ffffff' : s.color,
+                      }}>
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {comment && (
+                  <div style={{ fontSize: '13px', fontStyle: 'italic', lineHeight: '1.45' }}>
+                    “{comment}”
+                  </div>
+                )}
+                {greet.recovery_code && (
+                  <div style={{ marginTop: '12px' }}>
+                    <RecoveryVoucherChip greet={greet} size="normal" />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* GROW Service Codes — the most actionable info, placed first.
               Display-only: codes and callouts are rendered exactly as stored

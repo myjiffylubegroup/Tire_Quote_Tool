@@ -232,6 +232,80 @@ export const waitPreferenceLabel = (code) =>
   WAIT_PREFERENCE_LABELS[code] || code || '';
 
 // -----------------------------------------------------------------------------
+// Check-in feedback rating (Screen 15 — post-submit confirmation survey)
+// -----------------------------------------------------------------------------
+// The guest rates the kiosk check-in experience after submitting. Drives the
+// "Needs apology" highlight on the greet card (rough) and the lighter neutral
+// flag (okay). NULL until the guest submits feedback (use checkin_feedback_at
+// as the "has feedback" test, not this field).
+// -----------------------------------------------------------------------------
+
+export const CHECKIN_RATING_LABELS = {
+  great: 'Great',
+  okay:  'Okay',
+  rough: 'Rough',
+};
+
+export const checkinRatingLabel = (code) =>
+  CHECKIN_RATING_LABELS[code] || code || '';
+
+// -----------------------------------------------------------------------------
+// Check-in feedback reason chips (Screen 15)
+// -----------------------------------------------------------------------------
+// checkin_reasons is a flat text[] of these keys. Positive keys appear on a
+// 'great' rating; negative keys on 'okay' / 'rough'. Flattened into one
+// id→label map because the staff display renders them as a single chip list.
+// Keys are the contract (owned by the kiosk); labels are ours. Falls back to a
+// title-cased version of the raw key so a kiosk-side addition doesn't render
+// blank before this file is updated.
+// -----------------------------------------------------------------------------
+
+export const CHECKIN_REASON_LABELS = {
+  // Positive (shown on 'great')
+  recs_clear:          'Recommendations were straightforward',
+  pricing_transparent: 'Pricing was transparent',
+  easy_verify:         'Easy to verify my information',
+  no_pressure:         'No pressure — chose what I wanted',
+  easy_navigate:       'Easy to navigate',
+
+  // Negative (shown on 'okay' / 'rough')
+  too_many_offers:     'Too many add-on offers',
+  confusing:           'Confusing to use',
+  took_too_long:       'Took too long',
+  prefer_person:       'Would rather check in with a person',
+  staff_impolite:      'Staff was impolite when asked for help',
+  staff_no_help:       "Staff didn't offer to help",
+};
+
+export const checkinReasonLabel = (id) => {
+  if (!id) return '';
+  if (CHECKIN_REASON_LABELS[id]) return CHECKIN_REASON_LABELS[id];
+  // Fallback: snake_case → Title Case
+  return String(id)
+    .split('_')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+};
+
+// -----------------------------------------------------------------------------
+// Recovery voucher reason (why a recovery code was issued)
+// -----------------------------------------------------------------------------
+// Labels the recovery chip so staff understand why it exists:
+//   negative_auto → rough rating auto-issued a make-good discount
+//   positive_win  → great rating triggered a 1-in-10 surprise reward
+// The code/amount themselves are authoritative from the greet row — never
+// recomputed here. This is display-side labeling only.
+// -----------------------------------------------------------------------------
+
+export const RECOVERY_REASON_LABELS = {
+  negative_auto: 'recovery discount',
+  positive_win:  'surprise reward',
+};
+
+export const recoveryReasonLabel = (code) =>
+  RECOVERY_REASON_LABELS[code] || 'recovery discount';
+
+// -----------------------------------------------------------------------------
 // Vehicle data source (where the kiosk got vehicle info)
 // -----------------------------------------------------------------------------
 // Mostly an internal/debug field, but useful for the staff to know whether
