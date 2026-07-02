@@ -327,8 +327,9 @@ const QuoteView = () => {
     lf: [], rf: [], lr: [], rr: [],
   });
 
-  // Nexen rebate config — loaded from quote_config (key: nexen_rebate_2026)
+  // Public config — Nexen rebate offer + per-model benefits (via v_public_config)
   const [nexenConfig, setNexenConfig] = useState(null);
+  const [nexenBenefits, setNexenBenefits] = useState(null);
 
   const getShortCode = () => {
     const hash = window.location.hash;
@@ -343,7 +344,7 @@ const QuoteView = () => {
     const fetchRebateConfig = async () => {
       try {
         const configResponse = await fetch(
-          `${REST_BASE}/v_public_config?config_key=eq.nexen_rebate_2026&select=config_value`,
+          `${REST_BASE}/v_public_config?config_key=in.(nexen_rebate_2026,nexen_model_benefits)&select=config_key,config_value`,
           {
             headers: {
               'apikey': SUPABASE_ANON_KEY,
@@ -352,8 +353,11 @@ const QuoteView = () => {
           }
         );
         const configData = await configResponse.json();
-        if (configData && configData[0]?.config_value) {
-          setNexenConfig(configData[0].config_value);
+        if (Array.isArray(configData)) {
+          for (const row of configData) {
+            if (row.config_key === 'nexen_rebate_2026' && row.config_value) setNexenConfig(row.config_value);
+            if (row.config_key === 'nexen_model_benefits' && row.config_value) setNexenBenefits(row.config_value);
+          }
         }
       } catch (e) {
         console.error('Failed to fetch Nexen rebate config:', e);
@@ -708,6 +712,21 @@ const QuoteView = () => {
   // and whether the offer is active today — no CSA input required
   const nexenRebate = getNexenRebate(nexenConfig, tire?.name, tireRear?.name, isStaggered, p?.quantity);
 
+  // ─── America 250 campaign mode ───
+  // Campaign-generated quotes (AMERICA250_* promos) get a conversion-focused
+  // customer view: educational tire panels, a single PAY NOW path, and all
+  // campaign-employee references suppressed. Staff always see the normal view.
+  const campaignMode = (p?.promo_id || '').startsWith('AMERICA250') && !isStaff;
+
+  // Standard industry decode tables (customer education panels)
+  const SPEED_MPH = { L: 75, M: 81, N: 87, P: 93, Q: 99, R: 106, S: 112, T: 118, U: 124, H: 130, V: 149, W: 168, Y: 186 };
+  const LOAD_LBS = { 80: 992, 81: 1019, 82: 1047, 83: 1074, 84: 1102, 85: 1135, 86: 1168, 87: 1201, 88: 1235, 89: 1279, 90: 1323, 91: 1356, 92: 1389, 93: 1433, 94: 1477, 95: 1521, 96: 1565, 97: 1609, 98: 1653, 99: 1709, 100: 1764, 101: 1819, 102: 1874, 103: 1929, 104: 1984, 105: 2039, 106: 2094, 107: 2149, 108: 2205, 109: 2271, 110: 2337, 111: 2403, 112: 2469, 113: 2535, 114: 2601, 115: 2679, 116: 2756, 117: 2833, 118: 2910, 119: 2998, 120: 3086 };
+  const speedMph = SPEED_MPH[(tire?.speed_rating || '').trim().toUpperCase()] || null;
+  const modelBenefits = nexenBenefits?.models?.[tire?.name] || null;
+  const benefitsUniversal = nexenBenefits?.universal || null;
+  const loadIdx = parseInt(String(tire?.load_rating || '').split('/')[0], 10);
+  const loadLbs = LOAD_LBS[loadIdx] || null;
+
   const hasVehicleInfo = quote.vehicle?.display && 
     quote.vehicle.display !== '' && 
     !quote.vehicle.display.toLowerCase().includes('unknown');
@@ -739,9 +758,11 @@ const QuoteView = () => {
               <div style={{ fontWeight: '700', fontSize: '14px' }}>{store?.name} {store?.bar_number && `• BAR ${store.bar_number}`}</div>
               <div>{store?.full_address}</div>
               <div>{store?.phone_formatted || formatPhone(store?.phone)}</div>
-              {quote.created_by?.display_name && (
+              {campaignMode ? (
+                <div style={{ fontWeight: '700', color: '#1e3a5f', marginTop: '2px' }}>🇺🇸 America 250 Exclusive Offer</div>
+              ) : (quote.created_by?.display_name && (
                 <div style={{ fontWeight: '600', color: '#1e40af', marginTop: '2px' }}>Prepared by: {quote.created_by.display_name}</div>
-              )}
+              ))}
             </div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -1137,8 +1158,8 @@ const QuoteView = () => {
             </div>
           )}
 
-          {/* ─── Action Buttons ─── */}
-          <div data-print-hide="true" style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
+          {/* ─── Action Buttons (hidden in campaign mode — single PAY CTA below) ─── */}
+          <div data-print-hide="true" style={{ display: campaignMode ? 'none' : 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
             {store?.appointment_url && (
               <a href={store.appointment_url} target="_blank" rel="noopener noreferrer"
                 style={{ backgroundColor: '#8b1538', color: 'white', padding: '10px 16px', borderRadius: '8px', textDecoration: 'none', fontWeight: '600', fontSize: '12.5px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', minWidth: '85px', textAlign: 'center', lineHeight: '1.3' }}>
@@ -1159,13 +1180,101 @@ const QuoteView = () => {
               style={{ backgroundColor: '#16a34a', color: 'white', padding: '10px 16px', borderRadius: '8px', border: 'none', fontWeight: '600', fontSize: '12.5px', cursor: sendingSms ? 'not-allowed' : 'pointer', opacity: sendingSms ? 0.7 : 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', minWidth: '85px', textAlign: 'center', lineHeight: '1.3' }}>
               <span>{sendingSms ? '...' : '💬 Text'}</span><span>Quote</span>
             </button>
-            {!quote.paid_online_at && (
+            {!quote.paid_online_at && !campaignMode && (
               <button onClick={handlePayOnline} disabled={sendingInvoice}
                 style={{ backgroundColor: '#f59e0b', color: 'white', padding: '10px 16px', borderRadius: '8px', border: 'none', fontWeight: '600', fontSize: '12.5px', cursor: sendingInvoice ? 'not-allowed' : 'pointer', opacity: sendingInvoice ? 0.7 : 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', minWidth: '85px', textAlign: 'center', lineHeight: '1.3' }}>
                 <span>{sendingInvoice ? '...' : '💳 Pay'}</span><span>Now</span>
               </button>
             )}
           </div>
+          {campaignMode && !quote.paid_online_at && (
+            <div data-print-hide="true" style={{ textAlign: 'center', margin: '4px 0 18px' }}>
+              <button onClick={handlePayOnline} disabled={sendingInvoice}
+                style={{ backgroundColor: '#166534', color: 'white', padding: '18px 30px', borderRadius: '12px', border: 'none', fontWeight: '800', fontSize: '18px', cursor: sendingInvoice ? 'not-allowed' : 'pointer', opacity: sendingInvoice ? 0.7 : 1, width: '100%', maxWidth: '520px', lineHeight: '1.35', boxShadow: '0 4px 12px rgba(22,101,52,0.35)' }}>
+                {sendingInvoice ? 'SENDING YOUR INVOICE...' : '💳 PAY NOW — GET MY SECURE PAYPAL INVOICE'}
+                <div style={{ fontSize: '12px', fontWeight: '600', marginTop: '4px', opacity: 0.95 }}>
+                  We'll email your PayPal invoice — check your inbox to complete payment
+                </div>
+              </button>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#8b1538', marginTop: '10px' }}>
+                This special America 250 pricing must be completed online.
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                Pay in 4 available through PayPal for eligible customers · Once paid, your store preps your tires and calls you to schedule installation.
+              </div>
+            </div>
+          )}
+          {campaignMode && (
+            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', margin: '4px 0 16px' }}>
+              <div style={{ flex: '1 1 260px', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px 16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#1e3a5f', letterSpacing: '1px', marginBottom: '8px' }}>ABOUT YOUR TIRE</div>
+                {modelBenefits?.tagline && (
+                  <div style={{ fontSize: '12.5px', color: '#1e3a5f', fontWeight: '600', marginBottom: '8px', lineHeight: '1.5', fontStyle: 'italic' }}>
+                    {modelBenefits.tagline}
+                  </div>
+                )}
+                {tire?.warranty_miles && (
+                  <div style={{ fontSize: '12.5px', color: '#334155', marginBottom: '6px', lineHeight: '1.5' }}>
+                    <strong>{parseInt(tire.warranty_miles).toLocaleString()}-mile treadwear warranty</strong> — prorated manufacturer coverage for the promised tread life.
+                  </div>
+                )}
+                {speedMph && (
+                  <div style={{ fontSize: '12.5px', color: '#334155', marginBottom: '6px', lineHeight: '1.5' }}>
+                    <strong>Speed rating {tire.speed_rating}</strong> — engineered for sustained speeds up to {speedMph} mph, well beyond legal limits.
+                  </div>
+                )}
+                {loadLbs && (
+                  <div style={{ fontSize: '12.5px', color: '#334155', marginBottom: '6px', lineHeight: '1.5' }}>
+                    <strong>Load index {loadIdx}</strong> — each tire safely carries up to {loadLbs.toLocaleString()} lbs.
+                  </div>
+                )}
+                {tire?.snowflake && (
+                  <div style={{ fontSize: '12.5px', color: '#334155', marginBottom: '6px', lineHeight: '1.5' }}>
+                    <strong>❄️ 3-Peak Mountain Snowflake</strong> — certified severe-snow traction.
+                  </div>
+                )}
+                {tire?.run_flat && (
+                  <div style={{ fontSize: '12.5px', color: '#334155', marginBottom: '6px', lineHeight: '1.5' }}>
+                    <strong>Run-flat construction</strong> — drive safely to service after a puncture.
+                  </div>
+                )}
+                {quote.vehicle?.oe_tire_size && (
+                  <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.5' }}>
+                    <strong>Fitment verified</strong> — meets or exceeds your vehicle's factory tire specification.
+                  </div>
+                )}
+              </div>
+              <div style={{ flex: '1 1 260px', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px 16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#1e3a5f', letterSpacing: '1px', marginBottom: '8px' }}>YOUR PRICE INCLUDES EVERYTHING</div>
+                <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.8' }}>
+                  ✓ Professional mounting &amp; balancing<br/>
+                  ✓ Road hazard protection on every tire<br/>
+                  ✓ Old tire disposal &amp; CA state fees<br/>
+                  ✓ Sales tax — no surprises at the store
+                </div>
+                {(modelBenefits || benefitsUniversal) && (
+                  <>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#1e3a5f', letterSpacing: '1px', margin: '12px 0 6px' }}>BACKED BY NEXEN TOTAL COVERAGE</div>
+                    <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.7' }}>
+                      {modelBenefits?.trial && (<>🛞 <strong>Try them risk-free:</strong> {modelBenefits.trial} satisfaction guarantee<br/></>)}
+                      {modelBenefits?.road_hazard && (<>🛡️ <strong>Nexen Road Hazard Replacement</strong> ({modelBenefits.road_hazard}) — on top of the road hazard protection already in your price<br/></>)}
+                      {modelBenefits?.roadside_months && (<>🚗 <strong>{modelBenefits.roadside_months} months of Nexen roadside assistance</strong> — free flat-tire change or tow<br/></>)}
+                      {benefitsUniversal?.zero_recall && (<>🏆 {benefitsUniversal.zero_recall}<br/></>)}
+                    </div>
+                    {benefitsUniversal?.terms_note && (
+                      <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px', lineHeight: '1.4' }}>{benefitsUniversal.terms_note}</div>
+                    )}
+                  </>
+                )}
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#1e3a5f', letterSpacing: '1px', margin: '12px 0 6px' }}>WHAT HAPPENS AFTER YOU PAY</div>
+                <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.8' }}>
+                  1. Pay securely online via PayPal<br/>
+                  2. Your store gets your tires ready<br/>
+                  3. We call you to schedule installation
+                </div>
+              </div>
+            </div>
+          )}
           {quote.paid_online_at && (
             <div style={{
               backgroundColor: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '10px',
@@ -1464,14 +1573,20 @@ const QuoteView = () => {
             </div>
 
           {/* Call to Action */}
-          {quote.created_by?.display_name && (
+          {campaignMode ? (
+            <div style={{ textAlign: 'center', padding: '12px 16px', margin: '12px 0 0 0', background: '#f0f4ff', borderRadius: '8px', border: '1px solid #dbeafe' }}>
+              <p style={{ margin: '0', fontSize: '13px', color: '#1e3a5f', fontWeight: '700' }}>
+                🇺🇸 America 250 — complete your purchase online to lock in this pricing. Offer valid through Jul 31, 2026.
+              </p>
+            </div>
+          ) : (quote.created_by?.display_name && (
             <div style={{ textAlign: 'center', padding: '12px 16px', margin: '12px 0 0 0', background: '#f0f4ff', borderRadius: '8px', border: '1px solid #dbeafe' }}>
               <p style={{ margin: '0', fontSize: '13px', color: '#1e40af', fontWeight: '600' }}>
                 When you're ready to get your new tires, ask for {quote.created_by.display_name}
                 {store?.phone_formatted ? ` — call us at ${store.phone_formatted}` : ''} or schedule online!
               </p>
             </div>
-          )}
+          ))}
 
           {/* Footer */}
           <div className="quote-footer" style={{ textAlign: 'center', borderTop: '1px solid #cbd5e1', paddingTop: '12px', fontSize: '11px', color: '#555', fontWeight: '500', lineHeight: '1.6' }}>
