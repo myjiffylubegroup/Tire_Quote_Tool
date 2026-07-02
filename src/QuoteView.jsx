@@ -993,12 +993,44 @@ const QuoteView = () => {
           {/* ─── Tread + Pricing Side by Side ─── */}
           <div className="tread-pricing-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '20px' }}>
             
-            {/* LEFT: Tread Condition */}
+            {/* LEFT: Tread Condition — or campaign tire info when no tread data */}
             <div className="tread-column">
               {treadData && (
                 <>
                   <div style={sectionLabel}>CURRENT TIRE CONDITION</div>
                   <TreadDiagram treadData={treadData} replacementReasons={quote.tire_replacement_reasons} />
+                </>
+              )}
+              {campaignMode && !treadData && (
+                <>
+                  <div style={sectionLabel}>ABOUT YOUR TIRE</div>
+                  {modelBenefits?.tagline && (
+                    <div style={{ fontSize: '12.5px', color: '#1e3a5f', fontWeight: '600', marginBottom: '8px', lineHeight: '1.5', fontStyle: 'italic' }}>
+                      {modelBenefits.tagline}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.7' }}>
+                    {tire?.warranty_miles && (<><strong>{parseInt(tire.warranty_miles).toLocaleString()}-mile treadwear warranty</strong><br/></>)}
+                    {speedMph && (<><strong>Speed {tire.speed_rating}</strong> — rated to {speedMph} mph<br/></>)}
+                    {loadLbs && (<><strong>Load {loadIdx}</strong> — carries {loadLbs.toLocaleString()} lbs per tire<br/></>)}
+                    {tire?.snowflake && (<><strong>❄️ 3PMS certified</strong> — severe-snow rated<br/></>)}
+                    {tire?.run_flat && (<><strong>Run-flat</strong> — drive safely after a puncture<br/></>)}
+                    {quote.vehicle?.oe_tire_size && (<><strong>Fitment verified</strong> for your vehicle<br/></>)}
+                  </div>
+                  {(modelBenefits || benefitsUniversal) && (
+                    <>
+                      <div style={{ ...sectionLabel, marginTop: '12px' }}>NEXEN TOTAL COVERAGE</div>
+                      <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.7' }}>
+                        {modelBenefits?.trial && (<>🛞 <strong>Risk-free trial:</strong> {modelBenefits.trial}<br/></>)}
+                        {modelBenefits?.road_hazard && (<>🛡️ <strong>Nexen road hazard replacement</strong> — {modelBenefits.road_hazard}<br/></>)}
+                        {modelBenefits?.roadside_months && (<>🚗 <strong>{modelBenefits.roadside_months}-month roadside assistance</strong> — free flat change or tow<br/></>)}
+                        {benefitsUniversal?.zero_recall && (<>🏆 {benefitsUniversal.zero_recall}<br/></>)}
+                      </div>
+                      {benefitsUniversal?.terms_note && (
+                        <div style={{ fontSize: '9.5px', color: '#94a3b8', marginTop: '4px', lineHeight: '1.4' }}>{benefitsUniversal.terms_note}</div>
+                      )}
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -1190,88 +1222,17 @@ const QuoteView = () => {
           {campaignMode && !quote.paid_online_at && (
             <div data-print-hide="true" style={{ textAlign: 'center', margin: '4px 0 18px' }}>
               <button onClick={handlePayOnline} disabled={sendingInvoice}
-                style={{ backgroundColor: '#166534', color: 'white', padding: '18px 30px', borderRadius: '12px', border: 'none', fontWeight: '800', fontSize: '18px', cursor: sendingInvoice ? 'not-allowed' : 'pointer', opacity: sendingInvoice ? 0.7 : 1, width: '100%', maxWidth: '520px', lineHeight: '1.35', boxShadow: '0 4px 12px rgba(22,101,52,0.35)' }}>
-                {sendingInvoice ? 'SENDING YOUR INVOICE...' : '💳 PAY NOW — GET MY SECURE PAYPAL INVOICE'}
-                <div style={{ fontSize: '12px', fontWeight: '600', marginTop: '4px', opacity: 0.95 }}>
-                  We'll email your PayPal invoice — check your inbox to complete payment
-                </div>
+                style={{ backgroundColor: '#166534', color: 'white', padding: '14px 34px', borderRadius: '10px', border: 'none', fontWeight: '800', fontSize: '17px', cursor: sendingInvoice ? 'not-allowed' : 'pointer', opacity: sendingInvoice ? 0.7 : 1, whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(22,101,52,0.35)' }}>
+                {sendingInvoice ? 'SENDING YOUR INVOICE...' : '💳 PAY NOW'}
               </button>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: '#8b1538', marginTop: '10px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#334155', marginTop: '8px' }}>
+                We'll email your secure PayPal invoice — check your inbox to complete payment.
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#8b1538', marginTop: '4px' }}>
                 This special America 250 pricing must be completed online.
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                Pay in 4 available through PayPal for eligible customers · Once paid, your store preps your tires and calls you to schedule installation.
-              </div>
-            </div>
-          )}
-          {campaignMode && (
-            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', margin: '4px 0 16px' }}>
-              <div style={{ flex: '1 1 260px', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px 16px' }}>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: '#1e3a5f', letterSpacing: '1px', marginBottom: '8px' }}>ABOUT YOUR TIRE</div>
-                {modelBenefits?.tagline && (
-                  <div style={{ fontSize: '12.5px', color: '#1e3a5f', fontWeight: '600', marginBottom: '8px', lineHeight: '1.5', fontStyle: 'italic' }}>
-                    {modelBenefits.tagline}
-                  </div>
-                )}
-                {tire?.warranty_miles && (
-                  <div style={{ fontSize: '12.5px', color: '#334155', marginBottom: '6px', lineHeight: '1.5' }}>
-                    <strong>{parseInt(tire.warranty_miles).toLocaleString()}-mile treadwear warranty</strong> — prorated manufacturer coverage for the promised tread life.
-                  </div>
-                )}
-                {speedMph && (
-                  <div style={{ fontSize: '12.5px', color: '#334155', marginBottom: '6px', lineHeight: '1.5' }}>
-                    <strong>Speed rating {tire.speed_rating}</strong> — engineered for sustained speeds up to {speedMph} mph, well beyond legal limits.
-                  </div>
-                )}
-                {loadLbs && (
-                  <div style={{ fontSize: '12.5px', color: '#334155', marginBottom: '6px', lineHeight: '1.5' }}>
-                    <strong>Load index {loadIdx}</strong> — each tire safely carries up to {loadLbs.toLocaleString()} lbs.
-                  </div>
-                )}
-                {tire?.snowflake && (
-                  <div style={{ fontSize: '12.5px', color: '#334155', marginBottom: '6px', lineHeight: '1.5' }}>
-                    <strong>❄️ 3-Peak Mountain Snowflake</strong> — certified severe-snow traction.
-                  </div>
-                )}
-                {tire?.run_flat && (
-                  <div style={{ fontSize: '12.5px', color: '#334155', marginBottom: '6px', lineHeight: '1.5' }}>
-                    <strong>Run-flat construction</strong> — drive safely to service after a puncture.
-                  </div>
-                )}
-                {quote.vehicle?.oe_tire_size && (
-                  <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.5' }}>
-                    <strong>Fitment verified</strong> — meets or exceeds your vehicle's factory tire specification.
-                  </div>
-                )}
-              </div>
-              <div style={{ flex: '1 1 260px', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px 16px' }}>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: '#1e3a5f', letterSpacing: '1px', marginBottom: '8px' }}>YOUR PRICE INCLUDES EVERYTHING</div>
-                <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.8' }}>
-                  ✓ Professional mounting &amp; balancing<br/>
-                  ✓ Road hazard protection on every tire<br/>
-                  ✓ Old tire disposal &amp; CA state fees<br/>
-                  ✓ Sales tax — no surprises at the store
-                </div>
-                {(modelBenefits || benefitsUniversal) && (
-                  <>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#1e3a5f', letterSpacing: '1px', margin: '12px 0 6px' }}>BACKED BY NEXEN TOTAL COVERAGE</div>
-                    <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.7' }}>
-                      {modelBenefits?.trial && (<>🛞 <strong>Try them risk-free:</strong> {modelBenefits.trial} satisfaction guarantee<br/></>)}
-                      {modelBenefits?.road_hazard && (<>🛡️ <strong>Nexen Road Hazard Replacement</strong> ({modelBenefits.road_hazard}) — on top of the road hazard protection already in your price<br/></>)}
-                      {modelBenefits?.roadside_months && (<>🚗 <strong>{modelBenefits.roadside_months} months of Nexen roadside assistance</strong> — free flat-tire change or tow<br/></>)}
-                      {benefitsUniversal?.zero_recall && (<>🏆 {benefitsUniversal.zero_recall}<br/></>)}
-                    </div>
-                    {benefitsUniversal?.terms_note && (
-                      <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px', lineHeight: '1.4' }}>{benefitsUniversal.terms_note}</div>
-                    )}
-                  </>
-                )}
-                <div style={{ fontSize: '11px', fontWeight: '700', color: '#1e3a5f', letterSpacing: '1px', margin: '12px 0 6px' }}>WHAT HAPPENS AFTER YOU PAY</div>
-                <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.8' }}>
-                  1. Pay securely online via PayPal<br/>
-                  2. Your store gets your tires ready<br/>
-                  3. We call you to schedule installation
-                </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                Pay in 4 available through PayPal for eligible customers.
               </div>
             </div>
           )}
