@@ -1,8 +1,19 @@
 // =============================================================================
-// QUOTE VIEW - Customer-Facing Quote Display v9
+// QUOTE VIEW - Customer-Facing Quote Display v10
 // =============================================================================
 // Route: #/quote/:code
-// Updated: 2026-03-04
+// Updated: 2026-07-01
+// v10 Changes:
+//   - Nexen rebate config now loaded from quote_config (key: nexen_rebate_2026)
+//     instead of a hardcoded table — future offer changes are a DB update only
+//   - Rebate shows when the offer is active TODAY (Pacific), not at created_at:
+//     pre-offer quotes viewed during the window now show the rebate (customer
+//     qualifies if they buy now); quotes viewed after the window correctly don't
+//   - Date window compared as YYYY-MM-DD strings in America/Los_Angeles —
+//     fixes the old UTC-midnight parse that ended offers a day early
+//   - Staggered quotes: front AND rear tire must match the same tier
+//   - "Offer valid" line + rebate URL now dynamic from config (incl. submit-by)
+//   - Respects config "active" flag
 // v9 Changes:
 //   - Removed standalone tire card when comparison section exists (saves print space)
 //   - Moved part#, speed, load to Chosen comparison card
@@ -38,7 +49,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiCall, apiCallPublic } from './apiClient';
 
-import { API_BASE } from './config';
+import { API_BASE, REST_BASE, SUPABASE_ANON_KEY } from './config';
 const JL_LOGO = '/images/JL_Multicare_Horz_1C.png';
 
 // Tread status thresholds: 0-4 red, 5-6 yellow, 7+ green
@@ -71,60 +82,56 @@ const formatDate = (dateStr) => {
 };
 
 // =============================================================================
-// NEXEN REBATE CONFIG — Update dates/tiers here when Nexen changes the offer
+// NEXEN REBATE — loaded at runtime from quote_config (key: nexen_rebate_2026).
+// To change the offer (dates, tiers, amounts, URL), UPDATE that row in the DB.
+// No code deploy required. Config shape:
+//   { active, min_qty, start_date, end_date, submit_by?, rebate_url,
+//     tiers: [{ amount, description, sales_classes: [...] }] }
 // =============================================================================
-const NEXEN_REBATE = {
-  start_date: '2026-03-01',
-  end_date:   '2026-04-30',
-  min_qty: 4,
-  rebate_url: 'https://jiffy.win/42c9ehG',
-  tiers: [
-    {
-      amount: 100,
-      label: "Nexen N'Blue 4 Season2 — $100 Mail-In Rebate",
-      sales_classes: ["Nexen N'BLUE 4S 2"],
-    },
-    {
-      amount: 80,
-      label: "Nexen — $80 Mail-In Rebate",
-      sales_classes: [
-        "Nexen ROADIAN ATX",
-        "Nexen ROADIAN GTX",
-        "Nexen ROADIAN HTX 2",
-        "Nexen ROADIAN CT8 HL",
-        "Nexen N'PRIZ AH8",
-        "Nexen N'FERA AU7",
-        "Nexen N'PRIZ S",
-        "Nexen N'FERA SPORT",
-      ],
-    },
-    {
-      amount: 60,
-      label: "Nexen N'Priz AH5 — $60 Mail-In Rebate",
-      sales_classes: ["Nexen N'PRIZ AH5"],
-    },
-  ],
+
+// Today's date as YYYY-MM-DD in Pacific time (store timezone). String
+// comparison against config dates avoids UTC-midnight parsing bugs that
+// previously ended offers a day early.
+const todayInPacific = () =>
+  new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+
+// '2026-07-31' → '7/31/26' for customer-facing display
+const formatConfigDate = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  return `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}/${parts[0].slice(2)}`;
 };
 
-// Returns { amount, label } if the quote qualifies for a Nexen rebate, otherwise null
-function getNexenRebate(tireName, quantity, createdAt) {
-  if (!tireName || !createdAt) return null;
+// Returns { amount, label, url, validText } if the quote qualifies for the
+// current Nexen offer, otherwise null. Qualification is based on whether the
+// offer is active TODAY — a customer viewing any quote during the window can
+// claim the rebate if they purchase now.
+function getNexenRebate(cfg, tireName, rearTireName, isStaggered, quantity) {
+  if (!cfg || cfg.active === false) return null;
+  if (!tireName || !cfg.start_date || !cfg.end_date) return null;
 
-  // Check date window using the quote's created_at date
-  const quoteDate = new Date(createdAt);
-  const start = new Date(NEXEN_REBATE.start_date);
-  const end   = new Date(NEXEN_REBATE.end_date);
-  end.setHours(23, 59, 59, 999);
-  if (quoteDate < start || quoteDate > end) return null;
+  // Offer must be active today (Pacific)
+  const today = todayInPacific();
+  if (today < cfg.start_date || today > cfg.end_date) return null;
 
-  // Check minimum quantity
-  if ((quantity || 0) < NEXEN_REBATE.min_qty) return null;
+  // Minimum quantity (total tires on the quote)
+  if ((quantity || 0) < (cfg.min_qty || 4)) return null;
 
-  // Match tire name against tier sales_classes (exact match)
-  const matched = NEXEN_REBATE.tiers.find(tier =>
-    tier.sales_classes.includes(tireName)
+  // Match tire name (= sales_class) against tier sales_classes (exact match)
+  const tier = (cfg.tiers || []).find(t =>
+    (t.sales_classes || []).includes(tireName)
   );
-  return matched ? { amount: matched.amount, label: matched.label } : null;
+  if (!tier) return null;
+
+  // Staggered fitment: rear tire must be the same qualifying model —
+  // otherwise the customer isn't buying 4 of a qualifying tire
+  if (isStaggered && !(tier.sales_classes || []).includes(rearTireName)) return null;
+
+  const validText = `Purchase by ${formatConfigDate(cfg.end_date)}` +
+    (cfg.submit_by ? ` · Submit by ${formatConfigDate(cfg.submit_by)}` : '');
+
+  return { amount: tier.amount, label: tier.description, url: cfg.rebate_url, validText };
 }
 
 // Tire replacement reason options (must match generate-quote/update-quote codes)
@@ -320,11 +327,39 @@ const QuoteView = () => {
     lf: [], rf: [], lr: [], rr: [],
   });
 
+  // Nexen rebate config — loaded from quote_config (key: nexen_rebate_2026)
+  const [nexenConfig, setNexenConfig] = useState(null);
+
   const getShortCode = () => {
     const hash = window.location.hash;
     const match = hash.match(/\/quote\/([A-Z0-9]+)/i);
     return match ? match[1] : null;
   };
+
+  // Fetch Nexen rebate config via Supabase REST (same pattern as QuoteBuilder —
+  // read-only public config, anon key is fine, no Edge Function needed)
+  useEffect(() => {
+    const fetchRebateConfig = async () => {
+      try {
+        const configResponse = await fetch(
+          `${REST_BASE}/quote_config?config_key=eq.nexen_rebate_2026&select=config_value`,
+          {
+            headers: {
+              'apikey': SUPABASE_ANON_KEY,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        const configData = await configResponse.json();
+        if (configData && configData[0]?.config_value) {
+          setNexenConfig(configData[0].config_value);
+        }
+      } catch (e) {
+        console.error('Failed to fetch Nexen rebate config:', e);
+      }
+    };
+    fetchRebateConfig();
+  }, []);
 
   useEffect(() => {
     const fetchQuote = async () => {
@@ -658,8 +693,9 @@ const QuoteView = () => {
   const tireRear = quote.tire_rear || null;
 
   // ─── Nexen rebate auto-calculation ───
-  // Uses tire name (sales_class), quantity, and quote date — no CSA input required
-  const nexenRebate = getNexenRebate(tire?.name, p?.quantity, quote.created_at);
+  // Config-driven (quote_config), based on tire name (sales_class), quantity,
+  // and whether the offer is active today — no CSA input required
+  const nexenRebate = getNexenRebate(nexenConfig, tire?.name, tireRear?.name, isStaggered, p?.quantity);
 
   const hasVehicleInfo = quote.vehicle?.display && 
     quote.vehicle.display !== '' && 
@@ -1033,21 +1069,23 @@ const QuoteView = () => {
                   <div style={{ fontSize: '22px', lineHeight: 1 }}>🏷️</div>
                   <div>
                     <div style={{ fontSize: '12px', fontWeight: '700', color: '#166534', marginBottom: '2px' }}>
-                      Submit Your Mail-In Rebate
+                      Claim Your Nexen Rebate
                     </div>
                     <div style={{ fontSize: '11px', color: '#15803d' }}>
-                      Get {formatCurrency(nexenRebate.amount)} back after purchase · Offer valid 3/1/26–4/30/26
+                      Get {formatCurrency(nexenRebate.amount)} back after purchase · {nexenRebate.validText}
                     </div>
-                    <div style={{ fontSize: '11px', marginTop: '2px' }}>
-                      <a
-                        href={NEXEN_REBATE.rebate_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: '#15803d', fontWeight: '700', textDecoration: 'underline' }}
-                      >
-                        {NEXEN_REBATE.rebate_url.replace('https://', '')}
-                      </a>
-                    </div>
+                    {nexenRebate.url && (
+                      <div style={{ fontSize: '11px', marginTop: '2px' }}>
+                        <a
+                          href={nexenRebate.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#15803d', fontWeight: '700', textDecoration: 'underline' }}
+                        >
+                          {nexenRebate.url.replace('https://', '')}
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

@@ -927,13 +927,18 @@ export default function QuoteBuilder() {
 
     const cfg = nexenRebateConfig;
 
-    // Check date window
-    const today = new Date();
-    const start = new Date(cfg.start_date);
-    const end = new Date(cfg.end_date);
-    // end date is end of that day
-    end.setHours(23, 59, 59, 999);
-    if (today < start || today > end) {
+    // Respect config active flag
+    if (cfg.active === false) {
+      setRebateAmount('');
+      setRebateDescription('');
+      return;
+    }
+
+    // Check date window — compare YYYY-MM-DD strings in Pacific time.
+    // (new Date('YYYY-MM-DD') parses as UTC midnight, which is the PREVIOUS
+    // day 5pm Pacific — the old check ended offers a day early.)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+    if (!cfg.start_date || !cfg.end_date || today < cfg.start_date || today > cfg.end_date) {
       setRebateAmount('');
       setRebateDescription('');
       return;
