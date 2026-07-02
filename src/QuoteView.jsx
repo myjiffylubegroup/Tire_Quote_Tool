@@ -1045,6 +1045,22 @@ const QuoteView = () => {
                     <td style={{ padding: '10px 4px', fontSize: '16px', fontWeight: '700', color: '#1e293b', borderBottom: 'none' }}>TOTAL</td>
                     <td style={{ padding: '10px 4px', textAlign: 'right', fontSize: '22px', fontWeight: '700', color: '#8b1538', borderBottom: 'none' }}>{formatCurrency(p?.total_amount)}</td>
                   </tr>
+                  {quote.paid_online_at && (
+                    <>
+                      <tr>
+                        <td style={{ padding: '6px 0', fontSize: '13px', color: '#166534', fontWeight: '700' }}>
+                          ✓ Paid Online (PayPal) · {formatDate(quote.paid_online_at)}
+                        </td>
+                        <td style={{ padding: '6px 0', textAlign: 'right', fontSize: '13px', color: '#166534', fontWeight: '700' }}>
+                          -{formatCurrency(p?.total_amount)}
+                        </td>
+                      </tr>
+                      <tr style={{ backgroundColor: '#f0fdf4' }}>
+                        <td style={{ padding: '10px 4px', fontSize: '14px', fontWeight: '700', color: '#166534', borderBottom: 'none' }}>BALANCE DUE</td>
+                        <td style={{ padding: '10px 4px', textAlign: 'right', fontSize: '18px', fontWeight: '700', color: '#166534', borderBottom: 'none' }}>{formatCurrency(0)}</td>
+                      </tr>
+                    </>
+                  )}
                   {nexenRebate && (
                     <>
                       <tr>
