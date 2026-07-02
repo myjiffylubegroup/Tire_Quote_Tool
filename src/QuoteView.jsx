@@ -755,6 +755,11 @@ const QuoteView = () => {
                 EXPIRED
               </div>
             )}
+            {quote.paid_online_at && (
+              <div style={{ backgroundColor: '#166534', color: '#ffffff', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '700', marginTop: '6px', display: 'inline-block' }}>
+                ✓ PAID ONLINE
+              </div>
+            )}
             {/* Print button */}
             <button data-print-hide="true" onClick={() => window.print()} style={{
               backgroundColor: '#f1f5f9', color: '#1e293b', border: '1px solid #cbd5e1',
@@ -1138,11 +1143,29 @@ const QuoteView = () => {
               style={{ backgroundColor: '#16a34a', color: 'white', padding: '10px 16px', borderRadius: '8px', border: 'none', fontWeight: '600', fontSize: '12.5px', cursor: sendingSms ? 'not-allowed' : 'pointer', opacity: sendingSms ? 0.7 : 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', minWidth: '85px', textAlign: 'center', lineHeight: '1.3' }}>
               <span>{sendingSms ? '...' : '💬 Text'}</span><span>Quote</span>
             </button>
-            <button onClick={handlePayOnline} disabled={sendingInvoice}
-              style={{ backgroundColor: '#f59e0b', color: 'white', padding: '10px 16px', borderRadius: '8px', border: 'none', fontWeight: '600', fontSize: '12.5px', cursor: sendingInvoice ? 'not-allowed' : 'pointer', opacity: sendingInvoice ? 0.7 : 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', minWidth: '85px', textAlign: 'center', lineHeight: '1.3' }}>
-              <span>{sendingInvoice ? '...' : '💳 Pay'}</span><span>Now</span>
-            </button>
+            {!quote.paid_online_at && (
+              <button onClick={handlePayOnline} disabled={sendingInvoice}
+                style={{ backgroundColor: '#f59e0b', color: 'white', padding: '10px 16px', borderRadius: '8px', border: 'none', fontWeight: '600', fontSize: '12.5px', cursor: sendingInvoice ? 'not-allowed' : 'pointer', opacity: sendingInvoice ? 0.7 : 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', minWidth: '85px', textAlign: 'center', lineHeight: '1.3' }}>
+                <span>{sendingInvoice ? '...' : '💳 Pay'}</span><span>Now</span>
+              </button>
+            )}
           </div>
+          {quote.paid_online_at && (
+            <div style={{
+              backgroundColor: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '10px',
+              padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px'
+            }}>
+              <div style={{ fontSize: '22px', lineHeight: 1 }}>✅</div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#166534' }}>
+                  Paid online — thank you!
+                </div>
+                <div style={{ fontSize: '12px', color: '#15803d' }}>
+                  Your store will call you to schedule installation. Questions? Just call the store — your quote number is your order number.
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ─── Staff Buttons (hidden for customers) ─── */}
           {isStaff && (
