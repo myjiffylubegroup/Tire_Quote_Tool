@@ -890,11 +890,11 @@ export default function QuoteBuilder() {
   useEffect(() => {
     const fetchRebateConfig = async () => {
       try {
-        // Read quote_config directly via Supabase REST. (We don't have a
-        // dedicated config-fetch Edge Function and don't want to invent one
-        // just for this — the anon key is fine for read-only public config.)
+        // Read rebate config via Supabase REST through v_public_config —
+        // quote_config itself is locked to anon (it held staff PINs); the
+        // view exposes only explicitly public keys.
         const configResponse = await fetch(
-          `${REST_BASE}/quote_config?config_key=eq.nexen_rebate_2026&select=config_value`,
+          `${REST_BASE}/v_public_config?config_key=eq.nexen_rebate_2026&select=config_value`,
           {
             headers: {
               'apikey': SUPABASE_ANON_KEY,
