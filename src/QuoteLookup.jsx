@@ -1494,6 +1494,36 @@ const checkinReasonLabels = (greet) =>
     .filter(Boolean)
     .map(checkinReasonLabel);
 
+// checkin_severity is a 0–1 numeric (higher = worse), issued by the kiosk's
+// greets-feedback. NULL means it wasn't scored (chips-only feedback, or a
+// non-oil flow) — NOT "not severe" — so urgency is only asserted when a real
+// score clears the threshold. Single knob, tune here.
+const CHECKIN_SEVERITY_URGENT = 0.86;
+const checkinIsUrgent = (greet) => {
+  const s = greet && greet.checkin_severity;
+  return s != null && Number(s) >= CHECKIN_SEVERITY_URGENT;
+};
+
+// Small affordance chip: the guest left a free-text comment. The card never
+// renders the comment text itself (a 500-char paragraph would blow out the
+// card height and wreck the scan-ability of the list) — this marker just
+// signals "there's a comment," and the full text shows in the detail modal on
+// click. `onDark` styles it for the red rough banner.
+function CheckinCommentMarker({ onDark = false }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '4px',
+      fontSize: '11px', fontWeight: '700', letterSpacing: '0.2px',
+      padding: '2px 8px', borderRadius: '999px',
+      color: onDark ? '#ffffff' : '#3730a3',
+      backgroundColor: onDark ? 'rgba(255,255,255,0.18)' : '#eef2ff',
+      border: `1px solid ${onDark ? 'rgba(255,255,255,0.5)' : '#c7d2fe'}`,
+    }}>
+      💬 Comment
+    </span>
+  );
+}
+
 // =============================================================================
 // RecoveryVoucherChip — the check-in recovery discount the cashier honors at
 // the register. Shows even if the guest forgot to show their phone, so it's the
@@ -1692,30 +1722,49 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
           the kiosk unhappy. Loud red so a manager can catch them in person
           before they pay. Sits under the Engine Prep banner when both fire.
           Display-only; feedback is written by the kiosk. */}
-      {hasCheckinFeedback(greet) && greet.checkin_rating === 'rough' && (
+      {hasCheckinFeedback(greet) && greet.checkin_rating === 'rough' && (() => {
+        const urgent = checkinIsUrgent(greet);
+        return (
         <div style={{
           margin: prepNeeded ? '0 -18px 12px -18px' : '-16px -18px 12px -18px',
-          backgroundColor: '#dc2626',
+          backgroundColor: urgent ? '#7f1d1d' : '#dc2626',
           color: 'white',
           padding: '10px 14px',
           borderTopRightRadius: prepNeeded ? '0' : '9px',
+          boxShadow: urgent ? 'inset 0 0 0 2px #fecaca' : 'none',
           display: 'flex',
           flexDirection: 'column',
           gap: '3px',
         }}>
-          <div style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.5px' }}>
-            ⚠ NEEDS APOLOGY — ROUGH CHECK-IN
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.5px' }}>
+              ⚠ {urgent ? 'URGENT — APOLOGIZE NOW' : 'NEEDS APOLOGY — ROUGH CHECK-IN'}
+            </span>
+            {urgent && (
+              <span style={{
+                fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px',
+                backgroundColor: '#fee2e2', color: '#7f1d1d',
+                border: '1px solid #fecaca', borderRadius: '999px', padding: '1px 8px',
+              }}>
+                HIGH SEVERITY
+              </span>
+            )}
           </div>
           {(checkinReasonLabels(greet).length > 0 || (greet.checkin_comment && greet.checkin_comment.trim())) && (
-            <div style={{ fontSize: '11px', fontWeight: '600', lineHeight: '1.35', opacity: 0.95 }}>
-              {checkinReasonLabels(greet).join(' · ')}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+              {checkinReasonLabels(greet).length > 0 && (
+                <span style={{ fontSize: '11px', fontWeight: '600', lineHeight: '1.35', opacity: 0.95 }}>
+                  {checkinReasonLabels(greet).join(' · ')}
+                </span>
+              )}
               {greet.checkin_comment && greet.checkin_comment.trim() && (
-                <>{checkinReasonLabels(greet).length > 0 ? ' — ' : ''}“{greet.checkin_comment.trim()}”</>
+                <CheckinCommentMarker onDark />
               )}
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* Top row: short code + customer + time */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
@@ -1940,14 +1989,18 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
             handled by its own loud banner above, so it's excluded here. */}
         {hasCheckinFeedback(greet) && (greet.checkin_rating === 'okay' || greet.checkin_rating === 'great') && (() => {
           const s = checkinRatingStyle(greet.checkin_rating);
+          const hasComment = greet.checkin_comment && greet.checkin_comment.trim();
           return (
-            <span style={{
-              fontSize: '11px', fontWeight: '700',
-              color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}`,
-              padding: '3px 8px', borderRadius: '10px',
-            }}>
-              {s.icon} Check-in: {checkinRatingLabel(greet.checkin_rating)}
-            </span>
+            <>
+              <span style={{
+                fontSize: '11px', fontWeight: '700',
+                color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}`,
+                padding: '3px 8px', borderRadius: '10px',
+              }}>
+                {s.icon} Check-in: {checkinRatingLabel(greet.checkin_rating)}
+              </span>
+              {hasComment && <CheckinCommentMarker />}
+            </>
           );
         })()}
         {alerts.length > 0 && (
@@ -2250,9 +2303,10 @@ function GreetDetailModal({ greet, onClose, loading }) {
             const reasons = checkinReasonLabels(greet);
             const comment = greet.checkin_comment && greet.checkin_comment.trim();
             const rough = greet.checkin_rating === 'rough';
+            const urgent = rough && checkinIsUrgent(greet);
             return (
               <div style={{
-                backgroundColor: rough ? '#dc2626' : s.bg,
+                backgroundColor: urgent ? '#7f1d1d' : (rough ? '#dc2626' : s.bg),
                 borderLeft: `4px solid ${rough ? '#991b1b' : s.border}`,
                 color: rough ? '#ffffff' : s.color,
                 padding: '14px 18px',
@@ -2262,8 +2316,20 @@ function GreetDetailModal({ greet, onClose, loading }) {
                 <div style={{
                   fontWeight: '800', textTransform: 'uppercase', fontSize: '11px',
                   letterSpacing: '1px', marginBottom: (reasons.length || comment || greet.recovery_code) ? '10px' : '0',
+                  display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
                 }}>
-                  {s.icon} {rough ? 'Needs apology — rough check-in' : `Check-in feedback — ${checkinRatingLabel(greet.checkin_rating)}`}
+                  <span>
+                    {s.icon} {urgent ? 'Urgent — apologize now' : (rough ? 'Needs apology — rough check-in' : `Check-in feedback — ${checkinRatingLabel(greet.checkin_rating)}`)}
+                  </span>
+                  {urgent && (
+                    <span style={{
+                      fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px',
+                      backgroundColor: '#fee2e2', color: '#7f1d1d',
+                      border: '1px solid #fecaca', borderRadius: '999px', padding: '1px 8px',
+                    }}>
+                      HIGH SEVERITY
+                    </span>
+                  )}
                 </div>
                 {reasons.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: comment ? '10px' : '0' }}>
