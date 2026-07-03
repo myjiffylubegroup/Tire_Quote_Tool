@@ -3,6 +3,7 @@ import Navbar from './Navbar';
 import { apiCall } from './apiClient';
 
 import { API_BASE } from './config';
+import { checkinRatingLabel, checkinReasonLabel, recoveryReasonLabel } from './concernLabels';
 
 const STORES = [
   { id: 609,  name: 'Santa Maria',                 number: 609  },
@@ -587,6 +588,80 @@ const CartRemovalsCard = ({ data, onSegmentClick }) => {
   );
 };
 
+// Check-in experience card (post-submit Screen 15 survey) + recovery coupons.
+// Read-only: ratings and coupons are issued by the kiosk's greets-feedback;
+// this side only reports. The bar is drillable per rating; the coupon count is
+// drillable to the list of issued coupons. Denominator for the split is
+// respondents (feedback submitted); a response-rate line keeps a thin sample
+// from being misread.
+const CHECKIN_RATING_COLOR = { rough: '#ef4444', okay: '#f59e0b', great: '#10b981' };
+const CheckinExperienceCard = ({ data, recovery, onSegmentClick, onRecoveryClick }) => {
+  const respondents = (data && data.respondents) || 0;
+  const segments = [
+    { key: 'rough', label: '⚠ Rough', count: (data && data.rough) || 0, color: CHECKIN_RATING_COLOR.rough },
+    { key: 'okay',  label: '• Okay',  count: (data && data.okay)  || 0, color: CHECKIN_RATING_COLOR.okay },
+    { key: 'great', label: '✓ Great', count: (data && data.great) || 0, color: CHECKIN_RATING_COLOR.great },
+  ].filter((s) => s.count > 0);
+  const couponsIssued = (recovery && recovery.coupons_issued) || 0;
+  const avgValue = recovery && recovery.avg_value != null ? recovery.avg_value : null;
+  const totalValue = recovery && recovery.total_value != null ? recovery.total_value : null;
+  const canDrillCoupons = typeof onRecoveryClick === 'function' && couponsIssued > 0;
+
+  return (
+    <div style={{
+      backgroundColor: 'white', border: '1px solid #eee', borderRadius: '12px',
+      padding: '18px 20px', flex: '1 1 280px', minWidth: '260px',
+    }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        Check-in Experience
+        <span title="How guests rated the kiosk check-in on the post-submit survey. Denominator is respondents (people who answered). Response rate shows how many of all greets in range actually answered — read the split with that in mind. Rough/okay/great are the customer's words; tap a bar to see who." style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: '14px', height: '14px', borderRadius: '50%',
+          backgroundColor: '#f0f0f0', color: '#888', fontSize: '9px', fontWeight: '700', cursor: 'help',
+        }}>?</span>
+      </div>
+
+      {respondents === 0 ? (
+        <div style={{ fontSize: '12px', color: '#aaa' }}>No check-in feedback yet in this range</div>
+      ) : (
+        <>
+          <SegmentBar
+            segments={segments}
+            total={respondents}
+            onSegmentClick={onSegmentClick}
+          />
+          <div style={{ fontSize: '11px', color: '#aaa', marginTop: '10px' }}>
+            Response rate {data.response_rate_pct != null ? `${data.response_rate_pct}%` : '—'}
+            {' · '}{respondents} of {data.total_greets} greets answered
+          </div>
+        </>
+      )}
+
+      {couponsIssued > 0 && (
+        <div
+          onClick={canDrillCoupons ? onRecoveryClick : undefined}
+          style={{
+            marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed #eee',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            cursor: canDrillCoupons ? 'pointer' : 'default',
+          }}
+          onMouseOver={canDrillCoupons ? (e) => e.currentTarget.style.backgroundColor = '#faf5ff' : undefined}
+          onMouseOut={canDrillCoupons ? (e) => e.currentTarget.style.backgroundColor = 'transparent' : undefined}
+        >
+          <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>
+            🎟 {couponsIssued} recovery coupon{couponsIssued === 1 ? '' : 's'} issued
+          </span>
+          <span style={{ fontSize: '12px', color: '#888' }}>
+            {avgValue != null ? `avg ${formatCurrency(avgValue)}` : '—'}
+            {totalValue != null ? ` · ${formatCurrency(totalValue)} total` : ''}
+            {canDrillCoupons && <span style={{ color: '#bbb', marginLeft: '6px' }}>↗</span>}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Relationship funnel group (June 2026) — one labeled row of KpiCards for a
 // single customer relationship (repeat / new-to-TM / brand-new). offered =
 // TM-eligible greets in the group; purchased = TM package selected; saved-by-EP
@@ -1034,6 +1109,17 @@ export default function GreetsReports() {
                     onSegmentClick={(label) => openDrill('cart_removals', label, `Cart Removals — ${label}`)}
                   />
                 )}
+                {/* Check-in experience survey + recovery coupons. Guarded on
+                    payload presence so the frontend deploy doesn't depend on
+                    greets-analytics being redeployed first. */}
+                {s1.checkin_survey && (
+                  <CheckinExperienceCard
+                    data={s1.checkin_survey}
+                    recovery={s1.recovery}
+                    onSegmentClick={(seg) => openDrill('checkin_survey', seg, `Check-in — ${checkinRatingLabel(seg)}`)}
+                    onRecoveryClick={() => openDrill('recovery_issued', null, 'Recovery Coupons Issued')}
+                  />
+                )}
               </div>
             </div>
 
@@ -1362,6 +1448,22 @@ function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
         { key: 'nps_bucket',    label: 'Bucket',      render: (r) => r.nps_bucket?.toUpperCase() || '—' },
         { key: 'classification',label: 'Service',     render: (r) => r.classification?.toUpperCase() || '—' },
         { key: 'invoice_total', label: 'Total Paid',  render: (r) => r.invoice_total != null ? formatCurrency(r.invoice_total) : '—', right: true },
+      ];
+      case 'checkin_survey': return [
+        ...universal,
+        { key: 'checkin_rating', label: 'Rating',   render: (r) => checkinRatingLabel(r.checkin_rating), bold: true, color: (r) => CHECKIN_RATING_COLOR[r.checkin_rating] || '#555' },
+        { key: 'severity',       label: 'Severity', render: (r) => r.checkin_severity != null ? `${Math.round(r.checkin_severity * 100)}%${r.checkin_severity >= 0.86 ? ' ⚠' : ''}` : '—', right: true },
+        { key: 'reasons',        label: 'Reasons',  render: (r) => Array.isArray(r.checkin_reasons) && r.checkin_reasons.length ? r.checkin_reasons.map(checkinReasonLabel).join('; ') : '—' },
+        { key: 'comment',        label: 'Comment',  render: (r) => r.checkin_comment ? String(r.checkin_comment) : '—' },
+        { key: 'coupon',         label: 'Coupon',   render: (r) => r.recovery_code ? `${r.recovery_code}${r.recovery_amount != null ? ' (' + formatCurrency(r.recovery_amount) + ')' : ''}` : '—' },
+      ];
+      case 'recovery_issued': return [
+        ...universal,
+        { key: 'recovery_code',   label: 'Code',     render: (r) => r.recovery_code || '—', bold: true },
+        { key: 'recovery_amount', label: 'Value',    render: (r) => r.recovery_amount != null ? formatCurrency(r.recovery_amount) : '—', right: true, bold: true },
+        { key: 'recovery_reason', label: 'Reason',   render: (r) => recoveryReasonLabel(r.recovery_reason) },
+        { key: 'checkin_rating',  label: 'Rating',   render: (r) => checkinRatingLabel(r.checkin_rating), color: (r) => CHECKIN_RATING_COLOR[r.checkin_rating] || '#555' },
+        { key: 'redeemed',        label: 'Redeemed', render: (r) => r.recovery_redeemed ? '✓' : '—', color: (r) => r.recovery_redeemed ? '#10b981' : '#ccc' },
       ];
       default: return universal;
     }
