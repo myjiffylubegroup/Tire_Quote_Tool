@@ -396,8 +396,17 @@ export default function QuoteLookup() {
   const [deleteInProgress, setDeleteInProgress] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
-  // Staff profile (used to gate the Edit button). Fetched once per session
-  // on first entry to greets mode.
+  // Quote void mode (tires only — gated by staffProfile.can_delete_quotes).
+  // Mirrors the greets edit/delete flow. Mechanical quotes have no soft-delete
+  // column, so this UI never appears in mechanical mode.
+  const [quotesEditMode, setQuotesEditMode] = useState(false);
+  const [selectedQuoteIds, setSelectedQuoteIds] = useState(new Set());
+  const [quoteDeleteConfirmOpen, setQuoteDeleteConfirmOpen] = useState(false);
+  const [quoteDeleteReason, setQuoteDeleteReason] = useState('');
+  const [quoteDeleteInProgress, setQuoteDeleteInProgress] = useState(false);
+  const [quoteDeleteError, setQuoteDeleteError] = useState(null);
+
+  // Staff profile (used to gate the Edit buttons). Fetched once per session.
   const [staffProfile, setStaffProfile] = useState(null);
 
   // Save store to localStorage
@@ -427,9 +436,9 @@ export default function QuoteLookup() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStore, quoteMode, greetsDateFrom, greetsDateTo]);
 
-  // Fetch staff profile once on first entry to greets mode (gates Edit UI).
+  // Fetch staff profile once per session (gates both the greets Edit UI and
+  // the tire-quote Void UI). Fetched on first render regardless of mode.
   useEffect(() => {
-    if (quoteMode !== 'greets') return;
     if (staffProfile !== null) return; // already fetched
     (async () => {
       try {
@@ -450,6 +459,15 @@ export default function QuoteLookup() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quoteMode]);
+
+  // Leaving tires mode or switching store cancels any in-progress quote void.
+  useEffect(() => {
+    setQuotesEditMode(false);
+    setSelectedQuoteIds(new Set());
+    setQuoteDeleteConfirmOpen(false);
+    setQuoteDeleteReason('');
+    setQuoteDeleteError(null);
+  }, [selectedStore, quoteMode]);
 
   const loadGreets = async () => {
     setGreetsLoading(true);
@@ -617,6 +635,107 @@ export default function QuoteLookup() {
     } catch (e) {
       setDeleteError('Failed to connect to server');
       setDeleteInProgress(false);
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Void mode for tire quotes (managers only). Mirrors the greets flow above.
+  // TIRES ONLY — mechanical_quotes has no soft-delete column, so the Edit
+  // button never appears in mechanical mode. Operates on quote_ids (uuid).
+  // Paid quotes are blocked by the backend (409 + paid_quote_numbers).
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // Cap matches the soft-delete-quotes edge function's enforced cap.
+  const QUOTES_DELETE_MAX_PER_CALL = 100;
+
+  const enterQuotesEditMode = () => {
+    setQuotesEditMode(true);
+    setSelectedQuoteIds(new Set());
+  };
+
+  const exitQuotesEditMode = () => {
+    setQuotesEditMode(false);
+    setSelectedQuoteIds(new Set());
+    setQuoteDeleteConfirmOpen(false);
+    setQuoteDeleteReason('');
+    setQuoteDeleteError(null);
+  };
+
+  const toggleQuoteSelection = (quoteId) => {
+    setSelectedQuoteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(quoteId)) {
+        next.delete(quoteId);
+      } else if (next.size < QUOTES_DELETE_MAX_PER_CALL) {
+        next.add(quoteId);
+      }
+      // Silently cap at 100 — the API enforces this too. The disabled Void
+      // button and cap banner are the cue.
+      return next;
+    });
+  };
+
+  const openQuoteDeleteConfirm = () => {
+    if (selectedQuoteIds.size === 0) return;
+    setQuoteDeleteReason('');
+    setQuoteDeleteError(null);
+    setQuoteDeleteConfirmOpen(true);
+  };
+
+  const closeQuoteDeleteConfirm = () => {
+    if (quoteDeleteInProgress) return; // don't allow close mid-call
+    setQuoteDeleteConfirmOpen(false);
+    setQuoteDeleteReason('');
+    setQuoteDeleteError(null);
+  };
+
+  const confirmDeleteQuotes = async () => {
+    if (!quoteDeleteReason) return;
+    if (selectedQuoteIds.size === 0) return;
+
+    const quoteIds = Array.from(selectedQuoteIds);
+
+    setQuoteDeleteInProgress(true);
+    setQuoteDeleteError(null);
+
+    try {
+      const response = await apiCall(`${API_BASE}/soft-delete-quotes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quote_ids: quoteIds,
+          reason: quoteDeleteReason,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        // Paid quotes can't be voided — the backend returns 409 with the
+        // offending quote numbers so the CSA knows which to unselect.
+        if (data.paid_quote_numbers && data.paid_quote_numbers.length > 0) {
+          setQuoteDeleteError(
+            `These quotes were paid online and can't be voided: ${data.paid_quote_numbers.join(', ')}. Unselect them and try again.`
+          );
+        } else {
+          setQuoteDeleteError(data.error || 'Void failed');
+        }
+        setQuoteDeleteInProgress(false);
+        return;
+      }
+
+      // Success — optimistically drop the voided rows so they vanish instantly,
+      // then exit edit mode and re-run the search to reconcile with the server
+      // (search-quotes already filters out voided quotes).
+      const deleted = new Set(quoteIds);
+      setQuotes((prev) => prev.filter((q) => !deleted.has(q.quote_id)));
+      setQuoteDeleteInProgress(false);
+      setQuoteDeleteConfirmOpen(false);
+      exitQuotesEditMode();
+      handleSearch();
+    } catch (e) {
+      setQuoteDeleteError('Failed to connect to server');
+      setQuoteDeleteInProgress(false);
     }
   };
 
@@ -1179,10 +1298,85 @@ export default function QuoteLookup() {
                 ? `${greets.length} Greet${greets.length !== 1 ? 's' : ''} ${(greetsDateFrom || greetsDateTo) ? 'in Range' : 'Today'}`
                 : `${quotes.length} Quote${quotes.length !== 1 ? 's' : ''} Found`}
             </span>
-            <span style={{ fontSize: '12px', color: '#888' }}>
-              Store: {STORES.find(s => s.id === parseInt(selectedStore))?.name || selectedStore}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {/* Void controls — tires only, manager-only. The API enforces
+                  this too; hiding the button is UX, not the security boundary. */}
+              {quoteMode === 'tires' && staffProfile?.can_delete_quotes && !quotesEditMode && quotes.length > 0 && (
+                <button
+                  onClick={enterQuotesEditMode}
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: '#9b59b6',
+                    border: '2px solid #9b59b6',
+                    padding: '6px 16px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    letterSpacing: '1px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✎ EDIT
+                </button>
+              )}
+
+              {quoteMode === 'tires' && quotesEditMode && (
+                <>
+                  <button
+                    onClick={openQuoteDeleteConfirm}
+                    disabled={selectedQuoteIds.size === 0}
+                    style={{
+                      backgroundColor: selectedQuoteIds.size === 0 ? '#fca5a5' : '#dc2626',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 18px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      letterSpacing: '1px',
+                      cursor: selectedQuoteIds.size === 0 ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    🗑 VOID {selectedQuoteIds.size > 0 ? `${selectedQuoteIds.size} SELECTED` : 'SELECTED'}
+                  </button>
+                  <button
+                    onClick={exitQuotesEditMode}
+                    style={{
+                      backgroundColor: '#f1f5f9',
+                      color: '#64748b',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    DONE
+                  </button>
+                </>
+              )}
+
+              <span style={{ fontSize: '12px', color: '#888' }}>
+                Store: {STORES.find(s => s.id === parseInt(selectedStore))?.name || selectedStore}
+              </span>
+            </div>
           </div>
+
+          {/* Cap-reached banner for quote void mode (tires only) */}
+          {quoteMode === 'tires' && quotesEditMode && selectedQuoteIds.size >= QUOTES_DELETE_MAX_PER_CALL && (
+            <div style={{
+              backgroundColor: '#fef3c7',
+              color: '#92400e',
+              padding: '10px 25px',
+              fontSize: '12px',
+              fontWeight: '600',
+              borderBottom: '1px solid #fde68a',
+              textAlign: 'center'
+            }}>
+              ⚠ Reached the {QUOTES_DELETE_MAX_PER_CALL}-quote cap. Void these first, then select more if needed.
+            </div>
+          )}
 
           {/* Limit-reached banner (tires/mechanical only) */}
           {quoteMode !== 'greets' && limitReached && limitApplied != null && (
@@ -1256,6 +1450,9 @@ export default function QuoteLookup() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #eee' }}>
+                      {quotesEditMode && (
+                        <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600', color: '#666', width: '40px' }}></th>
+                      )}
                       <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Quote #</th>
                       <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Date</th>
                       <th style={{ padding: '12px 15px', textAlign: 'left', fontWeight: '600', color: '#666' }}>Customer</th>
@@ -1277,19 +1474,33 @@ export default function QuoteLookup() {
                     </tr>
                   </thead>
                   <tbody>
-                    {quotes.map((quote, idx) => (
+                    {quotes.map((quote, idx) => {
+                      const isSelected = quotesEditMode && selectedQuoteIds.has(quote.quote_id);
+                      const restingBg = isSelected ? '#ede9fe' : (idx % 2 === 0 ? 'white' : '#fafafa');
+                      return (
                       <tr
                         key={quote.quote_id}
                         style={{
                           borderBottom: '1px solid #eee',
-                          backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa',
+                          backgroundColor: restingBg,
                           cursor: 'pointer',
                           transition: 'background-color 0.15s'
                         }}
-                        onClick={() => openQuote(quote.short_code)}
+                        onClick={() => quotesEditMode ? toggleQuoteSelection(quote.quote_id) : openQuote(quote.short_code)}
                         onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f3e8ff'}
-                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = idx % 2 === 0 ? 'white' : '#fafafa'}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = restingBg}
                       >
+                        {quotesEditMode && (
+                          <td style={{ padding: '12px 10px', textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleQuoteSelection(quote.quote_id)}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ accentColor: '#9b59b6', width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                          </td>
+                        )}
                         <td style={{ padding: '12px 15px', fontWeight: '600', color: '#9b59b6' }}>
                           {quote.quote_number}
                         </td>
@@ -1388,6 +1599,9 @@ export default function QuoteLookup() {
                           )}
                         </td>
                         <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                          {quotesEditMode ? (
+                            <span style={{ color: '#cbd5e1', fontSize: '14px' }}>—</span>
+                          ) : (
                           <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                             <button
                               onClick={(e) => { e.stopPropagation(); openQuote(quote.short_code); }}
@@ -1413,9 +1627,11 @@ export default function QuoteLookup() {
                               </button>
                             )}
                           </div>
+                          )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1459,6 +1675,19 @@ export default function QuoteLookup() {
           onConfirm={confirmDeleteGreets}
           inProgress={deleteInProgress}
           error={deleteError}
+        />
+      )}
+
+      {/* Void confirmation modal for tire quotes (managers only) */}
+      {quoteDeleteConfirmOpen && (
+        <DeleteQuotesConfirmModal
+          count={selectedQuoteIds.size}
+          reason={quoteDeleteReason}
+          onReasonChange={setQuoteDeleteReason}
+          onCancel={closeQuoteDeleteConfirm}
+          onConfirm={confirmDeleteQuotes}
+          inProgress={quoteDeleteInProgress}
+          error={quoteDeleteError}
         />
       )}
 
@@ -3045,6 +3274,171 @@ function DeleteGreetsConfirmModal({ count, reason, onReasonChange, onCancel, onC
               }}
             >
               {inProgress ? 'DELETING…' : `DELETE ${count} RECORD${count !== 1 ? 'S' : ''}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// DeleteQuotesConfirmModal — manager confirms before voiding tire quotes.
+//
+// Mirrors DeleteGreetsConfirmModal. Reason is required; the Void button stays
+// disabled until a reason is picked. Voided quotes disappear fully from search,
+// reports, and customer links — reversible only by an admin. Paid quotes are
+// blocked by the backend (surfaced here via the error prop).
+// =============================================================================
+function DeleteQuotesConfirmModal({ count, reason, onReasonChange, onCancel, onConfirm, inProgress, error }) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !inProgress) onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel, inProgress]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const REASONS = [
+    { value: 'test',          label: 'Test quote (created during system testing)' },
+    { value: 'duplicate',     label: 'Duplicate quote' },
+    { value: 'customer_left', label: 'Customer left without purchasing' },
+    { value: 'system_error',  label: 'System error / glitch' },
+    { value: 'other',         label: 'Other' },
+  ];
+
+  const canConfirm = Boolean(reason) && count > 0 && !inProgress;
+
+  return (
+    <div
+      onClick={inProgress ? undefined : onCancel}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px 20px',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: 'white',
+          borderRadius: '15px',
+          maxWidth: '560px',
+          width: '100%',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.25)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header — red so the destructive action is unmistakable */}
+        <div style={{
+          backgroundColor: '#dc2626',
+          color: 'white',
+          padding: '18px 24px',
+        }}>
+          <div style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '0.3px' }}>
+            Void {count} quote{count !== 1 ? 's' : ''}?
+          </div>
+          <div style={{ fontSize: '12px', opacity: 0.9, marginTop: '4px' }}>
+            Voided quotes disappear from search, reports, and customer links. The record is kept for audit and can only be restored by an admin. Paid quotes can't be voided.
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '22px 24px' }}>
+          <div style={{ fontSize: '12px', color: '#888', fontWeight: '600', marginBottom: '8px', letterSpacing: '0.5px' }}>
+            REASON (REQUIRED)
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '18px' }}>
+            {REASONS.map((r) => (
+              <label
+                key={r.value}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 12px',
+                  border: reason === r.value ? '2px solid #9b59b6' : '2px solid #e5e7eb',
+                  borderRadius: '10px',
+                  cursor: inProgress ? 'not-allowed' : 'pointer',
+                  backgroundColor: reason === r.value ? '#faf5ff' : 'white',
+                  fontSize: '13px',
+                  fontWeight: reason === r.value ? '600' : '500',
+                  color: '#333',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="quote_void_reason"
+                  value={r.value}
+                  checked={reason === r.value}
+                  onChange={() => onReasonChange(r.value)}
+                  disabled={inProgress}
+                  style={{ accentColor: '#9b59b6', width: '16px', height: '16px' }}
+                />
+                <span>{r.label}</span>
+              </label>
+            ))}
+          </div>
+
+          {error && (
+            <div style={{
+              backgroundColor: '#fee2e2',
+              color: '#991b1b',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: '600',
+              marginBottom: '14px',
+            }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button
+              onClick={onCancel}
+              disabled={inProgress}
+              style={{
+                backgroundColor: '#f1f5f9',
+                color: '#64748b',
+                border: 'none',
+                padding: '10px 18px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: inProgress ? 'not-allowed' : 'pointer',
+                opacity: inProgress ? 0.7 : 1,
+              }}
+            >
+              CANCEL
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={!canConfirm}
+              style={{
+                backgroundColor: canConfirm ? '#dc2626' : '#fca5a5',
+                color: 'white',
+                border: 'none',
+                padding: '10px 22px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: '700',
+                letterSpacing: '0.5px',
+                cursor: canConfirm ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {inProgress ? 'VOIDING…' : `VOID ${count} QUOTE${count !== 1 ? 'S' : ''}`}
             </button>
           </div>
         </div>
