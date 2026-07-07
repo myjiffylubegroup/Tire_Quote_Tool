@@ -979,13 +979,17 @@ const QuoteView = () => {
           ) : null}
 
           {/* ─── Promo Badge (if applicable) ─── */}
-          {p?.promo_discount > 0 && (
+          {/* Use promo_savings so Free Installation (which waives Mount & Balance
+              rather than applying a line-item discount, so promo_discount is 0)
+              still shows a savings figure. Falls back to promo_discount for
+              legacy quotes; get-quote also backfills this server-side. */}
+          {(p?.promo_savings ?? p?.promo_discount ?? 0) > 0 && (
             <div style={{ background: '#f0fdf4', border: '2px solid #16a34a', borderRadius: '8px', padding: '10px 16px', textAlign: 'center', marginBottom: '12px' }}>
               <div style={{ fontSize: '13px', color: '#166534', fontWeight: '700', marginBottom: '2px' }}>
                 {p?.promo_name || 'Promotion Applied'}
               </div>
               <div style={{ fontSize: '20px', fontWeight: '700', color: '#16a34a' }}>
-                You're saving {formatCurrency(p?.promo_discount)}
+                You're saving {formatCurrency(p?.promo_savings ?? p?.promo_discount)}
               </div>
             </div>
           )}
