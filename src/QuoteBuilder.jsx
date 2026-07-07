@@ -729,6 +729,15 @@ export default function QuoteBuilder() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
 
+  // Promo warning surfaced after generation: when a promo the CSA selected was
+  // declined by generate-quote (e.g. tires don't qualify), the quote is still
+  // created but the promo isn't applied. We hold the warning + the created
+  // quote's short_code and show an acknowledgment before navigating to it, so
+  // the CSA sees it at creation rather than silently landing on a quote with
+  // no discount.
+  const [promoWarning, setPromoWarning] = useState(null);
+  const [pendingQuoteCode, setPendingQuoteCode] = useState(null);
+
   // Alternative tire options (good/best) - loaded from sessionStorage (set by TireFinder)
   const [altGoodTire, setAltGoodTire] = useState(null);
   const [altBestTire, setAltBestTire] = useState(null);
@@ -1271,7 +1280,14 @@ export default function QuoteBuilder() {
         sessionStorage.removeItem('jl_requote_pending');
         sessionStorage.removeItem('jl_quote_staggered');
         sessionStorage.removeItem('jl_quote_tire_rear');
-        window.location.hash = `#/quote/${data.quote.short_code}`;
+        if (data.promo_warning) {
+          // A selected promo was declined — the quote was created without it.
+          // Hold the CSA on an acknowledgment before showing the quote.
+          setPromoWarning(data.promo_warning);
+          setPendingQuoteCode(data.quote.short_code);
+        } else {
+          window.location.hash = `#/quote/${data.quote.short_code}`;
+        }
       } else { 
         setError(data.error || 'Failed to generate quote'); 
       }
@@ -1483,6 +1499,56 @@ export default function QuoteBuilder() {
         onClose={() => setShowAdvancedSearch(false)}
         onSelectCustomer={handleAdvancedSearchSelect}
       />
+
+      {/* Promo-not-applied acknowledgment. The quote was created; a selected
+          promo was declined by generate-quote. Show it before navigating. */}
+      {promoWarning && pendingQuoteCode && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          zIndex: 1200,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '40px 20px',
+        }}>
+          <div style={{
+            backgroundColor: 'white', borderRadius: '15px',
+            maxWidth: '480px', width: '100%',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.25)', overflow: 'hidden',
+          }}>
+            <div style={{ backgroundColor: '#f59e0b', color: 'white', padding: '18px 24px' }}>
+              <div style={{ fontSize: '17px', fontWeight: '800', letterSpacing: '0.3px' }}>
+                ⚠ Promo not applied
+              </div>
+            </div>
+            <div style={{ padding: '22px 24px' }}>
+              <p style={{ fontSize: '14px', color: '#333', lineHeight: 1.5, margin: '0 0 8px 0' }}>
+                {promoWarning}
+              </p>
+              <p style={{ fontSize: '13px', color: '#888', lineHeight: 1.5, margin: '0 0 20px 0' }}>
+                The quote was still created — it just doesn't include this promotion. You can re-quote with an eligible promo if needed.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => {
+                    const code = pendingQuoteCode;
+                    setPromoWarning(null);
+                    setPendingQuoteCode(null);
+                    window.location.hash = `#/quote/${code}`;
+                  }}
+                  style={{
+                    backgroundColor: '#9b59b6', color: 'white', border: 'none',
+                    padding: '11px 26px', borderRadius: '22px',
+                    fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  VIEW QUOTE
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Revise Loading Overlay */}
       {reviseLoading && (

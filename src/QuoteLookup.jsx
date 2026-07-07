@@ -1447,7 +1447,7 @@ export default function QuoteLookup() {
             /* ────────────────────────────────────────────────────────────── */
             quotes.length > 0 ? (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <table style={{ width: '100%', minWidth: quoteMode === 'tires' ? '1240px' : '880px', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #eee' }}>
                       {quotesEditMode && (
