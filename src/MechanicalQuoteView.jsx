@@ -7,7 +7,7 @@
 // =============================================================================
 
 import React, { useState, useEffect, useRef } from 'react';
-import { apiCall, apiCallPublic } from './apiClient';
+import { apiCall, apiCallPublic, isStaffAuthenticated } from './apiClient';
 
 import { API_BASE } from './config';
 const JL_LOGO  = '/images/JL_Multicare_Horz_1C.png';
@@ -111,7 +111,10 @@ export default function MechanicalQuoteView({ code }) {
   // ── Load quote ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!code) { setError('No quote code provided'); setLoading(false); return; }
-    apiCallPublic(`${API_BASE}/get-mechanical-quote?short_code=${code}`)
+    // Staff (valid JWT) fetch with the token so the backend returns cost/order
+    // fields; customers use the public fetch and the backend strips those.
+    const fetchQuote = isStaffAuthenticated() ? apiCall : apiCallPublic;
+    fetchQuote(`${API_BASE}/get-mechanical-quote?short_code=${code}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -337,7 +340,8 @@ export default function MechanicalQuoteView({ code }) {
       });
       const data = await res.json();
       if (data.success) {
-        const refreshRes = await apiCallPublic(`${API_BASE}/get-mechanical-quote?short_code=${quote.short_code}`);
+        const refreshFetch = isStaffAuthenticated() ? apiCall : apiCallPublic;
+        const refreshRes = await refreshFetch(`${API_BASE}/get-mechanical-quote?short_code=${quote.short_code}`);
         const refreshData = await refreshRes.json();
         if (refreshData.success) setQuote(refreshData.quote);
         setRevMode(false);
@@ -544,8 +548,8 @@ export default function MechanicalQuoteView({ code }) {
     <div className="mq-outer" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", backgroundColor: '#f1f5f9', minHeight: '100vh', padding: '20px' }}>
       <style>{PRINT_STYLES}</style>
 
-      {/* ── Order Parts confirmation modal ── */}
-      {showOrderConfirm && orderCheckData && (
+      {/* ── Order Parts confirmation modal (staff only — shows our cost) ── */}
+      {isStaff && showOrderConfirm && orderCheckData && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
           <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '28px', maxWidth: '540px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 4px 0', fontSize: '17px', fontWeight: '700', color: DARK }}>📦 Confirm Parts Order</h3>
@@ -727,8 +731,8 @@ export default function MechanicalQuoteView({ code }) {
 
         {emailError && <div className="no-print" style={{ backgroundColor: '#fef2f2', padding: '8px 28px', fontSize: '12px', color: '#dc2626' }}>{emailError}</div>}
 
-        {/* Order error / unavailability banner */}
-        {orderError && (
+        {/* Order error / unavailability banner — STAFF ONLY (order internals) */}
+        {isStaff && orderError && (
           <div className="no-print" style={{ backgroundColor: '#fef2f2', borderBottom: `1px solid #fecaca`, padding: '12px 28px' }}>
             <div style={{ fontSize: '12px', fontWeight: '700', color: '#dc2626', marginBottom: unavailParts.length > 0 ? '6px' : '0' }}>{orderError}</div>
             {unavailParts.length > 0 && (
@@ -739,8 +743,10 @@ export default function MechanicalQuoteView({ code }) {
           </div>
         )}
 
-        {/* Order confirmation banner */}
-        {(orderResult || quote.partstech_ordered_at) && !orderError && (
+        {/* Order confirmation banner — STAFF ONLY. Contains the PartsTech order
+            link and order IDs, which expose our wholesale parts cost. This must
+            NEVER render on the customer-facing quote view. */}
+        {isStaff && (orderResult || quote.partstech_ordered_at) && !orderError && (
           <div className="no-print" style={{ backgroundColor: '#f0fdf4', borderBottom: '1px solid #86efac', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontSize: '20px' }}>✅</span>
             <div>
