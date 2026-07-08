@@ -2073,7 +2073,11 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
       <div style={{ fontSize: '13px', color: '#444', marginBottom: '6px' }}>
         {greet.vehicle_display || 'Vehicle unknown'}
         {greet.vehicle_mileage != null && (
-          <span style={{ color: '#888' }}> · {greet.vehicle_mileage.toLocaleString()} mi</span>
+          <span style={{ color: '#888' }}> · <InlineCopy
+            display={`${greet.vehicle_mileage.toLocaleString()} mi`}
+            copyValue={String(greet.vehicle_mileage)}
+            title="Tap to copy mileage"
+          /></span>
         )}
         {greet.is_returning_vehicle && (
           <span style={{
@@ -2639,6 +2643,7 @@ function GreetDetailModal({ greet, onClose, loading }) {
             <DetailRow
               label="Mileage"
               value={greet.vehicle_mileage != null ? `${greet.vehicle_mileage.toLocaleString()} mi` : '—'}
+              copyValue={greet.vehicle_mileage != null ? String(greet.vehicle_mileage) : ''}
             />
             {greet.last_visit_date && (
               <DetailRow
@@ -3061,8 +3066,79 @@ function CopyChip({ label, value, copyValue }) {
 
 // GrowCodeChip — a single prominent, click-to-copy GROW code.
 // =============================================================================
+// InlineCopy — small click-to-copy for a value that lives inside a line of text
+// (e.g. mileage in the vehicle line) rather than as a standalone chip. Copies
+// `copyValue`, shows the same green "✓ Copied" flash used elsewhere, and stops
+// the click from bubbling to a clickable parent (the greet card).
+function InlineCopy({ display, copyValue, title }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(String(copyValue));
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = String(copyValue);
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch (e) {
+      // Value stays visible to copy manually — no error UX needed.
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      title={title || 'Tap to copy'}
+      style={{
+        appearance: 'none',
+        font: 'inherit',
+        background: copied ? '#d1fae5' : 'transparent',
+        border: copied ? '1px solid #34d399' : '1px solid transparent',
+        borderRadius: '6px',
+        padding: '0 5px',
+        margin: '0 -3px',
+        color: copied ? '#065f46' : 'inherit',
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        transition: 'all 0.12s',
+        verticalAlign: 'baseline',
+      }}
+    >
+      {copied ? '✓ Copied' : (
+        <>
+          <span>{display}</span>
+          <span aria-hidden="true" style={{ color: '#b39ddb', fontSize: '11px', flexShrink: 0 }}>⧉</span>
+        </>
+      )}
+    </button>
+  );
+}
+
 function GrowCodeChip({ code, size = 'normal' }) {
   const [copied, setCopied] = useState(false);
+
+  // Some oil services carry a specialty qualifier prefix in the stored code
+  // (e.g. "EURO SSS1", "EURO SSS3"). The "euro" part is NOT a GROW code — the
+  // greeter only types the code portion (e.g. "SSS1"). So we split it out: the
+  // qualifier renders as a separate, non-copyable label and only the code
+  // portion is the click-to-copy target. Codes that merely contain "euro"
+  // without a trailing space (e.g. "SSEUROCO") don't match and are untouched.
+  const m = typeof code === 'string' ? code.match(/^\s*(euro)\s+(.+?)\s*$/i) : null;
+  const prefix = m ? m[1] : null;
+  const codePart = m ? m[2] : code;
 
   const handleCopy = async (e) => {
     // Stop the click from bubbling to a clickable parent (e.g. the greet card,
@@ -3071,11 +3147,11 @@ function GrowCodeChip({ code, size = 'normal' }) {
 
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(code);
+        await navigator.clipboard.writeText(codePart);
       } else {
         // Fallback for browsers/webviews without the async clipboard API.
         const ta = document.createElement('textarea');
-        ta.value = code;
+        ta.value = codePart;
         ta.style.position = 'fixed';
         ta.style.opacity = '0';
         document.body.appendChild(ta);
@@ -3094,7 +3170,7 @@ function GrowCodeChip({ code, size = 'normal' }) {
 
   const compact = size === 'compact';
 
-  return (
+  const chip = (
     <button
       onClick={handleCopy}
       title="Tap to copy"
@@ -3113,8 +3189,35 @@ function GrowCodeChip({ code, size = 'normal' }) {
         minWidth: compact ? '44px' : '60px',
       }}
     >
-      {copied ? (compact ? '✓' : '✓ Copied') : code}
+      {copied ? (compact ? '✓' : '✓ Copied') : codePart}
     </button>
+  );
+
+  if (!prefix) return chip;
+
+  // Qualifier + code as two separate bubbles. The qualifier is a muted,
+  // non-copyable label so no one mistakes it for something to type into GROW.
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+      <span
+        title="Specialty qualifier — not a GROW code"
+        style={{
+          fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+          fontSize: compact ? '11px' : '13px',
+          fontWeight: '700',
+          letterSpacing: '0.3px',
+          textTransform: 'lowercase',
+          color: '#6b7280',
+          backgroundColor: '#f3f4f6',
+          border: '1px solid #e5e7eb',
+          padding: compact ? '4px 8px' : '8px 12px',
+          borderRadius: compact ? '8px' : '10px',
+        }}
+      >
+        {prefix}
+      </span>
+      {chip}
+    </span>
   );
 }
 
