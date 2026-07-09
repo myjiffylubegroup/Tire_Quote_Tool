@@ -230,7 +230,16 @@ const SpecBox = ({ label, value, highlight }) => (
 );
 
 // Inventory Results Component
+// Friendly brand labels for the filter dropdown (falls back to the raw code)
+const BRAND_LABELS = { NEX: 'Nexen', ADV: 'Advanta' };
+const brandDisplay = (code) => BRAND_LABELS[code] || code || 'Other';
+
 const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, onSelectionChange, onContinueToQuote }) => {
+  // Client-side brand filter + sort over the already-returned results.
+  // Hooks must run before any early return.
+  const [brandFilter, setBrandFilter] = useState('');
+  const [sortMode, setSortMode] = useState('default');
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px', color: '#9b59b6' }}>
@@ -246,6 +255,41 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, on
   const store = STORES.find(s => s.id === parseInt(storeId));
   const primaryWarehouse = store?.warehouse || 'fresno';
   const hasChosen = !!selections.chosen;
+
+  // ── Brand filter + sort (client-side, over the results already returned) ──
+  // Brand options come from the full result set; Nexen/Advanta surface first to
+  // match the group's preferred-brand strategy, then alphabetical.
+  const brandOptions = [...new Set(results.map(t => t.brand_code).filter(Boolean))]
+    .sort((a, b) => {
+      const rank = (c) => (c === 'NEX' ? 0 : c === 'ADV' ? 1 : 2);
+      if (rank(a) !== rank(b)) return rank(a) - rank(b);
+      return brandDisplay(a).localeCompare(brandDisplay(b));
+    });
+
+  let displayResults = brandFilter
+    ? results.filter(t => t.brand_code === brandFilter)
+    : results;
+
+  if (sortMode === 'price') {
+    displayResults = [...displayResults].sort((a, b) => (a.cost || 0) - (b.cost || 0));
+  } else if (sortMode === 'brand') {
+    displayResults = [...displayResults].sort((a, b) => {
+      const cmp = brandDisplay(a.brand_code).localeCompare(brandDisplay(b.brand_code));
+      return cmp !== 0 ? cmp : (a.cost || 0) - (b.cost || 0);
+    });
+  }
+  // sortMode === 'default' → keep backend order (Store stock → NEXEN → ADVANTA → Price)
+
+  const sortLabel = sortMode === 'price'
+    ? 'Price (low → high)'
+    : sortMode === 'brand'
+    ? 'Brand (A → Z)'
+    : 'Store Stock → NEXEN → ADVANTA → Price';
+
+  const selectStyle = {
+    padding: '6px 10px', borderRadius: '8px', border: '1px solid #d1d5db',
+    fontSize: '12px', color: '#333', backgroundColor: 'white', cursor: 'pointer',
+  };
 
   return (
     <div style={{
@@ -264,15 +308,51 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, on
         textTransform: 'uppercase',
         letterSpacing: '2px',
       }}>
-        Available Tires ({results.length})
+        Available Tires ({displayResults.length}{brandFilter ? ` of ${results.length}` : ''})
       </h3>
       <p style={{ textAlign: 'center', color: '#888', fontSize: '11px', marginBottom: '8px' }}>
         Primary: {primaryWarehouse === 'fresno' ? 'Fresno (4703)' : 'Santa Clarita (4708)'} • 
-        Min Qty: {qtyNeeded} • Sorted: Store Stock → NEXEN → ADVANTA → Price
+        Min Qty: {qtyNeeded} • Sorted: {sortLabel}
       </p>
       <p style={{ textAlign: 'center', color: '#9b59b6', fontSize: '11px', marginBottom: '20px', fontStyle: 'italic' }}>
         Select <strong>Best Value</strong> (required), plus optional <strong>Economy</strong> & <strong>Premium</strong> alternatives
       </p>
+
+      {/* Brand filter + sort controls */}
+      <div style={{
+        display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center',
+        justifyContent: 'center', marginBottom: '20px',
+      }}>
+        <label style={{ fontSize: '11px', color: '#666', fontWeight: '600' }}>
+          Brand:{' '}
+          <select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} style={selectStyle}>
+            <option value="">All brands</option>
+            {brandOptions.map((code) => (
+              <option key={code} value={code}>{brandDisplay(code)}</option>
+            ))}
+          </select>
+        </label>
+        <label style={{ fontSize: '11px', color: '#666', fontWeight: '600' }}>
+          Sort:{' '}
+          <select value={sortMode} onChange={(e) => setSortMode(e.target.value)} style={selectStyle}>
+            <option value="default">Recommended</option>
+            <option value="price">Price (low → high)</option>
+            <option value="brand">Brand (A → Z)</option>
+          </select>
+        </label>
+        {brandFilter && (
+          <button
+            onClick={() => setBrandFilter('')}
+            style={{
+              padding: '6px 12px', borderRadius: '8px', border: '1px solid #9b59b6',
+              backgroundColor: 'white', color: '#9b59b6', fontSize: '11px', fontWeight: '700',
+              cursor: 'pointer',
+            }}
+          >
+            Clear ✕
+          </button>
+        )}
+      </div>
 
       {/* Floating Continue Bar */}
       {hasChosen && (
@@ -313,17 +393,23 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, on
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {results.map((tire, idx) => (
-          <TireCard 
-            key={tire.part_number + idx} 
-            tire={tire} 
-            primaryWarehouse={primaryWarehouse} 
-            selections={selections}
-            onSelectionChange={onSelectionChange}
-          />
-        ))}
-      </div>
+      {displayResults.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '30px', color: '#888', fontSize: '13px' }}>
+          No {brandFilter ? `${brandDisplay(brandFilter)} ` : ''}tires match — try “All brands”.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {displayResults.map((tire, idx) => (
+            <TireCard 
+              key={tire.part_number + idx} 
+              tire={tire} 
+              primaryWarehouse={primaryWarehouse} 
+              selections={selections}
+              onSelectionChange={onSelectionChange}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -505,6 +591,11 @@ const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => 
             <div style={{ color: '#888' }}>
               {primaryWarehouse === 'fresno' ? 'Santa Clarita' : 'Fresno'}: {parseInt(secondaryQty) || 0}
             </div>
+            {Array.isArray(tire.neighbor_stock) && tire.neighbor_stock.length > 0 && (
+              <div style={{ color: '#9b59b6', fontWeight: '600', marginTop: '4px' }}>
+                Nearby: {tire.neighbor_stock.map(n => `${n.store_name} (${parseInt(n.qty) || 0})`).join(', ')} 🏪
+              </div>
+            )}
           </div>
 
           {/* Role Selection Checkboxes */}
@@ -693,6 +784,11 @@ const StaggeredTireCard = ({ tire, primaryWarehouse, isSelected, consumerPrice, 
             <div style={{ color: '#888' }}>
               {primaryWarehouse === 'fresno' ? 'Santa Clarita' : 'Fresno'}: {parseInt(secondaryQty) || 0}
             </div>
+            {Array.isArray(tire.neighbor_stock) && tire.neighbor_stock.length > 0 && (
+              <div style={{ color: '#9b59b6', fontWeight: '600', marginTop: '4px' }}>
+                Nearby: {tire.neighbor_stock.map(n => `${n.store_name} (${parseInt(n.qty) || 0})`).join(', ')} 🏪
+              </div>
+            )}
           </div>
 
           {/* Single Chosen Button */}
