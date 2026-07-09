@@ -108,6 +108,14 @@ export default function MechanicalQuoteView({ code }) {
   const [showOrderConfirm,  setShowOrderConfirm]  = useState(false);  // confirmation modal
   const [confirming,        setConfirming]        = useState(false);  // placing order
 
+  // ── Manage Jobs state (staff-only job grouping) ──────────────────────────
+  const [jobsMode,      setJobsMode]      = useState(false);  // panel open
+  const [jobFormText,   setJobFormText]   = useState('');     // new-job input
+  const [jobLabelDraft, setJobLabelDraft] = useState({});     // { job_id: label } while renaming
+  const [dragJobIndex,  setDragJobIndex]  = useState(null);   // drag-to-reorder
+  const [jobBusy,       setJobBusy]       = useState(false);  // request in flight
+  const [jobError,      setJobError]      = useState('');
+
   // ── Load quote ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!code) { setError('No quote code provided'); setLoading(false); return; }
@@ -191,6 +199,67 @@ export default function MechanicalQuoteView({ code }) {
       }
     });
   };
+
+  // ── Manage Jobs (staff-only grouping) ────────────────────────────────────
+  // Job edits are display metadata only — never prices, never the BAR audit
+  // fields — so they save live via manage-mechanical-jobs (no auth note) and
+  // reconcile from the returned snapshot (jobs + item/part job_id maps).
+  const applyJobSnapshot = (data) => {
+    setQuote((prev) => ({
+      ...prev,
+      jobs: data.jobs || [],
+      items: (prev.items || []).map((it) =>
+        (data.item_job_ids && (it.item_id in data.item_job_ids))
+          ? { ...it, job_id: data.item_job_ids[it.item_id] }
+          : it),
+      parts: (prev.parts || []).map((p) =>
+        (data.part_job_ids && (p.part_id in data.part_job_ids))
+          ? { ...p, job_id: data.part_job_ids[p.part_id] }
+          : p),
+    }));
+  };
+
+  const manageJobs = async (action, payload = {}) => {
+    setJobBusy(true); setJobError('');
+    try {
+      const res  = await apiCall(`${API_BASE}/manage-mechanical-jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, quote_id: quote.quote_id, ...payload }),
+      });
+      const data = await res.json();
+      if (data.success) applyJobSnapshot(data);
+      else setJobError(data.error || 'Failed to save job change');
+    } catch { setJobError('Network error'); }
+    setJobBusy(false);
+  };
+
+  const handleCreateJob = () => {
+    const label = jobFormText.trim();
+    if (!label) return;
+    setJobFormText('');
+    manageJobs('create_job', { label });
+  };
+  const handleRenameJob = (job_id) => {
+    const label = (jobLabelDraft[job_id] ?? '').trim();
+    const current = (quote.jobs || []).find((j) => j.job_id === job_id);
+    if (!label || (current && current.label === label)) return;  // no-op if unchanged/empty
+    manageJobs('rename_job', { job_id, label });
+  };
+  const handleDeleteJob = (job_id) => {
+    if (!window.confirm('Delete this job? Its labor and parts move back to General — nothing is removed from the quote.')) return;
+    manageJobs('delete_job', { job_id });
+  };
+  const handleReorderJobs = (fromIdx, toIdx) => {
+    if (fromIdx == null || toIdx == null || fromIdx === toIdx) return;
+    const ordered = [...(quote.jobs || [])];
+    if (fromIdx < 0 || fromIdx >= ordered.length || toIdx < 0 || toIdx >= ordered.length) return;
+    const [moved] = ordered.splice(fromIdx, 1);
+    ordered.splice(toIdx, 0, moved);
+    manageJobs('reorder_jobs', { job_ids: ordered.map((j) => j.job_id) });
+  };
+  const handleAssignItem = (item_id, job_id) => manageJobs('assign', { item_id, job_id: job_id || null });
+  const handleAssignPart = (part_id, job_id) => manageJobs('assign', { part_id, job_id: job_id || null });
 
   // handleDeletePart replaced by handleRemovePart below which handles both
   // manual parts and PartsTech parts (syncs removal back to PT cart).
@@ -676,6 +745,21 @@ export default function MechanicalQuoteView({ code }) {
     ...((itemsForJob(null).length > 0 || partsForJob(null).length > 0) ? [{ id: null, label: 'General Services' }] : []),
   ];
 
+  // Dropdown used in the Manage Jobs panel to assign a line to a job.
+  const jobAssignSelect = (value, onChange) => (
+    <select
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={jobBusy}
+      style={{ fontSize: '12px', fontWeight: '600', color: value ? MAROON : SLATE, border: `1px solid ${BORDER}`, borderRadius: '6px', padding: '4px 6px', backgroundColor: 'white', cursor: jobBusy ? 'wait' : 'pointer', maxWidth: '170px', flexShrink: 0 }}
+    >
+      <option value="">General</option>
+      {(quote.jobs || []).map((j) => (
+        <option key={j.job_id} value={j.job_id}>{j.label}</option>
+      ))}
+    </select>
+  );
+
   return (
     <div className="mq-outer" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", backgroundColor: '#f1f5f9', minHeight: '100vh', padding: '20px' }}>
       <style>{PRINT_STYLES}</style>
@@ -841,6 +925,7 @@ export default function MechanicalQuoteView({ code }) {
             )}
             <div style={{ flex: 1 }} />
             <div style={{ display: 'flex', gap: '8px' }}>
+              {!jobsMode && (
               <button onClick={() => { setEditMode(!editMode); setRevMode(false); }} style={{
                 padding: '8px 16px', border: `2px solid ${editMode ? MAROON : BORDER}`,
                 borderRadius: '20px', backgroundColor: editMode ? '#fff5f5' : 'white',
@@ -848,13 +933,23 @@ export default function MechanicalQuoteView({ code }) {
               }}>
                 {editMode ? '✓ Done Editing' : '✏️ Edit Customer'}
               </button>
-              {quote.status === 'presented' && !editMode && (
+              )}
+              {!jobsMode && quote.status === 'presented' && !editMode && (
                 <button onClick={() => { const next = !revMode; setRevMode(next); setEditMode(false); if (!next) { if (revPtIntervalRef.current) { clearInterval(revPtIntervalRef.current); revPtIntervalRef.current = null; } setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevManualLaborForm({ description: '', hours: '0.50' }); setRevPtSessionId(null); setRevPtPolling(false); }}} style={{
                   padding: '8px 16px', border: `2px solid ${revMode ? '#d97706' : BORDER}`,
                   borderRadius: '20px', backgroundColor: revMode ? '#fffbeb' : 'white',
                   color: revMode ? '#d97706' : SLATE, fontSize: '12px', fontWeight: '700', cursor: 'pointer',
                 }}>
                   {revMode ? '✓ Cancel Revision' : '✏️ Revise Quote'}
+                </button>
+              )}
+              {!editMode && !revMode && (
+                <button onClick={() => { setJobsMode(!jobsMode); setJobError(''); setJobLabelDraft({}); }} style={{
+                  padding: '8px 16px', border: `2px solid ${jobsMode ? MAROON : BORDER}`,
+                  borderRadius: '20px', backgroundColor: jobsMode ? '#fff5f5' : 'white',
+                  color: jobsMode ? MAROON : SLATE, fontSize: '12px', fontWeight: '700', cursor: 'pointer',
+                }}>
+                  {jobsMode ? '✓ Done' : '🗂️ Manage Jobs'}
                 </button>
               )}
             </div>
@@ -1008,8 +1103,109 @@ export default function MechanicalQuoteView({ code }) {
             </div>
           </div>
 
+          {/* ── Manage Jobs panel (staff only) ── */}
+          {jobsMode && isStaff && (
+            <div className="no-print" style={{ marginBottom: '24px', border: `2px solid ${MAROON}`, borderRadius: '10px', padding: '16px', backgroundColor: '#fdf7f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '800', color: MAROON, letterSpacing: '1px' }}>🗂️ MANAGE JOBS</div>
+                {jobBusy && <span style={{ fontSize: '11px', color: SLATE }}>Saving…</span>}
+              </div>
+              <p style={{ fontSize: '11px', color: SLATE, margin: '0 0 14px 0', lineHeight: 1.5 }}>
+                Group this quote's labor and parts into jobs (e.g. “Front Brakes”) for per-job subtotals. Grouping is display-only — it never changes prices.
+              </p>
+              {jobError && <div style={{ color: '#dc2626', fontSize: '11px', marginBottom: '10px' }}>{jobError}</div>}
+
+              {/* Jobs: rename / drag-reorder / delete */}
+              {(quote.jobs || []).length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                  {(quote.jobs || []).map((j, idx) => (
+                    <div
+                      key={j.job_id}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => { handleReorderJobs(dragJobIndex, idx); setDragJobIndex(null); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '6px', padding: '2px',
+                        backgroundColor: dragJobIndex != null && dragJobIndex !== idx ? '#fbeaf0' : 'transparent',
+                        opacity: dragJobIndex === idx ? 0.5 : 1,
+                      }}
+                    >
+                      <span
+                        draggable
+                        onDragStart={() => setDragJobIndex(idx)}
+                        onDragEnd={() => setDragJobIndex(null)}
+                        title="Drag to reorder"
+                        style={{ cursor: 'grab', color: '#cbd5e1', fontSize: '15px', lineHeight: 1, padding: '0 2px', userSelect: 'none' }}
+                      >⠿</span>
+                      <input
+                        type="text"
+                        value={jobLabelDraft[j.job_id] ?? j.label}
+                        onChange={(e) => setJobLabelDraft((d) => ({ ...d, [j.job_id]: e.target.value }))}
+                        onBlur={() => handleRenameJob(j.job_id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                      <button onClick={() => handleDeleteJob(j.job_id)} disabled={jobBusy}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '18px', lineHeight: 1, padding: '0 4px' }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Create job */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '18px' }}>
+                <input
+                  type="text"
+                  placeholder="New job name (e.g. Front Brakes)"
+                  value={jobFormText}
+                  onChange={(e) => setJobFormText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleCreateJob(); }}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <button onClick={handleCreateJob} disabled={!jobFormText.trim() || jobBusy}
+                  style={{ padding: '8px 14px', border: 'none', borderRadius: '20px', backgroundColor: !jobFormText.trim() ? '#cbd5e1' : MAROON, color: 'white', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', cursor: !jobFormText.trim() ? 'not-allowed' : 'pointer' }}>+ Add Job</button>
+              </div>
+
+              {/* Assign labor */}
+              {(quote.items || []).filter((it) => !it.is_removed).length > 0 && (
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>LABOR</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {(quote.items || []).filter((it) => !it.is_removed).map((it) => (
+                      <div key={it.item_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12px' }}>
+                        <span style={{ color: DARK, fontWeight: '600', minWidth: 0 }}>
+                          {it.motor_db_operation}
+                          {it.qualifier_description && <span style={{ color: SLATE, fontWeight: '400' }}> · {it.qualifier_description}</span>}
+                        </span>
+                        {jobAssignSelect(it.job_id, (v) => handleAssignItem(it.item_id, v))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Assign parts */}
+              {(quote.parts || []).filter((p) => !p.is_removed).length > 0 && (
+                <div>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>PARTS</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {(quote.parts || []).filter((p) => !p.is_removed).map((p) => (
+                      <div key={p.part_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12px' }}>
+                        <span style={{ color: DARK, fontWeight: '600', minWidth: 0 }}>{p.description}</span>
+                        {jobAssignSelect(p.job_id, (v) => handleAssignPart(p.part_id, v))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(quote.jobs || []).length === 0 && (
+                <div style={{ fontSize: '11px', color: SLATE, fontStyle: 'italic', marginTop: '4px' }}>Add a job above, then assign labor and parts to it.</div>
+              )}
+            </div>
+          )}
+
           {/* ── Job-grouped services (per-job subtotals) ── */}
-          {useGrouped && (
+          {useGrouped && !jobsMode && (
             <div style={{ marginBottom: '24px' }}>
               <div style={sectionLabel}>SERVICES BY JOB</div>
               {jobBuckets.map((bucket) => {
@@ -1062,7 +1258,7 @@ export default function MechanicalQuoteView({ code }) {
           )}
 
           {/* ── Labor Items ── */}
-          {!useGrouped && (
+          {!useGrouped && !jobsMode && (
           <div style={{ marginBottom: '24px' }}>
             <div style={sectionLabel}>LABOR SERVICES</div>
             <div style={{ border: `1px solid ${BORDER}`, borderRadius: '8px', overflow: 'hidden' }}>
@@ -1183,7 +1379,7 @@ export default function MechanicalQuoteView({ code }) {
           )}
 
           {/* ── Parts ── */}
-          {!useGrouped && (quote.parts || []).length > 0 && (
+          {!useGrouped && !jobsMode && (quote.parts || []).length > 0 && (
             <div style={{ marginBottom: '24px' }}>
               <div style={sectionLabel}>PARTS</div>
               {true && (
