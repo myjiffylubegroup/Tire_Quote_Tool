@@ -959,45 +959,37 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
 
   const handleSubmitRevision = async () => {
     if (cart.length === 0) { setRevisionError('Add at least one service'); return; }
-    if (!revisionAuth.trim() || revisionAuth.trim().length < 5) { setRevisionError('Authorization note is required'); return; }
     if (!revisionContext?.quote_id) { setRevisionError('Revision context lost — please go back to the quote'); return; }
-    setLoading(true); setRevisionError('');
+    // Unified editor model: hand the selected labor back to the quote editor as
+    // STAGED lines instead of committing here. No authorization note at this
+    // step — the editor asks for the reason once, at Recalculate & Save, and
+    // the labor gets bucketed into a job there alongside everything else.
     try {
-      const res = await apiCall(`${API_BASE}/add-mechanical-revision`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quote_id:      revisionContext.quote_id,
-          revision_auth: revisionAuth.trim(),
-          items: cart.map((op) => ({
-            is_manual:                op.is_manual === true,
-            mechanical_estimating_id: op.mechanical_estimating_id,
-            motor_db_section:         op.motor_db_section,
-            motor_db_group:           op.motor_db_group,
-            motor_db_subgroup:        op.motor_db_subgroup,
-            motor_db_operation:       op.motor_db_operation,
-            qualifier_description:    op.qualifier_description,
-            motor_time:               op.motor_time,
-            labor_price:              op.labor_price,
-            motor_db_description:     op.motor_db_description,
-            motor_db_footnote:        op.motor_db_footnote,
-            is_additional_operation:  op.is_additional_operation,
-            quantity:                 op.quantity || 1,
-          })),
-          parts: [],
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        window.location.hash = `#/mechanical/${revisionContext.short_code}`;
-      } else {
-        setRevisionError(data.error || 'Failed to submit revision');
-        setLoading(false);
-      }
+      const items = cart.map((op) => ({
+        is_manual:                op.is_manual === true,
+        mechanical_estimating_id: op.mechanical_estimating_id,
+        motor_db_section:         op.motor_db_section,
+        motor_db_group:           op.motor_db_group,
+        motor_db_subgroup:        op.motor_db_subgroup,
+        motor_db_operation:       op.motor_db_operation,
+        qualifier_description:    op.qualifier_description,
+        motor_time:               op.motor_time,
+        labor_price:              op.labor_price,
+        motor_db_description:     op.motor_db_description,
+        motor_db_footnote:        op.motor_db_footnote,
+        is_additional_operation:  op.is_additional_operation,
+        quantity:                 op.quantity || 1,
+      }));
+      sessionStorage.setItem('jl_revision_return', JSON.stringify({
+        short_code: revisionContext.short_code,
+        quote_id:   revisionContext.quote_id,
+        items,
+      }));
     } catch (e) {
-      setRevisionError('Network error');
-      setLoading(false);
+      setRevisionError('Could not hand labor back to the quote — please try again');
+      return;
     }
+    window.location.hash = `#/mechanical/${revisionContext.short_code}`;
   };
 
   const handleGenerateQuote = async (skipPlateVinCheck = false) => {
@@ -1674,24 +1666,22 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                   </div>
                 </div>
 
-                {/* Revision mode submit */}
+                {/* Revision mode submit — hands labor back to the quote editor
+                    (no auth note here; the editor asks the reason once at save) */}
                 {revisionMode ? (
                   <div>
-                    <div style={{ marginBottom: '8px' }}>
-                      <label style={{ fontSize: '10px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>AUTHORIZATION NOTE * (required)</label>
-                      <input type="text" value={revisionAuth} onChange={(e) => setRevisionAuth(e.target.value)}
-                        placeholder='e.g. "Authorized by customer via phone at 2:15pm"'
-                        style={{ ...inputStyle, borderColor: '#f59e0b', borderWidth: '2px' }} />
-                    </div>
+                    <p style={{ fontSize: '11px', color: '#92400e', lineHeight: 1.5, margin: '0 0 10px 0' }}>
+                      These services return to the quote as staged labor — assign them to a job and save from there.
+                    </p>
                     {revisionError && <div style={{ color: '#dc2626', fontSize: '11px', marginBottom: '6px' }}>{revisionError}</div>}
-                    <button onClick={handleSubmitRevision} disabled={cart.length === 0 || loading || !revisionAuth.trim()}
+                    <button onClick={handleSubmitRevision} disabled={cart.length === 0}
                       style={{
                         width: '100%', padding: '14px', border: 'none', borderRadius: '25px',
-                        backgroundColor: cart.length === 0 || !revisionAuth.trim() ? '#ccc' : '#92400e',
+                        backgroundColor: cart.length === 0 ? '#ccc' : '#92400e',
                         color: 'white', fontSize: '14px', fontWeight: '700',
-                        cursor: cart.length === 0 || !revisionAuth.trim() ? 'not-allowed' : 'pointer',
+                        cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
                       }}>
-                      {loading ? 'Submitting…' : `Authorize & Add to Revision · ${formatCurrency(cartTotal)}`}
+                      {`← Add to Quote · ${formatCurrency(cartTotal)}`}
                     </button>
                     {cart.length === 0 && <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', marginTop: '6px' }}>Add services above</div>}
                   </div>

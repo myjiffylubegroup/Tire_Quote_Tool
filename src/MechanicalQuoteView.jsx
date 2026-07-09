@@ -108,13 +108,12 @@ export default function MechanicalQuoteView({ code }) {
   const [showOrderConfirm,  setShowOrderConfirm]  = useState(false);  // confirmation modal
   const [confirming,        setConfirming]        = useState(false);  // placing order
 
-  // ── Manage Jobs state (staff-only job grouping) ──────────────────────────
-  const [jobsMode,      setJobsMode]      = useState(false);  // panel open
+  // ── Unified editor: staged job state (nothing commits until save) ─────────
   const [jobFormText,   setJobFormText]   = useState('');     // new-job input
-  const [jobLabelDraft, setJobLabelDraft] = useState({});     // { job_id: label } while renaming
+  const [stagedJobs,    setStagedJobs]    = useState([]);     // [{ key, job_id, temp_id, label }]
+  const [deletedJobIds, setDeletedJobIds] = useState([]);     // existing job_ids staged to delete
+  const [lineJobAssign, setLineJobAssign] = useState({});     // { [item_id|part_id]: ref } re-buckets
   const [dragJobIndex,  setDragJobIndex]  = useState(null);   // drag-to-reorder
-  const [jobBusy,       setJobBusy]       = useState(false);  // request in flight
-  const [jobError,      setJobError]      = useState('');
 
   // ── Load quote ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -157,6 +156,38 @@ export default function MechanicalQuoteView({ code }) {
       })
       .catch(() => { setError('Failed to load quote'); setLoading(false); });
   }, [code]);
+
+  // ── Restore editor after the builder hand-off (Add Labor Services) ────────
+  // The builder navigates away, then returns MOTOR labor via jl_revision_return
+  // and we restore the staged edit state saved in jl_edit_state. Runs once the
+  // quote is loaded (keyed on short_code).
+  useEffect(() => {
+    if (!quote?.short_code) return;
+    let saved = null, returned = null;
+    try { saved    = JSON.parse(sessionStorage.getItem('jl_edit_state')      || 'null'); } catch { saved = null; }
+    try { returned = JSON.parse(sessionStorage.getItem('jl_revision_return') || 'null'); } catch { returned = null; }
+
+    if (saved && saved.short_code === quote.short_code) {
+      setRevItems(saved.revItems || []);
+      setRevParts(saved.revParts || []);
+      setRevRemoveItems(saved.revRemoveItems || []);
+      setRevRemoveParts(saved.revRemoveParts || []);
+      setRevUpdateParts(saved.revUpdateParts || []);
+      setRevAuth(saved.revAuth || '');
+      setStagedJobs((saved.stagedJobs && saved.stagedJobs.length) ? saved.stagedJobs : initStagedJobs());
+      setDeletedJobIds(saved.deletedJobIds || []);
+      setLineJobAssign(saved.lineJobAssign || {});
+      setRevMode(true);
+      sessionStorage.removeItem('jl_edit_state');
+    }
+
+    if (returned && returned.short_code === quote.short_code && Array.isArray(returned.items) && returned.items.length > 0) {
+      setRevItems((prev) => [...prev, ...returned.items.map((it) => ({ ...it, _job_ref: it._job_ref || '' }))]);
+      if (!saved) setStagedJobs((prev) => (prev.length ? prev : initStagedJobs()));
+      setRevMode(true);
+      sessionStorage.removeItem('jl_revision_return');
+    }
+  }, [quote?.short_code]);
 
   // ── Auth check (is this a staff session?) ──────────────────────────────────
   const isStaff = (() => {
@@ -201,65 +232,80 @@ export default function MechanicalQuoteView({ code }) {
   };
 
   // ── Manage Jobs (staff-only grouping) ────────────────────────────────────
-  // Job edits are display metadata only — never prices, never the BAR audit
-  // fields — so they save live via manage-mechanical-jobs (no auth note) and
-  // reconcile from the returned snapshot (jobs + item/part job_id maps).
-  const applyJobSnapshot = (data) => {
-    setQuote((prev) => ({
-      ...prev,
-      jobs: data.jobs || [],
-      items: (prev.items || []).map((it) =>
-        (data.item_job_ids && (it.item_id in data.item_job_ids))
-          ? { ...it, job_id: data.item_job_ids[it.item_id] }
-          : it),
-      parts: (prev.parts || []).map((p) =>
-        (data.part_job_ids && (p.part_id in data.part_job_ids))
-          ? { ...p, job_id: data.part_job_ids[p.part_id] }
-          : p),
-    }));
-  };
+  // Job edits in the unified editor are STAGED (nothing commits until
+  // Recalculate & Save). stagedJobs mirrors quote.jobs plus any new jobs
+  // (temp_id set, job_id null). Existing-line re-bucketing is tracked in
+  // lineJobAssign; new staged lines carry _job_ref. All of it is threaded into
+  // the single add-mechanical-revision commit.
+  //
+  // A "job ref" is a real job_id, a temp_id (new job), or '' (General). The
+  // backend resolves temp/real/null uniformly.
+  const genTempJobId = () => 'tmpjob_' + Math.random().toString(36).slice(2, 10);
 
-  const manageJobs = async (action, payload = {}) => {
-    setJobBusy(true); setJobError('');
-    try {
-      const res  = await apiCall(`${API_BASE}/manage-mechanical-jobs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, quote_id: quote.quote_id, ...payload }),
-      });
-      const data = await res.json();
-      if (data.success) applyJobSnapshot(data);
-      else setJobError(data.error || 'Failed to save job change');
-    } catch { setJobError('Network error'); }
-    setJobBusy(false);
-  };
+  // Snapshot the current live jobs into the staged list (called when the editor opens).
+  const initStagedJobs = () =>
+    (quote.jobs || []).map((j) => ({ key: j.job_id, job_id: j.job_id, temp_id: null, label: j.label }));
 
-  const handleCreateJob = () => {
+  const addStagedJob = () => {
     const label = jobFormText.trim();
     if (!label) return;
+    const t = genTempJobId();
+    setStagedJobs((prev) => [...prev, { key: t, job_id: null, temp_id: t, label }]);
     setJobFormText('');
-    manageJobs('create_job', { label });
   };
-  const handleRenameJob = (job_id) => {
-    const label = (jobLabelDraft[job_id] ?? '').trim();
-    const current = (quote.jobs || []).find((j) => j.job_id === job_id);
-    if (!label || (current && current.label === label)) return;  // no-op if unchanged/empty
-    manageJobs('rename_job', { job_id, label });
+  const renameStagedJob = (key, label) =>
+    setStagedJobs((prev) => prev.map((j) => (j.key === key ? { ...j, label } : j)));
+  const deleteStagedJob = (key) => {
+    setStagedJobs((prev) => {
+      const target = prev.find((j) => j.key === key);
+      if (target && target.job_id) setDeletedJobIds((d) => [...new Set([...d, target.job_id])]);
+      return prev.filter((j) => j.key !== key);
+    });
+    // Clear any staged assignments that pointed at this job (fall back to General).
+    setLineJobAssign((m) => {
+      const next = { ...m };
+      for (const id of Object.keys(next)) if (next[id] === key) next[id] = '';
+      return next;
+    });
+    setRevItems((prev) => prev.map((it) => (it._job_ref === key ? { ...it, _job_ref: '' } : it)));
+    setRevParts((prev) => prev.map((p) => (p._job_ref === key ? { ...p, _job_ref: '' } : p)));
   };
-  const handleDeleteJob = (job_id) => {
-    if (!window.confirm('Delete this job? Its labor and parts move back to General — nothing is removed from the quote.')) return;
-    manageJobs('delete_job', { job_id });
-  };
-  const handleReorderJobs = (fromIdx, toIdx) => {
+  const moveStagedJob = (fromIdx, toIdx) => {
     if (fromIdx == null || toIdx == null || fromIdx === toIdx) return;
-    const ordered = [...(quote.jobs || [])];
-    if (fromIdx < 0 || fromIdx >= ordered.length || toIdx < 0 || toIdx >= ordered.length) return;
-    const [moved] = ordered.splice(fromIdx, 1);
-    ordered.splice(toIdx, 0, moved);
-    manageJobs('reorder_jobs', { job_ids: ordered.map((j) => j.job_id) });
+    setStagedJobs((prev) => {
+      if (fromIdx < 0 || fromIdx >= prev.length || toIdx < 0 || toIdx >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      return next;
+    });
   };
-  const handleAssignItem = (item_id, job_id) => manageJobs('assign', { item_id, job_id: job_id || null });
-  const handleAssignPart = (part_id, job_id) => manageJobs('assign', { part_id, job_id: job_id || null });
+
+  // Ref used as the <select> value / payload for a job (real id, temp id, or '').
+  const jobRefOf = (j) => j.job_id || j.temp_id || '';
+
+  // Current assigned ref for an existing line (staged override, else its live job_id).
+  const existingLineRef = (line) =>
+    (line.item_id ?? line.part_id) in lineJobAssign
+      ? lineJobAssign[line.item_id ?? line.part_id]
+      : (line.job_id || '');
+
+  const setExistingLineJob = (id, ref) =>
+    setLineJobAssign((m) => ({ ...m, [id]: ref }));
+
+  // Job <select> reused across every add form and every line row in the editor.
+  const jobSelect = (value, onChange) => (
+    <select
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ fontSize: '12px', fontWeight: '600', color: value ? MAROON : SLATE, border: `1px solid ${BORDER}`, borderRadius: '6px', padding: '4px 6px', backgroundColor: 'white', cursor: 'pointer', maxWidth: '160px', flexShrink: 0 }}
+    >
+      <option value="">General</option>
+      {stagedJobs.map((j) => (
+        <option key={j.key} value={jobRefOf(j)}>{j.label || '(unnamed)'}</option>
+      ))}
+    </select>
+  );
 
   // handleDeletePart replaced by handleRemovePart below which handles both
   // manual parts and PartsTech parts (syncs removal back to PT cart).
@@ -387,24 +433,115 @@ export default function MechanicalQuoteView({ code }) {
     setEditMode(false);
   };
 
-  // ── Submit revision ──────────────────────────────────────────────────────────
-  const handleSubmitRevision = async () => {
-    if (!revAuth.trim() || revAuth.trim().length < 5) { setRevError('Authorization note is required'); return; }
-    const hasChanges = revItems.length > 0 || revParts.length > 0 || revRemoveItems.length > 0 || revRemoveParts.length > 0 || revUpdateParts.length > 0;
-    if (!hasChanges) { setRevError('Add, remove, or update at least one item'); return; }
+  // ── Unified editor: open / close / save ──────────────────────────────────
+  const resetEditorStaging = () => {
+    setRevItems([]); setRevParts([]);
+    setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]);
+    setRevAuth(''); setRevError('');
+    setRevPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
+    setRevManualLaborForm({ description: '', hours: '0.50' });
+    setRevPtSessionId(null); setRevPtPolling(false); setRevPtError('');
+    setStagedJobs([]); setDeletedJobIds([]); setLineJobAssign({}); setJobFormText(''); setDragJobIndex(null);
+  };
+
+  const openEditor = () => {
+    setEditMode(false);
+    resetEditorStaging();
+    setStagedJobs(initStagedJobs());
+    setRevMode(true);
+  };
+
+  const closeEditor = () => {
+    if (revPtIntervalRef.current) { clearInterval(revPtIntervalRef.current); revPtIntervalRef.current = null; }
+    resetEditorStaging();
+    setRevMode(false);
+  };
+
+  // Persist in-progress edit state before the builder hand-off (Add Labor
+  // Services navigates away), so staged work + jobs survive the round-trip.
+  const persistEditState = () => {
+    try {
+      sessionStorage.setItem('jl_edit_state', JSON.stringify({
+        short_code: quote.short_code,
+        revItems, revParts, revRemoveItems, revRemoveParts, revUpdateParts,
+        revAuth, stagedJobs, deletedJobIds, lineJobAssign,
+      }));
+    } catch { /* sessionStorage unavailable — labor still returns, staging may reset */ }
+  };
+
+  // Line changes are BAR-relevant (drive the reason prompt). Job changes don't.
+  const editHasLineChanges = () =>
+    revItems.length > 0 || revParts.length > 0 ||
+    revRemoveItems.length > 0 || revRemoveParts.length > 0 || revUpdateParts.length > 0;
+
+  const editHasJobChanges = () => {
+    if (stagedJobs.some((j) => j.temp_id)) return true;
+    if (deletedJobIds.length > 0) return true;
+    const orig = quote.jobs || [];
+    if (stagedJobs.filter((j) => j.job_id).some((j) => {
+      const o = orig.find((x) => x.job_id === j.job_id); return o && o.label !== j.label;
+    })) return true;
+    const origOrder = orig.map((j) => j.job_id).join(',');
+    const newOrder  = stagedJobs.filter((j) => j.job_id).map((j) => j.job_id).join(',');
+    if (origOrder !== newOrder) return true;
+    return Object.keys(lineJobAssign).some((id) => {
+      const line = (quote.items || []).find((x) => x.item_id === id) || (quote.parts || []).find((x) => x.part_id === id);
+      return (lineJobAssign[id] || '') !== ((line && line.job_id) || '');
+    });
+  };
+
+  const editNeedsReason = () => quote.status === 'presented' && editHasLineChanges();
+
+  const handleSaveEdit = async () => {
+    const lineChg = editHasLineChanges();
+    const jobChg  = editHasJobChanges();
+    if (!lineChg && !jobChg) { setRevError('Add, remove, re-bucket, or update at least one item'); return; }
+    const needReason = quote.status === 'presented' && lineChg;
+    if (needReason && (!revAuth.trim() || revAuth.trim().length < 5)) {
+      setRevError('Reason for revision is required (minimum 5 characters)'); return;
+    }
     setSavingRev(true); setRevError('');
+
+    // Job payloads from staged state
+    const new_jobs = stagedJobs.filter((j) => j.temp_id)
+      .map((j) => ({ temp_id: j.temp_id, label: j.label, sort_order: stagedJobs.indexOf(j) }));
+    const orig = quote.jobs || [];
+    const rename_jobs = stagedJobs.filter((j) => j.job_id)
+      .filter((j) => { const o = orig.find((x) => x.job_id === j.job_id); return o && o.label !== j.label; })
+      .map((j) => ({ job_id: j.job_id, label: j.label }));
+    const delete_jobs = deletedJobIds;
+    const job_order = stagedJobs.map((j) => j.job_id || j.temp_id);
+
+    // Existing-line re-buckets (only those that changed)
+    const assign_items = [];
+    const assign_parts = [];
+    for (const id of Object.keys(lineJobAssign)) {
+      const ref  = lineJobAssign[id] || '';
+      const item = (quote.items || []).find((x) => x.item_id === id);
+      const part = (quote.parts || []).find((x) => x.part_id === id);
+      const origRef = ((item || part) && (item || part).job_id) || '';
+      if (ref === origRef) continue;
+      if (item)      assign_items.push({ item_id: id, job_id: ref || null });
+      else if (part) assign_parts.push({ part_id: id, job_id: ref || null });
+    }
+
+    // New staged lines carry job via _job_ref -> job_id (backend resolves temp/real)
+    const items = revItems.map(({ _job_ref, ...rest }) => ({ ...rest, job_id: _job_ref || undefined }));
+    const parts = revParts.map(({ _job_ref, ...rest }) => ({ ...rest, job_id: _job_ref || undefined }));
+
     try {
       const res = await apiCall(`${API_BASE}/add-mechanical-revision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quote_id:      quote.quote_id,
-          revision_auth: revAuth.trim(),
-          items:         revItems,
-          parts:         revParts,
+          revision_auth: needReason ? revAuth.trim() : undefined,
+          items, parts,
           remove_items:  revRemoveItems,
           remove_parts:  revRemoveParts,
           update_parts:  revUpdateParts,
+          new_jobs, rename_jobs, delete_jobs, job_order,
+          assign_items, assign_parts,
         }),
       });
       const data = await res.json();
@@ -413,20 +550,9 @@ export default function MechanicalQuoteView({ code }) {
         const refreshRes = await refreshFetch(`${API_BASE}/get-mechanical-quote?short_code=${quote.short_code}`);
         const refreshData = await refreshRes.json();
         if (refreshData.success) setQuote(refreshData.quote);
-        setRevMode(false);
-        setRevAuth('');
-        setRevItems([]);
-        setRevParts([]);
-        setRevRemoveItems([]);
-        setRevRemoveParts([]);
-        setRevUpdateParts([]);
-        setRevPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
-        setRevManualLaborForm({ description: '', hours: '0.50' });
-        setRevPtSessionId(null);
-        setRevPtPolling(false);
-        setRevPtError('');
+        closeEditor();
       } else {
-        setRevError(data.error || 'Failed to submit revision');
+        setRevError(data.error || 'Failed to save');
       }
     } catch { setRevError('Network error'); }
     setSavingRev(false);
@@ -487,7 +613,7 @@ export default function MechanicalQuoteView({ code }) {
             setRevPtSessionId(null);
             window.removeEventListener('message', ptMessageHandler);
             if (pollData.parts && pollData.parts.length > 0) {
-              setRevParts(prev => [...prev, ...pollData.parts]);
+              setRevParts(prev => [...prev, ...pollData.parts.map((p) => ({ ...p, _job_ref: '' }))]);
             }
           } else if (!pollData.success) {
             clearInterval(revPtIntervalRef.current);
@@ -745,21 +871,6 @@ export default function MechanicalQuoteView({ code }) {
     ...((itemsForJob(null).length > 0 || partsForJob(null).length > 0) ? [{ id: null, label: 'General Services' }] : []),
   ];
 
-  // Dropdown used in the Manage Jobs panel to assign a line to a job.
-  const jobAssignSelect = (value, onChange) => (
-    <select
-      value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={jobBusy}
-      style={{ fontSize: '12px', fontWeight: '600', color: value ? MAROON : SLATE, border: `1px solid ${BORDER}`, borderRadius: '6px', padding: '4px 6px', backgroundColor: 'white', cursor: jobBusy ? 'wait' : 'pointer', maxWidth: '170px', flexShrink: 0 }}
-    >
-      <option value="">General</option>
-      {(quote.jobs || []).map((j) => (
-        <option key={j.job_id} value={j.job_id}>{j.label}</option>
-      ))}
-    </select>
-  );
-
   return (
     <div className="mq-outer" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", backgroundColor: '#f1f5f9', minHeight: '100vh', padding: '20px' }}>
       <style>{PRINT_STYLES}</style>
@@ -925,31 +1036,22 @@ export default function MechanicalQuoteView({ code }) {
             )}
             <div style={{ flex: 1 }} />
             <div style={{ display: 'flex', gap: '8px' }}>
-              {!jobsMode && (
-              <button onClick={() => { setEditMode(!editMode); setRevMode(false); }} style={{
-                padding: '8px 16px', border: `2px solid ${editMode ? MAROON : BORDER}`,
-                borderRadius: '20px', backgroundColor: editMode ? '#fff5f5' : 'white',
-                color: editMode ? MAROON : SLATE, fontSize: '12px', fontWeight: '700', cursor: 'pointer',
-              }}>
-                {editMode ? '✓ Done Editing' : '✏️ Edit Customer'}
-              </button>
+              {!revMode && (
+                <button onClick={() => { setEditMode(!editMode); }} style={{
+                  padding: '8px 16px', border: `2px solid ${editMode ? MAROON : BORDER}`,
+                  borderRadius: '20px', backgroundColor: editMode ? '#fff5f5' : 'white',
+                  color: editMode ? MAROON : SLATE, fontSize: '12px', fontWeight: '700', cursor: 'pointer',
+                }}>
+                  {editMode ? '✓ Done Editing' : '✏️ Edit Customer'}
+                </button>
               )}
-              {!jobsMode && quote.status === 'presented' && !editMode && (
-                <button onClick={() => { const next = !revMode; setRevMode(next); setEditMode(false); if (!next) { if (revPtIntervalRef.current) { clearInterval(revPtIntervalRef.current); revPtIntervalRef.current = null; } setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevManualLaborForm({ description: '', hours: '0.50' }); setRevPtSessionId(null); setRevPtPolling(false); }}} style={{
+              {!editMode && (
+                <button onClick={() => (revMode ? closeEditor() : openEditor())} style={{
                   padding: '8px 16px', border: `2px solid ${revMode ? '#d97706' : BORDER}`,
                   borderRadius: '20px', backgroundColor: revMode ? '#fffbeb' : 'white',
                   color: revMode ? '#d97706' : SLATE, fontSize: '12px', fontWeight: '700', cursor: 'pointer',
                 }}>
-                  {revMode ? '✓ Cancel Revision' : '✏️ Revise Quote'}
-                </button>
-              )}
-              {!editMode && !revMode && (
-                <button onClick={() => { setJobsMode(!jobsMode); setJobError(''); setJobLabelDraft({}); }} style={{
-                  padding: '8px 16px', border: `2px solid ${jobsMode ? MAROON : BORDER}`,
-                  borderRadius: '20px', backgroundColor: jobsMode ? '#fff5f5' : 'white',
-                  color: jobsMode ? MAROON : SLATE, fontSize: '12px', fontWeight: '700', cursor: 'pointer',
-                }}>
-                  {jobsMode ? '✓ Done' : '🗂️ Manage Jobs'}
+                  {revMode ? '✕ Cancel Edit' : '✏️ Edit Quote'}
                 </button>
               )}
             </div>
@@ -1103,109 +1205,8 @@ export default function MechanicalQuoteView({ code }) {
             </div>
           </div>
 
-          {/* ── Manage Jobs panel (staff only) ── */}
-          {jobsMode && isStaff && (
-            <div className="no-print" style={{ marginBottom: '24px', border: `2px solid ${MAROON}`, borderRadius: '10px', padding: '16px', backgroundColor: '#fdf7f9' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <div style={{ fontSize: '12px', fontWeight: '800', color: MAROON, letterSpacing: '1px' }}>🗂️ MANAGE JOBS</div>
-                {jobBusy && <span style={{ fontSize: '11px', color: SLATE }}>Saving…</span>}
-              </div>
-              <p style={{ fontSize: '11px', color: SLATE, margin: '0 0 14px 0', lineHeight: 1.5 }}>
-                Group this quote's labor and parts into jobs (e.g. “Front Brakes”) for per-job subtotals. Grouping is display-only — it never changes prices.
-              </p>
-              {jobError && <div style={{ color: '#dc2626', fontSize: '11px', marginBottom: '10px' }}>{jobError}</div>}
-
-              {/* Jobs: rename / drag-reorder / delete */}
-              {(quote.jobs || []).length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
-                  {(quote.jobs || []).map((j, idx) => (
-                    <div
-                      key={j.job_id}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => { handleReorderJobs(dragJobIndex, idx); setDragJobIndex(null); }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '6px', padding: '2px',
-                        backgroundColor: dragJobIndex != null && dragJobIndex !== idx ? '#fbeaf0' : 'transparent',
-                        opacity: dragJobIndex === idx ? 0.5 : 1,
-                      }}
-                    >
-                      <span
-                        draggable
-                        onDragStart={() => setDragJobIndex(idx)}
-                        onDragEnd={() => setDragJobIndex(null)}
-                        title="Drag to reorder"
-                        style={{ cursor: 'grab', color: '#cbd5e1', fontSize: '15px', lineHeight: 1, padding: '0 2px', userSelect: 'none' }}
-                      >⠿</span>
-                      <input
-                        type="text"
-                        value={jobLabelDraft[j.job_id] ?? j.label}
-                        onChange={(e) => setJobLabelDraft((d) => ({ ...d, [j.job_id]: e.target.value }))}
-                        onBlur={() => handleRenameJob(j.job_id)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                        style={{ ...inputStyle, flex: 1 }}
-                      />
-                      <button onClick={() => handleDeleteJob(j.job_id)} disabled={jobBusy}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '18px', lineHeight: 1, padding: '0 4px' }}>×</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Create job */}
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '18px' }}>
-                <input
-                  type="text"
-                  placeholder="New job name (e.g. Front Brakes)"
-                  value={jobFormText}
-                  onChange={(e) => setJobFormText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleCreateJob(); }}
-                  style={{ ...inputStyle, flex: 1 }}
-                />
-                <button onClick={handleCreateJob} disabled={!jobFormText.trim() || jobBusy}
-                  style={{ padding: '8px 14px', border: 'none', borderRadius: '20px', backgroundColor: !jobFormText.trim() ? '#cbd5e1' : MAROON, color: 'white', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', cursor: !jobFormText.trim() ? 'not-allowed' : 'pointer' }}>+ Add Job</button>
-              </div>
-
-              {/* Assign labor */}
-              {(quote.items || []).filter((it) => !it.is_removed).length > 0 && (
-                <div style={{ marginBottom: '14px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>LABOR</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {(quote.items || []).filter((it) => !it.is_removed).map((it) => (
-                      <div key={it.item_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12px' }}>
-                        <span style={{ color: DARK, fontWeight: '600', minWidth: 0 }}>
-                          {it.motor_db_operation}
-                          {it.qualifier_description && <span style={{ color: SLATE, fontWeight: '400' }}> · {it.qualifier_description}</span>}
-                        </span>
-                        {jobAssignSelect(it.job_id, (v) => handleAssignItem(it.item_id, v))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Assign parts */}
-              {(quote.parts || []).filter((p) => !p.is_removed).length > 0 && (
-                <div>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>PARTS</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {(quote.parts || []).filter((p) => !p.is_removed).map((p) => (
-                      <div key={p.part_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12px' }}>
-                        <span style={{ color: DARK, fontWeight: '600', minWidth: 0 }}>{p.description}</span>
-                        {jobAssignSelect(p.job_id, (v) => handleAssignPart(p.part_id, v))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {(quote.jobs || []).length === 0 && (
-                <div style={{ fontSize: '11px', color: SLATE, fontStyle: 'italic', marginTop: '4px' }}>Add a job above, then assign labor and parts to it.</div>
-              )}
-            </div>
-          )}
-
           {/* ── Job-grouped services (per-job subtotals) ── */}
-          {useGrouped && !jobsMode && (
+          {useGrouped && (
             <div style={{ marginBottom: '24px' }}>
               <div style={sectionLabel}>SERVICES BY JOB</div>
               {jobBuckets.map((bucket) => {
@@ -1258,7 +1259,7 @@ export default function MechanicalQuoteView({ code }) {
           )}
 
           {/* ── Labor Items ── */}
-          {!useGrouped && !jobsMode && (
+          {!useGrouped && (
           <div style={{ marginBottom: '24px' }}>
             <div style={sectionLabel}>LABOR SERVICES</div>
             <div style={{ border: `1px solid ${BORDER}`, borderRadius: '8px', overflow: 'hidden' }}>
@@ -1379,7 +1380,7 @@ export default function MechanicalQuoteView({ code }) {
           )}
 
           {/* ── Parts ── */}
-          {!useGrouped && !jobsMode && (quote.parts || []).length > 0 && (
+          {!useGrouped && (quote.parts || []).length > 0 && (
             <div style={{ marginBottom: '24px' }}>
               <div style={sectionLabel}>PARTS</div>
               {true && (
@@ -1529,11 +1530,34 @@ export default function MechanicalQuoteView({ code }) {
 
           {/* ── Revision panel (presented quotes, staff only) ── */}
           {revMode && isStaff && (
-            <div style={{ marginBottom: '24px', border: '2px solid #d97706', borderRadius: '8px', padding: '16px', backgroundColor: '#fffbeb' }}>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', marginBottom: '4px' }}>✏️ REVISE QUOTE</div>
+            <div className="no-print" style={{ marginBottom: '24px', border: '2px solid #d97706', borderRadius: '8px', padding: '16px', backgroundColor: '#fffbeb' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', marginBottom: '4px' }}>✏️ EDIT QUOTE</div>
               <p style={{ fontSize: '11px', color: '#92400e', marginBottom: '14px', lineHeight: '1.5', margin: '0 0 14px 0' }}>
-                Check items above to remove them, or add new labor/parts below. All changes require an authorization note.
+                Add labor and parts, create jobs and assign work to them, check items above to remove, or change quantities. Nothing is saved until you hit <strong>Recalculate &amp; Save</strong>{quote.status === 'presented' ? ' — you\u2019ll be asked the reason only if labor or parts changed.' : '.'}
               </p>
+
+              {/* Jobs */}
+              <div style={{ marginBottom: '14px', border: `1px solid ${BORDER}`, borderRadius: '8px', padding: '12px', backgroundColor: 'white' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '8px' }}>JOBS (OPTIONAL)</div>
+                {stagedJobs.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                    {stagedJobs.map((j, idx) => (
+                      <div key={j.key}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => { moveStagedJob(dragJobIndex, idx); setDragJobIndex(null); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '6px', padding: '2px', backgroundColor: dragJobIndex != null && dragJobIndex !== idx ? '#fffbeb' : 'transparent', opacity: dragJobIndex === idx ? 0.5 : 1 }}>
+                        <span draggable onDragStart={() => setDragJobIndex(idx)} onDragEnd={() => setDragJobIndex(null)} title="Drag to reorder" style={{ cursor: 'grab', color: '#cbd5e1', fontSize: '15px', lineHeight: 1, padding: '0 2px', userSelect: 'none' }}>⠿</span>
+                        <input type="text" value={j.label} onChange={(e) => renameStagedJob(j.key, e.target.value)} placeholder="Job name" style={{ ...inputStyle, flex: 1 }} />
+                        <button onClick={() => deleteStagedJob(j.key)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '18px', lineHeight: 1, padding: '0 4px' }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input type="text" placeholder="New job (e.g. Front Brakes)" value={jobFormText} onChange={(e) => setJobFormText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addStagedJob(); }} style={{ ...inputStyle, flex: 1 }} />
+                  <button onClick={addStagedJob} disabled={!jobFormText.trim()} style={{ padding: '8px 14px', border: 'none', borderRadius: '20px', backgroundColor: !jobFormText.trim() ? '#cbd5e1' : '#d97706', color: 'white', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', cursor: !jobFormText.trim() ? 'not-allowed' : 'pointer' }}>+ Add Job</button>
+                </div>
+              </div>
 
               {/* Summary of staged changes */}
               {(revRemoveItems.length > 0 || revRemoveParts.length > 0) && (
@@ -1565,8 +1589,8 @@ export default function MechanicalQuoteView({ code }) {
                 <div style={{ marginBottom: '10px' }}>
                   <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>ADDING LABOR:</div>
                   {revItems.map((item, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: 'white', borderRadius: '6px', marginBottom: '4px', border: `1px solid ${BORDER}` }}>
-                      <div>
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: 'white', borderRadius: '6px', marginBottom: '4px', border: `1px solid ${BORDER}`, gap: '8px' }}>
+                      <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: '12px', fontWeight: '600', color: DARK }}>
                           {item.motor_db_operation}{item.qualifier_description ? ` · ${item.qualifier_description}` : ''}
                           {item.is_manual && (
@@ -1575,8 +1599,11 @@ export default function MechanicalQuoteView({ code }) {
                         </div>
                         <div style={{ fontSize: '11px', color: SLATE }}>{item.motor_time}h × {formatCurrency(item.labor_price)} × qty {item.quantity}</div>
                       </div>
-                      <button onClick={() => setRevItems(prev => prev.filter((_, idx) => idx !== i))}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '18px', lineHeight: 1 }}>×</button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        {jobSelect(item._job_ref, (v) => setRevItems(prev => prev.map((x, idx) => idx === i ? { ...x, _job_ref: v } : x)))}
+                        <button onClick={() => setRevItems(prev => prev.filter((_, idx) => idx !== i))}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '18px', lineHeight: 1 }}>×</button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1587,13 +1614,16 @@ export default function MechanicalQuoteView({ code }) {
                 <div style={{ marginBottom: '10px' }}>
                   <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '6px' }}>ADDING PARTS:</div>
                   {revParts.map((part, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: 'white', borderRadius: '6px', marginBottom: '4px', border: `1px solid ${BORDER}` }}>
-                      <div>
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: 'white', borderRadius: '6px', marginBottom: '4px', border: `1px solid ${BORDER}`, gap: '8px' }}>
+                      <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: '12px', fontWeight: '600', color: DARK }}>{part.description}</div>
                         <div style={{ fontSize: '11px', color: SLATE }}>{part.quantity} × {formatCurrency(part.unit_price)}</div>
                       </div>
-                      <button onClick={() => setRevParts(prev => prev.filter((_, idx) => idx !== i))}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '18px', lineHeight: 1 }}>×</button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        {jobSelect(part._job_ref, (v) => setRevParts(prev => prev.map((x, idx) => idx === i ? { ...x, _job_ref: v } : x)))}
+                        <button onClick={() => setRevParts(prev => prev.filter((_, idx) => idx !== i))}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '18px', lineHeight: 1 }}>×</button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1602,6 +1632,7 @@ export default function MechanicalQuoteView({ code }) {
               {/* Add labor button */}
               <div style={{ marginBottom: '10px' }}>
                 <button onClick={() => {
+                  persistEditState();
                   sessionStorage.setItem('jl_revision_context', JSON.stringify({
                     quote_id:         quote.quote_id,
                     short_code:       quote.short_code,
@@ -1692,6 +1723,7 @@ export default function MechanicalQuoteView({ code }) {
                       motor_db_footnote:        null,
                       is_additional_operation:  false,
                       quantity:                 1,
+                      _job_ref:                 '',
                     }]);
                     setRevManualLaborForm({ description: '', hours: '0.50' });
                   }} disabled={!revManualLaborForm.description.trim()}
@@ -1719,7 +1751,7 @@ export default function MechanicalQuoteView({ code }) {
                     style={inputStyle} />
                   <button onClick={() => {
                     if (!revPartForm.description.trim() || !revPartForm.unit_price) return;
-                    setRevParts(prev => [...prev, { part_number: revPartForm.part_number.trim() || null, description: revPartForm.description.trim(), quantity: revPartForm.quantity, unit_price: parseFloat(revPartForm.unit_price) }]);
+                    setRevParts(prev => [...prev, { part_number: revPartForm.part_number.trim() || null, description: revPartForm.description.trim(), quantity: revPartForm.quantity, unit_price: parseFloat(revPartForm.unit_price), _job_ref: '' }]);
                     setRevPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
                   }} disabled={!revPartForm.description.trim() || !revPartForm.unit_price}
                     style={{ padding: '8px 12px', border: 'none', borderRadius: '6px', backgroundColor: !revPartForm.description.trim() || !revPartForm.unit_price ? '#ccc' : '#92400e', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -1728,22 +1760,44 @@ export default function MechanicalQuoteView({ code }) {
                 </div>
               </div>
 
-              {/* Authorization note */}
-              <div style={{ marginBottom: '10px' }}>
-                <label style={{ fontSize: '10px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>AUTHORIZATION NOTE * (required for all changes)</label>
-                <input type="text" value={revAuth} onChange={(e) => setRevAuth(e.target.value)}
-                  placeholder='e.g. "Customer authorized brake line repair via phone at 2:15pm"'
-                  style={{ ...inputStyle, borderColor: '#f59e0b' }} />
-              </div>
+              {/* Assign existing lines to jobs */}
+              {stagedJobs.length > 0 && ((quote.items || []).some((it) => !it.is_removed && !revRemoveItems.includes(it.item_id)) || (quote.parts || []).some((p) => !p.is_removed && !revRemoveParts.includes(p.part_id))) && (
+                <div style={{ marginBottom: '12px', border: `1px solid ${BORDER}`, borderRadius: '8px', padding: '12px', backgroundColor: 'white' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', marginBottom: '8px' }}>ASSIGN EXISTING LINES TO JOBS</div>
+                  {(quote.items || []).filter((it) => !it.is_removed && !revRemoveItems.includes(it.item_id)).map((it) => (
+                    <div key={it.item_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12px', padding: '3px 0' }}>
+                      <span style={{ color: DARK, fontWeight: '600', minWidth: 0 }}>{it.motor_db_operation}{it.qualifier_description ? ` · ${it.qualifier_description}` : ''}</span>
+                      {jobSelect(existingLineRef(it), (v) => setExistingLineJob(it.item_id, v))}
+                    </div>
+                  ))}
+                  {(quote.parts || []).filter((p) => !p.is_removed && !revRemoveParts.includes(p.part_id)).map((p) => (
+                    <div key={p.part_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12px', padding: '3px 0' }}>
+                      <span style={{ color: DARK, fontWeight: '600', minWidth: 0 }}>{p.description}</span>
+                      {jobSelect(existingLineRef(p), (v) => setExistingLineJob(p.part_id, v))}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Reason for revision — only required for a real line change on a
+                  presented quote. Draft edits and job-only changes don't ask. */}
+              {editNeedsReason() && (
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ fontSize: '10px', fontWeight: '700', color: '#92400e', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>REASON FOR REVISION * (labor/parts changed on a presented quote)</label>
+                  <input type="text" value={revAuth} onChange={(e) => setRevAuth(e.target.value)}
+                    placeholder='e.g. "Customer authorized brake line repair via phone at 2:15pm"'
+                    style={{ ...inputStyle, borderColor: '#f59e0b' }} />
+                </div>
+              )}
 
               {revError && <div style={{ color: '#dc2626', fontSize: '11px', marginBottom: '8px' }}>{revError}</div>}
 
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={handleSubmitRevision} disabled={savingRev || !revAuth.trim() || revAuth.trim().length < 5}
-                  style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '20px', backgroundColor: !revAuth.trim() || revAuth.trim().length < 5 ? '#ccc' : '#d97706', color: 'white', fontSize: '13px', fontWeight: '700', cursor: !revAuth.trim() || revAuth.trim().length < 5 ? 'not-allowed' : 'pointer' }}>
-                  {savingRev ? 'Saving…' : 'Submit Revision'}
+                <button onClick={handleSaveEdit} disabled={savingRev || (editNeedsReason() && (!revAuth.trim() || revAuth.trim().length < 5))}
+                  style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '20px', backgroundColor: savingRev || (editNeedsReason() && (!revAuth.trim() || revAuth.trim().length < 5)) ? '#ccc' : '#d97706', color: 'white', fontSize: '13px', fontWeight: '700', cursor: savingRev || (editNeedsReason() && (!revAuth.trim() || revAuth.trim().length < 5)) ? 'not-allowed' : 'pointer' }}>
+                  {savingRev ? 'Saving…' : '🔄 Recalculate & Save'}
                 </button>
-                <button onClick={() => { if (revPtIntervalRef.current) { clearInterval(revPtIntervalRef.current); revPtIntervalRef.current = null; } setRevMode(false); setRevItems([]); setRevParts([]); setRevRemoveItems([]); setRevRemoveParts([]); setRevUpdateParts([]); setRevAuth(''); setRevError(''); setRevManualLaborForm({ description: '', hours: '0.50' }); setRevPtSessionId(null); setRevPtPolling(false); }}
+                <button onClick={closeEditor}
                   style={{ padding: '10px 20px', border: `1px solid ${BORDER}`, borderRadius: '20px', backgroundColor: 'white', color: SLATE, fontSize: '13px', cursor: 'pointer' }}>
                   Cancel
                 </button>
