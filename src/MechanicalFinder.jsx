@@ -269,6 +269,17 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   const [parts,    setParts]    = useState([]);
   const [partForm, setPartForm] = useState({ part_number: '', description: '', quantity: 1, unit_price: '' });
 
+  // ── Job segmentation (optional CSA-named groupings) ──────────────────────
+  // Jobs let the CSA bucket labor + parts into named jobs ("Front Brakes") so
+  // the customer quote shows per-job subtotals. Each job carries a client
+  // temp_id; labor items (matched by client_id) and parts (matched by index)
+  // opt in via a _job_temp_id field carried on the item/part itself. This is
+  // sent to generate-mechanical-quote, which resolves temp_ids to real
+  // job_ids. No jobs created → fully flat quote, original UX unchanged.
+  const [jobs,    setJobs]    = useState([]);   // [{ temp_id, label }]
+  const [jobForm, setJobForm] = useState('');
+  const [dragJobIndex, setDragJobIndex] = useState(null);  // native drag-to-reorder
+
   // ── PartsTech punchout state ──
   const [ptSessionId,   setPtSessionId]   = useState(null);   // active punchout session
   const [ptPolling,     setPtPolling]     = useState(false);  // currently polling
@@ -587,6 +598,64 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
       return;
     }
     if (isEachOperation(op)) { setEachModalOp(op); } else { addToCart(op, 1); }
+  };
+
+  // ── Job segmentation helpers ─────────────────────────────────────────────
+  const nextJobTempId = () => 'job_' + Math.random().toString(36).slice(2, 10);
+  const addJob = () => {
+    const label = jobForm.trim();
+    if (!label) return;
+    setJobs((prev) => [...prev, { temp_id: nextJobTempId(), label }]);
+    setJobForm('');
+  };
+  const renameJob = (tempId, label) =>
+    setJobs((prev) => prev.map((j) => (j.temp_id === tempId ? { ...j, label } : j)));
+  const removeJob = (tempId) => {
+    setJobs((prev) => prev.filter((j) => j.temp_id !== tempId));
+    // Un-bucket any labor/parts that pointed at the removed job.
+    setCart((prev) => prev.map((c) => (c._job_temp_id === tempId ? { ...c, _job_temp_id: null } : c)));
+    setParts((prev) => prev.map((p) => (p._job_temp_id === tempId ? { ...p, _job_temp_id: null } : p)));
+  };
+  const assignItemJob = (clientId, tempId) =>
+    setCart((prev) => prev.map((c) => (c.client_id === clientId ? { ...c, _job_temp_id: tempId || null } : c)));
+  const assignPartJob = (idx, tempId) =>
+    setParts((prev) => prev.map((p, i) => (i === idx ? { ...p, _job_temp_id: tempId || null } : p)));
+
+  // Reorder jobs (drag-to-reorder). Job display order on the customer quote is
+  // the array order (sent as sort_order at submit time), so moving an element
+  // in the array is all that's needed.
+  const moveJob = (from, to) => {
+    if (from == null || to == null || from === to) return;
+    setJobs((prev) => {
+      if (from < 0 || from >= prev.length || to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
+  // Compact inline job picker (labor line + part line). Returns null until at
+  // least one job exists, so a CSA who never uses jobs sees the original flat
+  // UI with no extra controls.
+  const renderJobPicker = (value, onChange) => {
+    if (jobs.length === 0) return null;
+    return (
+      <select
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          fontSize: '11px', fontWeight: '600', color: value ? PURPLE : '#94a3b8',
+          border: `1px solid ${BORDER}`, borderRadius: '6px', padding: '2px 4px',
+          backgroundColor: 'white', cursor: 'pointer', maxWidth: '130px',
+        }}
+      >
+        <option value="">General</option>
+        {jobs.map((j) => (
+          <option key={j.temp_id} value={j.temp_id}>{j.label}</option>
+        ))}
+      </select>
+    );
   };
 
   // ── Advance from browse (labor) to parts step ──
@@ -980,6 +1049,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           partstech_order_item_id:  p.partstech_order_item_id  || undefined,
           partstech_session_id:     p.partstech_session_id     || undefined,
           partstech_store_id:       p.partstech_store_id       || undefined,
+          job_temp_id:              p._job_temp_id             || undefined,
         })),
         items: cart.map((op) => ({
           is_manual:                op.is_manual === true,
@@ -994,7 +1064,11 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
           motor_db_footnote:        op.motor_db_footnote || '',
           motor_db_description:     op.motor_db_description || '',
           quantity:                 op.quantity || 1,
+          job_temp_id:              op._job_temp_id || undefined,
         })),
+        // Optional CSA-named groupings. Server prunes any job not referenced by
+        // an item/part, so sending all is safe. sort_order = display order.
+        jobs: jobs.map((j, i) => ({ temp_id: j.temp_id, label: j.label, sort_order: i })),
         notes: quoteNotes || undefined,
         from_greet_short_code: greetLink?.short_code || undefined,
         from_greet_store_id:   greetLink?.store_id ?? undefined,
@@ -1028,6 +1102,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setSearchTerm('');
     setParts([]); setPartForm({ part_number: '', description: '', quantity: 1, unit_price: '' });
     setManualLaborForm({ description: '', hours: '0.50' });
+    setJobs([]); setJobForm('');
     setPtSessionId(null); setPtPolling(false); setPtError('');
     setCustFirstName(''); setCustLastName(''); setCustPhone('');
     setCustEmail(''); setCustPlate(''); setCustPlateState('CA');
@@ -1649,6 +1724,78 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
             {/* ── Left: Parts ── */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
+              {/* Jobs (optional grouping) */}
+              {!revisionMode && (
+                <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: DARK, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                    Jobs <span style={{ fontWeight: '400', color: '#94a3b8' }}>(optional)</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '12px', lineHeight: 1.4 }}>
+                    Group services and parts into jobs (e.g. “Front Brakes”) to show per-job subtotals on the customer quote. Leave empty for a single flat quote.
+                  </div>
+
+                  {jobs.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                      {jobs.map((j, idx) => (
+                        <div
+                          key={j.temp_id}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => { moveJob(dragJobIndex, idx); setDragJobIndex(null); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            borderRadius: '6px', padding: '2px',
+                            backgroundColor: dragJobIndex != null && dragJobIndex !== idx ? '#faf5ff' : 'transparent',
+                            opacity: dragJobIndex === idx ? 0.5 : 1,
+                          }}
+                        >
+                          <span
+                            draggable
+                            onDragStart={() => setDragJobIndex(idx)}
+                            onDragEnd={() => setDragJobIndex(null)}
+                            title="Drag to reorder"
+                            style={{ cursor: 'grab', color: '#cbd5e1', fontSize: '15px', lineHeight: 1, padding: '0 2px', userSelect: 'none' }}
+                          >⠿</span>
+                          <input
+                            type="text"
+                            value={j.label}
+                            onChange={(e) => renameJob(j.temp_id, e.target.value)}
+                            style={{ ...inputStyle, flex: 1 }}
+                            onFocus={(e) => e.target.style.borderColor = PURPLE}
+                            onBlur={(e) => e.target.style.borderColor = BORDER}
+                          />
+                          <button onClick={() => removeJob(j.temp_id)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '18px', lineHeight: 1, padding: '0 4px' }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      type="text"
+                      placeholder="New job name (e.g. Front Brakes)"
+                      value={jobForm}
+                      onChange={(e) => setJobForm(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') addJob(); }}
+                      style={{ ...inputStyle, flex: 1 }}
+                      onFocus={(e) => e.target.style.borderColor = PURPLE}
+                      onBlur={(e) => e.target.style.borderColor = BORDER}
+                    />
+                    <button
+                      onClick={addJob}
+                      disabled={!jobForm.trim()}
+                      style={{
+                        padding: '8px 14px', border: `2px solid ${BORDER}`, borderRadius: '6px',
+                        backgroundColor: !jobForm.trim() ? '#f5f5f5' : LIGHT,
+                        color: !jobForm.trim() ? '#94a3b8' : PURPLE,
+                        fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap',
+                        cursor: !jobForm.trim() ? 'not-allowed' : 'pointer',
+                      }}
+                    >+ Add Job</button>
+                  </div>
+                </div>
+              )}
+
               {/* Labor summary (read-only) */}
               <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -1660,8 +1807,8 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                   </button>
                 </div>
                 {cart.map((op) => (
-                  <div key={op.client_id ?? op.mechanical_estimating_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${BORDER}`, fontSize: '12px' }}>
-                    <span style={{ color: DARK, fontWeight: '600' }}>
+                  <div key={op.client_id ?? op.mechanical_estimating_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${BORDER}`, fontSize: '12px', gap: '8px' }}>
+                    <span style={{ color: DARK, fontWeight: '600', minWidth: 0 }}>
                       {op.motor_db_operation}
                       {op.qualifier_description && <span style={{ color: '#94a3b8', fontWeight: '400' }}> · {op.qualifier_description}</span>}
                       {op.is_manual && (
@@ -1669,7 +1816,10 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                       )}
                       {(op.quantity || 1) > 1 && <span style={{ color: PURPLE, fontWeight: '700' }}> ×{op.quantity}</span>}
                     </span>
-                    <span style={{ fontWeight: '700', color: DARK, flexShrink: 0, marginLeft: '12px' }}>{formatCurrency(Number(op.labor_price) * (op.quantity || 1))}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: '12px' }}>
+                      {renderJobPicker(op._job_temp_id, (v) => assignItemJob(op.client_id, v))}
+                      <span style={{ fontWeight: '700', color: DARK }}>{formatCurrency(Number(op.labor_price) * (op.quantity || 1))}</span>
+                    </span>
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px' }}>
@@ -1763,6 +1913,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            {renderJobPicker(p._job_temp_id, (v) => assignPartJob(i, v))}
                             <span style={{ fontSize: '12px', fontWeight: '700', color: DARK }}>{formatCurrency(p.quantity * p.unit_price)}</span>
                             <button onClick={() => setParts((prev) => prev.filter((_, idx) => idx !== i))}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '16px', lineHeight: 1, padding: 0 }}>×</button>

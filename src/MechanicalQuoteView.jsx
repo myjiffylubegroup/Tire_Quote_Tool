@@ -544,6 +544,138 @@ export default function MechanicalQuoteView({ code }) {
     borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box', outline: 'none',
   };
 
+  // ── Job segmentation (display grouping + per-job subtotals) ───────────────
+  // A quote may bucket its labor items and parts into CSA-named jobs. When jobs
+  // exist and we're not mid-revision, render per-job blocks with subtotals plus
+  // a "General Services" bucket for anything ungrouped. The overall pricing
+  // summary below stays authoritative — per-job subtotals are a display
+  // allocation that sums back to it. Legacy/ungrouped quotes (jobs: []) and
+  // revision mode fall through to the original flat tables, unchanged.
+  const jobsList  = quote.jobs || [];
+  const useGrouped = jobsList.length > 0 && !revMode;
+  const itemsForJob = (jobId) => (quote.items || []).filter((it) => (it.job_id || null) === (jobId || null));
+  const partsForJob = (jobId) => (quote.parts || []).filter((pt) => (pt.job_id || null) === (jobId || null));
+  const jobFinancials = (jobId) => {
+    const labor = itemsForJob(jobId).filter((it) => !it.is_removed)
+      .reduce((s, it) => s + parseFloat(it.labor_price) * (it.quantity || 1), 0);
+    const partsSub = partsForJob(jobId).filter((pt) => !pt.is_removed)
+      .reduce((s, pt) => s + (pt.line_total != null ? parseFloat(pt.line_total) : parseFloat(pt.unit_price) * (pt.quantity || 1)), 0);
+    const taxRate = parseFloat(quote.pricing?.tax_rate || 0);
+    const tax = Math.round(partsSub * taxRate * 100) / 100;   // parts taxed, labor not
+    return { labor, partsSub, tax, total: Math.round((labor + partsSub + tax) * 100) / 100 };
+  };
+
+  // Read-mode labor row (no revision checkbox/stepper — grouping is never shown
+  // during revision). Mirrors the flat labor row: badges, auth notes, removed
+  // styling all preserved.
+  const renderLaborRow = (item, i, arr) => (
+    <div key={item.item_id} style={{
+      display: 'grid', gridTemplateColumns: '1fr 80px 80px 90px',
+      padding: '12px 14px', borderBottom: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none',
+      backgroundColor: item.is_removed ? '#fef2f2' : i % 2 === 0 ? 'white' : '#fafafa',
+    }}>
+      <div>
+        <div style={{ fontSize: '13px', fontWeight: '600', color: item.is_removed ? '#94a3b8' : DARK, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', textDecoration: item.is_removed ? 'line-through' : 'none' }}>
+          {item.motor_db_operation}
+          {item.qualifier_description && <span style={{ color: SLATE, fontWeight: '400' }}> · {item.qualifier_description}</span>}
+          {!item.mechanical_estimating_id && !item.is_removed && (
+            <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', letterSpacing: '0.5px' }}>MANUAL</span>
+          )}
+          {item.is_revision && !item.is_removed && (
+            <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', letterSpacing: '0.5px' }}>ADDED</span>
+          )}
+          {item.is_removed && (
+            <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef2f2', color: '#dc2626', letterSpacing: '0.5px' }}>REMOVED</span>
+          )}
+        </div>
+        {item.motor_db_description && !item.is_removed && (
+          <div style={{ fontSize: '11px', color: SLATE, marginTop: '1px' }}>{item.motor_db_description}</div>
+        )}
+        {item.is_revision && item.revision_auth && !item.is_removed && (
+          <div style={{ fontSize: '10px', color: '#92400e', marginTop: '2px', fontStyle: 'italic' }}>Auth: {item.revision_auth}</div>
+        )}
+        {item.is_removed && item.removal_auth && (
+          <div style={{ fontSize: '10px', color: '#dc2626', marginTop: '2px', fontStyle: 'italic' }}>Removed: {item.removal_auth}</div>
+        )}
+        {item.motor_db_footnote && !item.is_removed && (
+          <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>ℹ️ {item.motor_db_footnote}</div>
+        )}
+      </div>
+      <div style={{ fontSize: '13px', color: item.is_removed ? '#94a3b8' : SLATE, textAlign: 'right', paddingTop: '1px' }}>{item.motor_time}h</div>
+      <div style={{ fontSize: '13px', color: item.is_removed ? '#94a3b8' : SLATE, textAlign: 'right', paddingTop: '1px' }}>{item.quantity}</div>
+      <div style={{ fontSize: '13px', fontWeight: '600', color: item.is_removed ? '#94a3b8' : DARK, textAlign: 'right', paddingTop: '1px', textDecoration: item.is_removed ? 'line-through' : 'none' }}>
+        {formatCurrency(parseFloat(item.labor_price) * (item.quantity || 1))}
+      </div>
+    </div>
+  );
+
+  // Read-mode part row. Removed parts stay print-only (audit trail) exactly as
+  // in the flat table; badges (ADDED / QTY CHANGED / PT) and auth notes kept.
+  const renderPartRow = (part, i, arr) => {
+    if (part.is_removed) {
+      return (
+        <div key={part.part_id} className="print-only" style={{
+          display: 'grid', gridTemplateColumns: '120px 1fr 80px 80px 90px',
+          padding: '10px 14px', borderBottom: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none',
+          backgroundColor: '#fef2f2', alignItems: 'center',
+        }}>
+          <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>{part.part_number || '—'}</div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '13px', color: '#94a3b8', textDecoration: 'line-through' }}>{part.description}</span>
+              <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef2f2', color: '#dc2626', letterSpacing: '0.5px' }}>REMOVED</span>
+            </div>
+            {part.removal_auth && <div style={{ fontSize: '10px', color: '#dc2626', fontStyle: 'italic', marginTop: '2px' }}>Removed: {part.removal_auth}</div>}
+          </div>
+          <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right', textDecoration: 'line-through' }}>{part.quantity}</div>
+          <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right', textDecoration: 'line-through' }}>{formatCurrency(part.unit_price)}</div>
+          <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right', textDecoration: 'line-through' }}>{formatCurrency(part.line_total)}</div>
+        </div>
+      );
+    }
+    return (
+      <div key={part.part_id} style={{
+        display: 'grid', gridTemplateColumns: '120px 1fr 80px 80px 90px',
+        padding: '10px 14px', borderBottom: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none',
+        backgroundColor: i % 2 === 0 ? 'white' : '#fafafa', alignItems: 'center',
+      }}>
+        <div style={{ fontSize: '11px', color: SLATE, fontFamily: 'monospace' }}>{part.part_number || '—'}</div>
+        <div style={{ fontSize: '13px', fontWeight: '500', color: DARK }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {part.description}
+            {part.is_revision && (
+              <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', letterSpacing: '0.5px' }}>ADDED</span>
+            )}
+            {part.previous_quantity != null && (
+              <span style={{ fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#eff6ff', color: '#1d4ed8', letterSpacing: '0.5px' }}>QTY CHANGED</span>
+            )}
+            {part.source === 'partstech' && (
+              <span style={{ fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '4px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #7dd3fc', letterSpacing: '0.5px' }}>PT</span>
+            )}
+          </div>
+          {part.is_revision && part.revision_auth && (
+            <div style={{ fontSize: '10px', color: '#92400e', fontStyle: 'italic', marginTop: '2px' }}>Auth: {part.revision_auth}</div>
+          )}
+          {part.previous_quantity != null && part.qty_change_auth && (
+            <div style={{ fontSize: '10px', color: '#1d4ed8', fontStyle: 'italic', marginTop: '2px' }}>Qty: {part.previous_quantity} → {part.quantity} · {part.qty_change_auth}</div>
+          )}
+        </div>
+        <div style={{ textAlign: 'right' }}><span style={{ fontSize: '13px', color: SLATE }}>{part.quantity}</span></div>
+        <div style={{ fontSize: '13px', color: SLATE, textAlign: 'right' }}>{formatCurrency(part.unit_price)}</div>
+        <div style={{ fontSize: '13px', fontWeight: '600', color: DARK, textAlign: 'right' }}>
+          {formatCurrency(part.line_total != null ? parseFloat(part.line_total) : parseFloat(part.unit_price) * (part.quantity || 1))}
+        </div>
+      </div>
+    );
+  };
+
+  // Ordered buckets: each job (in sort order), then a General bucket if any
+  // ungrouped lines exist. Empty buckets are skipped defensively.
+  const jobBuckets = [
+    ...jobsList.map((j) => ({ id: j.job_id, label: j.label })),
+    ...((itemsForJob(null).length > 0 || partsForJob(null).length > 0) ? [{ id: null, label: 'General Services' }] : []),
+  ];
+
   return (
     <div className="mq-outer" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", backgroundColor: '#f1f5f9', minHeight: '100vh', padding: '20px' }}>
       <style>{PRINT_STYLES}</style>
@@ -876,7 +1008,61 @@ export default function MechanicalQuoteView({ code }) {
             </div>
           </div>
 
+          {/* ── Job-grouped services (per-job subtotals) ── */}
+          {useGrouped && (
+            <div style={{ marginBottom: '24px' }}>
+              <div style={sectionLabel}>SERVICES BY JOB</div>
+              {jobBuckets.map((bucket) => {
+                const bItems = itemsForJob(bucket.id);
+                const bParts = partsForJob(bucket.id);
+                if (bItems.length === 0 && bParts.length === 0) return null;
+                const fin = jobFinancials(bucket.id);
+                return (
+                  <div key={bucket.id || 'general'} style={{ border: `1px solid ${BORDER}`, borderRadius: '10px', overflow: 'hidden', marginBottom: '16px' }}>
+                    {/* Job header */}
+                    <div style={{ backgroundColor: '#faf5ff', borderBottom: `1px solid ${BORDER}`, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', fontWeight: '800', color: MAROON, letterSpacing: '0.3px' }}>{bucket.label}</span>
+                      <span style={{ fontSize: '14px', fontWeight: '800', color: MAROON }}>{formatCurrency(fin.total)}</span>
+                    </div>
+                    {/* Labor */}
+                    {bItems.length > 0 && (
+                      <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 90px', backgroundColor: '#f8fafc', padding: '8px 14px', borderBottom: `1px solid ${BORDER}` }}>
+                          {['SERVICE', 'HRS', 'QTY', 'LABOR'].map((h) => (
+                            <div key={h} style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', textAlign: h === 'SERVICE' ? 'left' : 'right' }}>{h}</div>
+                          ))}
+                        </div>
+                        {bItems.map((item, idx) => renderLaborRow(item, idx, bItems))}
+                      </div>
+                    )}
+                    {/* Parts */}
+                    {bParts.length > 0 && (
+                      <div style={{ borderTop: bItems.length > 0 ? `1px solid ${BORDER}` : 'none' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 80px 80px 90px', backgroundColor: '#f8fafc', padding: '8px 14px', borderBottom: `1px solid ${BORDER}` }}>
+                          {['PART #', 'DESCRIPTION', 'QTY', 'UNIT', 'TOTAL'].map((h) => (
+                            <div key={h} style={{ fontSize: '10px', fontWeight: '700', color: SLATE, letterSpacing: '1px', textAlign: h === 'PART #' || h === 'DESCRIPTION' ? 'left' : 'right' }}>{h}</div>
+                          ))}
+                        </div>
+                        {bParts.map((part, idx) => renderPartRow(part, idx, bParts))}
+                      </div>
+                    )}
+                    {/* Per-job subtotal (labor + parts + parts tax) */}
+                    <div style={{ padding: '9px 14px', backgroundColor: '#fafafa', borderTop: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '11px', color: SLATE }}>
+                        Labor {formatCurrency(fin.labor)}
+                        {fin.partsSub > 0 && <> · Parts {formatCurrency(fin.partsSub)}</>}
+                        {fin.tax > 0 && <> · Tax {formatCurrency(fin.tax)}</>}
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: '800', color: DARK }}>Job Subtotal {formatCurrency(fin.total)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* ── Labor Items ── */}
+          {!useGrouped && (
           <div style={{ marginBottom: '24px' }}>
             <div style={sectionLabel}>LABOR SERVICES</div>
             <div style={{ border: `1px solid ${BORDER}`, borderRadius: '8px', overflow: 'hidden' }}>
@@ -946,6 +1132,7 @@ export default function MechanicalQuoteView({ code }) {
               })}
             </div>
           </div>
+          )}
 
           {/* ── Customer edit (edit mode only) ── */}
           {editMode && (
@@ -996,7 +1183,7 @@ export default function MechanicalQuoteView({ code }) {
           )}
 
           {/* ── Parts ── */}
-          {(quote.parts || []).length > 0 && (
+          {!useGrouped && (quote.parts || []).length > 0 && (
             <div style={{ marginBottom: '24px' }}>
               <div style={sectionLabel}>PARTS</div>
               {true && (
