@@ -1840,6 +1840,13 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
     || (greet.concerns_text && greet.concerns_text.trim().length > 0);
   const alerts = contactAlerts(greet);
   const prepNeeded = hasEnginePrep(greet);
+  // Full-bleed top elements stack in this order: appointment ribbon → engine
+  // prep → rough-checkin apology. Whichever is topmost rounds its top-right
+  // corner; the ones below it are squared off so the stack reads as one unit.
+  const apptTime = greetAppointmentTime(greet);
+  const hasApptRibbon = apptTime != null;
+  const roughCheckin = hasCheckinFeedback(greet) && greet.checkin_rating === 'rough';
+  const bannerBelowRibbon = prepNeeded || roughCheckin;
 
   // Classification drives the card's left border + faint background tint.
   // (Classification wins the border; promote-up is shown via its pill, not the
@@ -1904,6 +1911,26 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
           {selected ? '✓' : ''}
         </div>
       )}
+      {/* Appointment ribbon — a checkered "racing flag" strip across the top,
+          shown only for booked guests so they read from across the room. Full
+          bleed via negative margins (same technique as the banners below).
+          Topmost element, so it owns the top-right corner rounding; if a loud
+          banner (engine prep / rough check-in) follows, it sits flush above it
+          with no bottom margin. The exact time still rides the pill below. */}
+      {hasApptRibbon && (
+        <div
+          title={`Appointment: ${apptTime}`}
+          style={{
+            margin: bannerBelowRibbon ? '-16px -18px 0 -18px' : '-16px -18px 12px -18px',
+            height: '14px',
+            backgroundImage: 'repeating-conic-gradient(#111 0% 25%, #fff 0% 50%)',
+            backgroundSize: '14px 14px',
+            borderTopRightRadius: '9px',
+            // Top-left stays square: the 4px classification border sits flush,
+            // matching the banner treatment below.
+          }}
+        />
+      )}
       {/* Engine Prep banner — only when one of the engine-prep GROW codes is
           present. Sits above everything else and spans edge-to-edge (negative
           margins escape the card's padding) so it can't be missed. The 3-min
@@ -1911,7 +1938,7 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
           car pulls in, so this banner has to read from across the room. */}
       {prepNeeded && (
         <div style={{
-          margin: '-16px -18px 12px -18px',
+          margin: hasApptRibbon ? '0 -18px 12px -18px' : '-16px -18px 12px -18px',
           // Safety / construction-sign yellow. The Engine Prep bottle is a
           // black silhouette, so this color gives maximum contrast — the
           // bottle reads crisply at the small card size. (Earlier dark-navy
@@ -1919,7 +1946,7 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
           backgroundColor: '#facc15',
           color: '#111827',
           padding: '10px 14px',
-          borderTopRightRadius: '9px',
+          borderTopRightRadius: hasApptRibbon ? '0' : '9px',
           // borderTopLeftRadius intentionally not rounded — the card's 4px
           // classification border sits flush to the banner on the left.
           display: 'flex',
@@ -1968,11 +1995,11 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
         const urgent = checkinIsUrgent(greet);
         return (
         <div style={{
-          margin: prepNeeded ? '0 -18px 12px -18px' : '-16px -18px 12px -18px',
+          margin: (prepNeeded || hasApptRibbon) ? '0 -18px 12px -18px' : '-16px -18px 12px -18px',
           backgroundColor: urgent ? '#7f1d1d' : '#dc2626',
           color: 'white',
           padding: '10px 14px',
-          borderTopRightRadius: prepNeeded ? '0' : '9px',
+          borderTopRightRadius: (prepNeeded || hasApptRibbon) ? '0' : '9px',
           boxShadow: urgent ? 'inset 0 0 0 2px #fecaca' : 'none',
           display: 'flex',
           flexDirection: 'column',
