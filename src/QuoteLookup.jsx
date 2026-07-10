@@ -110,6 +110,19 @@ const waitPreferenceChip = (code) => {
 // recaptures) and matches how greets-analytics counts engine prep.
 const hasEnginePrep = (greet) => greet?.tm_engine_prep_free === true;
 
+// Appointment detection (July 2026). The kiosk auto-detects a guest's
+// confirmed appointment at check-in (matching their email against today's
+// booked appointments) and stamps appointment_time on the greet as a
+// pre-formatted 12-hour display string ("9:40 AM"). A non-null/non-empty
+// value is the signal there's an appointment; it also carries the exact text
+// to show, so it's the single field we read (has_appointment='yes' is set in
+// tandem but redundant here). NULL = walk-in, or no appointment was matched.
+// Display-only: never recompute or reformat — render the kiosk's string as-is.
+const greetAppointmentTime = (greet) => {
+  const t = greet && greet.appointment_time;
+  return (typeof t === 'string' && t.trim()) ? t.trim() : null;
+};
+
 // Kiosk theme indicator (Phase 12, June 2026). Racing is the production
 // default since 2026-06-12; soccer means the customer tapped the World
 // Soccer Tournament unlock. Standard (the fallback URL) gets no chip —
@@ -2109,8 +2122,27 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
 
       {/* Classification badge + wait preference — paired on one row so the CSA
           sees urgency/scope and where the customer is together at a glance. */}
-      {(classificationBadge(greet.service_classification) || waitPreferenceChip(greet.wait_preference)) && (
+      {(greetAppointmentTime(greet) || classificationBadge(greet.service_classification) || waitPreferenceChip(greet.wait_preference)) && (
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '6px' }}>
+          {/* Appointment pill — booked guest. Placed first so scheduled
+              customers stand out from walk-ins at a glance. Stronger indigo
+              than the wait-preference chip so the two don't read as the same
+              thing. Shows the kiosk's exact time string. */}
+          {greetAppointmentTime(greet) && (
+            <span style={{
+              display: 'inline-block',
+              fontSize: '12px',
+              fontWeight: '800',
+              letterSpacing: '0.3px',
+              color: '#3730a3',
+              backgroundColor: '#e0e7ff',
+              border: '2px solid #818cf8',
+              padding: '3px 12px',
+              borderRadius: '8px',
+            }}>
+              📅 Appt: {greetAppointmentTime(greet)}
+            </span>
+          )}
           {classificationBadge(greet.service_classification) && (() => {
             const b = classificationBadge(greet.service_classification);
             return (
@@ -2185,6 +2217,28 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
             verticalAlign: 'middle',
           }}>
             ⚠ CONFIRM OIL
+          </span>
+        )}
+        {/* Oil-capacity flag — distinct from the tier pill above. Fires when
+            the kiosk couldn't determine oil capacity, so the shown price is
+            the base (5-qt) fill and may be low. Sky-blue vs. the amber tier
+            pill so the two confirmations don't blur — one is "which oil," this
+            is "how many quarts." Dormant until the kiosk emits the flag. */}
+        {greet.oil_capacity_unknown === true && (
+          <span style={{
+            display: 'inline-block',
+            marginLeft: '8px',
+            backgroundColor: '#E0F2FE',
+            color: '#075985',
+            border: '1px solid #7DD3FC',
+            padding: '2px 8px',
+            borderRadius: '999px',
+            fontSize: '11px',
+            fontWeight: '700',
+            letterSpacing: '0.3px',
+            verticalAlign: 'middle',
+          }}>
+            🛢️ CONFIRM QUARTS
           </span>
         )}
         {greet.tm_package_selected && !tmRemoved(greet) && (
@@ -2697,6 +2751,25 @@ function GreetDetailModal({ greet, onClose, loading }) {
               label="Customer pace"
               value={timePressureLabel(greet.time_pressure)}
             />
+            {/* Appointment — kiosk-detected at check-in. Rendered as a pill so
+                a booked guest reads at a glance, consistent with the card. */}
+            {greetAppointmentTime(greet) && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '4px 0' }}>
+                <span style={{ color: '#888', flexShrink: 0, fontSize: '13px' }}>Appointment</span>
+                <span style={{
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  letterSpacing: '0.3px',
+                  color: '#3730a3',
+                  backgroundColor: '#e0e7ff',
+                  border: '2px solid #818cf8',
+                  padding: '3px 12px',
+                  borderRadius: '8px',
+                }}>
+                  📅 {greetAppointmentTime(greet)}
+                </span>
+              </div>
+            )}
           </Section>
 
           {/* Oil + Treatment */}
@@ -2716,6 +2789,25 @@ function GreetDetailModal({ greet, onClose, loading }) {
                   : 'No add-on'
               }
             />
+            {/* Oil-capacity flag — the kiosk couldn't determine capacity, so
+                the "Starting at" price reflects the base fill only and may be
+                low. Prompt the CSA to confirm quarts with the guest. Distinct
+                from the tier-confirmation flag (which oil vs. how many quarts). */}
+            {greet.oil_capacity_unknown === true && (
+              <div style={{
+                marginTop: '8px',
+                backgroundColor: '#E0F2FE',
+                border: '1px solid #7DD3FC',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                color: '#075985',
+                fontWeight: '600',
+                lineHeight: '1.4',
+              }}>
+                🛢️ Oil capacity unknown — confirm quarts with the guest before quoting. The price shown is the base fill and may be low for a larger-capacity engine.
+              </div>
+            )}
           </Section>
 
           {/* Tire rotation */}
