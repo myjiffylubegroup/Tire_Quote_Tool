@@ -19,6 +19,29 @@ const STORES = [
   { id: 4182, name: 'Santa Barbara (Upper State)' },
 ];
 
+// Usage-by-size report: stores in North->South column order (matches the legacy
+// ClicData "Sales by Size" layout). `key` maps to get_sales_by_size() columns.
+const USAGE_STORES = [
+  { id: 2911, key: 's2911', name: 'Paso Robles' },
+  { id: 1932, key: 's1932', name: 'Atascadero' },
+  { id: 1002, key: 's1002', name: 'San Luis Obispo' },
+  { id: 1270, key: 's1270', name: 'Arroyo Grande' },
+  { id: 609,  key: 's609',  name: 'Santa Maria' },
+  { id: 1257, key: 's1257', name: 'Goleta' },
+  { id: 4182, key: 's4182', name: 'SB (Upper State)' },
+  { id: 1396, key: 's1396', name: 'SB (Downtown)' },
+];
+
+// Local-date ISO helpers (YYYY-MM-DD) for the usage date range.
+function isoToday() {
+  return new Date().toISOString().split('T')[0];
+}
+function isoDaysAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().split('T')[0];
+}
+
 // Parse a physical count out of a location string.
 // Sums the leading integer of each comma-separated segment:
 //   "4-R2"          -> 4
@@ -104,6 +127,17 @@ export default function StoreInventory() {
   const [editNotice, setEditNotice] = useState(null);
   const [drafts, setDrafts] = useState({});       // store_item_id -> in-progress text
   const [rowStatus, setRowStatus] = useState({}); // store_item_id -> 'saving' | 'saved' | 'error'
+
+  // --- Usage-by-size (group-wide units sold) view state ---
+  const [viewMode, setViewMode] = useState('onhand');      // 'onhand' | 'usage'
+  const [usageFrom, setUsageFrom] = useState(isoDaysAgo(6));
+  const [usageTo, setUsageTo] = useState(isoToday());
+  const [usageRows, setUsageRows] = useState([]);
+  const [usageExceptions, setUsageExceptions] = useState([]);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageError, setUsageError] = useState(null);
+  const [usageLoaded, setUsageLoaded] = useState(false);
+  const [showExceptions, setShowExceptions] = useState(false);
 
   // Fetch inventory when store changes
   useEffect(() => {
@@ -390,6 +424,88 @@ export default function StoreInventory() {
     setTimeout(() => { w.print(); }, 300);
   };
 
+  // ---------------------------------------------------------------------------
+  // Usage by Size (group-wide units sold) — staff-gated report
+  // ---------------------------------------------------------------------------
+  const fetchUsage = async () => {
+    if (!usageFrom || !usageTo) return;
+    if (usageFrom > usageTo) {
+      setUsageError('Start date must be on or before end date.');
+      return;
+    }
+    setUsageLoading(true);
+    setUsageError(null);
+    try {
+      const res = await apiCall(`${API_BASE}/sales-by-size`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date_from: usageFrom, date_to: usageTo }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setUsageRows(data.rows || []);
+        setUsageExceptions(data.exceptions || []);
+        setUsageLoaded(true);
+      } else {
+        setUsageError(data.error || 'Failed to load usage.');
+      }
+    } catch (e) {
+      // apiCall triggers re-PIN on a dead session; other failures land here.
+      setUsageError('Could not load usage — your staff session may have expired. Try again.');
+    }
+    setUsageLoading(false);
+  };
+
+  // Auto-load the first time the Usage view is opened.
+  useEffect(() => {
+    if (viewMode === 'usage' && !usageLoaded && !usageLoading) {
+      fetchUsage();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
+
+  // Drill from a usage cell into that store's on-hand, filtered to the size.
+  const drillToOnHand = (storeId, size) => {
+    if (!size || size === 'Other / Unparsed') return;
+    setSearchFilter(size);
+    setSelectedStore(String(storeId));
+    setViewMode('onhand');
+  };
+
+  // Column + group totals for the usage footer row.
+  const usageColTotals = USAGE_STORES.reduce((acc, s) => {
+    acc[s.key] = usageRows.reduce((n, r) => n + (parseFloat(r[s.key]) || 0), 0);
+    return acc;
+  }, {});
+  const usageGroupTotal = usageRows.reduce((n, r) => n + (parseFloat(r.group_total) || 0), 0);
+
+  const exportUsageCSV = () => {
+    const headers = ['Tire Size', ...USAGE_STORES.map(s => s.name), 'Group Total'];
+    const lines = usageRows.map(r => {
+      const cells = [r.tire_size, ...USAGE_STORES.map(s => r[s.key] ?? ''), r.group_total ?? ''];
+      return cells.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',');
+    });
+    const totalRow = ['GROUP TOTAL', ...USAGE_STORES.map(s => usageColTotals[s.key]), usageGroupTotal]
+      .map(c => `"${String(c).replace(/"/g, '""')}"`).join(',');
+    const csv = [headers.join(','), ...lines, totalRow].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `usage_by_size_${usageFrom}_to_${usageTo}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const usageTh = {
+    padding: '10px 12px', textAlign: 'center', color: 'white', background: '#9b59b6',
+    fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px',
+    whiteSpace: 'nowrap', border: '1px solid #efe3f5',
+  };
+  const usageTd = {
+    padding: '7px 12px', textAlign: 'center', borderBottom: '1px solid #eee', whiteSpace: 'nowrap',
+  };
+
   const selectedStoreName = STORES.find(s => s.id === parseInt(selectedStore))?.name || '';
   const staffEmployee = editMode ? getStaffEmployee() : null;
 
@@ -449,25 +565,151 @@ export default function StoreInventory() {
             letterSpacing: '4px',
             fontWeight: '600',
           }}>
-            VIEW IN-STOCK TIRES BY LOCATION
+            {viewMode === 'onhand' ? 'VIEW IN-STOCK TIRES BY LOCATION' : 'UNITS SOLD BY SIZE — ALL STORES'}
           </p>
 
+          {/* View toggle: On Hand (QOH) vs Usage by Size */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '30px' }}>
+            <button
+              onClick={() => setViewMode('onhand')}
+              style={{
+                padding: '10px 24px', border: '2px solid #9b59b6', borderRight: 'none',
+                borderRadius: '25px 0 0 25px',
+                backgroundColor: viewMode === 'onhand' ? '#9b59b6' : 'white',
+                color: viewMode === 'onhand' ? 'white' : '#9b59b6',
+                fontSize: '13px', fontWeight: 700, letterSpacing: '1px', cursor: 'pointer',
+              }}
+            >
+              📦 ON HAND
+            </button>
+            <button
+              onClick={() => setViewMode('usage')}
+              style={{
+                padding: '10px 24px', border: '2px solid #9b59b6', borderRadius: '0 25px 25px 0',
+                backgroundColor: viewMode === 'usage' ? '#9b59b6' : 'white',
+                color: viewMode === 'usage' ? 'white' : '#9b59b6',
+                fontSize: '13px', fontWeight: 700, letterSpacing: '1px', cursor: 'pointer',
+              }}
+            >
+              📊 USAGE BY SIZE
+            </button>
+          </div>
+
+          {/* ===================== USAGE BY SIZE VIEW ===================== */}
+          {viewMode === 'usage' && (
+            <div>
+              {/* Date range + actions */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <label style={{ fontSize: '12px', color: '#666', fontWeight: 600 }}>
+                    From<br/>
+                    <input type="date" value={usageFrom} max={usageTo}
+                      onChange={(e) => setUsageFrom(e.target.value)}
+                      style={{ padding: '8px 10px', border: '2px solid #9b59b6', borderRadius: '8px', fontSize: '13px', marginTop: '4px' }} />
+                  </label>
+                  <label style={{ fontSize: '12px', color: '#666', fontWeight: 600 }}>
+                    To<br/>
+                    <input type="date" value={usageTo} min={usageFrom}
+                      onChange={(e) => setUsageTo(e.target.value)}
+                      style={{ padding: '8px 10px', border: '2px solid #9b59b6', borderRadius: '8px', fontSize: '13px', marginTop: '4px' }} />
+                  </label>
+                  <button onClick={fetchUsage} disabled={usageLoading}
+                    style={{ padding: '10px 22px', backgroundColor: '#9b59b6', color: 'white', border: 'none', borderRadius: '25px', fontSize: '12px', fontWeight: 700, letterSpacing: '1px', cursor: usageLoading ? 'default' : 'pointer', opacity: usageLoading ? 0.6 : 1 }}>
+                    {usageLoading ? 'LOADING…' : 'APPLY'}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {usageExceptions.length > 0 && (
+                    <button onClick={() => setShowExceptions(true)}
+                      style={{ padding: '10px 18px', backgroundColor: '#fff4e5', color: '#b9770e', border: '1px solid #f0c37b', borderRadius: '25px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                      ⚠ {usageExceptions.length} NEED ATTENTION
+                    </button>
+                  )}
+                  <button onClick={exportUsageCSV} disabled={usageRows.length === 0}
+                    style={{ padding: '10px 20px', backgroundColor: usageRows.length ? '#27ae60' : '#e0e0e0', color: usageRows.length ? 'white' : '#999', border: 'none', borderRadius: '25px', fontSize: '12px', fontWeight: 700, letterSpacing: '1px', cursor: usageRows.length ? 'pointer' : 'default' }}>
+                    ⬇ EXPORT CSV
+                  </button>
+                </div>
+              </div>
+
+              {usageLoading && (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#9b59b6' }}>Loading usage…</div>
+              )}
+              {usageError && !usageLoading && (
+                <div style={{ textAlign: 'center', padding: '30px', color: '#e74c3c' }}>{usageError}</div>
+              )}
+              {!usageLoading && !usageError && usageLoaded && usageRows.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>No tire usage in this date range.</div>
+              )}
+
+              {!usageLoading && !usageError && usageRows.length > 0 && (
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>
+                    Units sold {usageFrom} → {usageTo}. Combines inventoried + wildcard tires. Click a store cell to jump to that store's on-hand for the size.
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...usageTh, textAlign: 'left', position: 'sticky', left: 0 }}>Size</th>
+                        {USAGE_STORES.map(s => (
+                          <th key={s.key} style={usageTh} title={`#${s.id}`}>{s.name}</th>
+                        ))}
+                        <th style={{ ...usageTh, background: '#7d3c98' }}>Group</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usageRows.map((r, i) => (
+                        <tr key={r.tire_size} style={{ background: r.is_other ? '#faf6fb' : (i % 2 ? '#faf7fc' : 'white') }}>
+                          <td style={{ ...usageTd, textAlign: 'left', fontWeight: 600, position: 'sticky', left: 0, background: 'inherit', color: r.is_other ? '#999' : '#333' }}>
+                            {r.tire_size}
+                          </td>
+                          {USAGE_STORES.map(s => {
+                            const v = parseFloat(r[s.key]) || 0;
+                            const clickable = v > 0 && !r.is_other;
+                            return (
+                              <td key={s.key}
+                                onClick={() => clickable && drillToOnHand(s.id, r.tire_size)}
+                                title={clickable ? `View ${s.name} on-hand for ${r.tire_size}` : undefined}
+                                style={{ ...usageTd, cursor: clickable ? 'pointer' : 'default', color: v > 0 ? '#333' : '#ccc' }}>
+                                {v > 0 ? v : '·'}
+                              </td>
+                            );
+                          })}
+                          <td style={{ ...usageTd, fontWeight: 700, color: '#7d3c98' }}>{parseFloat(r.group_total) || 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td style={{ ...usageTd, textAlign: 'left', fontWeight: 700, position: 'sticky', left: 0, background: '#f0e6f5' }}>GROUP TOTAL</td>
+                        {USAGE_STORES.map(s => (
+                          <td key={s.key} style={{ ...usageTd, fontWeight: 700, background: '#f0e6f5' }}>{usageColTotals[s.key] || 0}</td>
+                        ))}
+                        <td style={{ ...usageTd, fontWeight: 800, background: '#e5d4ef', color: '#5b2c6f' }}>{usageGroupTotal}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Loading State */}
-          {loading && (
+          {viewMode === 'onhand' && loading && (
             <div style={{ textAlign: 'center', padding: '40px', color: '#9b59b6' }}>
               <p style={{ fontSize: '16px' }}>🔍 Loading inventory...</p>
             </div>
           )}
 
           {/* Error State */}
-          {error && (
+          {viewMode === 'onhand' && error && (
             <div style={{ textAlign: 'center', padding: '40px', color: '#e74c3c' }}>
               <p style={{ fontSize: '16px' }}>{error}</p>
             </div>
           )}
 
           {/* Initial State - No Store Selected */}
-          {!selectedStore && !loading && (
+          {viewMode === 'onhand' && !selectedStore && !loading && (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: '#888' }}>
               <div style={{ fontSize: '48px', marginBottom: '15px' }}>🛞</div>
               <p style={{ fontSize: '16px' }}>Select a store from the header to view tire inventory</p>
@@ -475,7 +717,7 @@ export default function StoreInventory() {
           )}
 
           {/* Results */}
-          {!loading && !error && selectedStore && summary && (
+          {viewMode === 'onhand' && !loading && !error && selectedStore && summary && (
             <>
               {/* Summary Cards */}
               <div style={{
@@ -906,6 +1148,46 @@ export default function StoreInventory() {
               Log in to edit physical inventory locations.
             </p>
             <StaffLoginForm onSuccess={handleLoginSuccess} compact={true} />
+          </div>
+        </div>
+      )}
+
+      {/* Usage exceptions modal — lines that need source correction in Turbo */}
+      {showExceptions && (
+        <div onClick={() => setShowExceptions(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: 'white', borderRadius: '10px', padding: '25px', maxWidth: '860px', width: '100%', maxHeight: '80vh', overflowY: 'auto', position: 'relative' }}>
+            <button onClick={() => setShowExceptions(false)}
+              style={{ position: 'absolute', top: '12px', right: '15px', background: 'none', border: 'none', fontSize: '22px', color: '#999', cursor: 'pointer', lineHeight: 1 }} aria-label="Close">×</button>
+            <h2 style={{ color: '#b9770e', fontSize: '18px', fontWeight: 700, marginBottom: '4px' }}>Lines needing attention</h2>
+            <p style={{ color: '#666', fontSize: '12px', marginBottom: '16px' }}>
+              These wildcard lines couldn't be read cleanly, or the tire line and size line disagree. Counts still reflect the tire line's own size — fix these at the source in Turbo so future reports are exact.
+            </p>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+              <thead>
+                <tr>
+                  {['Issue', 'Store', 'Invoice', 'Date', 'Qty', 'Tire line', 'Size line'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #f0c37b', color: '#8a5a0b', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {usageExceptions.map((x, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '6px 8px' }}>
+                      <span style={{ padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, background: x.issue === 'CONFLICT' ? '#fdecea' : '#eef3fb', color: x.issue === 'CONFLICT' ? '#c0392b' : '#2c5aa0' }}>{x.issue}</span>
+                    </td>
+                    <td style={{ padding: '6px 8px' }}>{x.store_number}</td>
+                    <td style={{ padding: '6px 8px' }}>{x.invoice_number}</td>
+                    <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{x.invoice_date}</td>
+                    <td style={{ padding: '6px 8px' }}>{parseFloat(x.qty) || 0}</td>
+                    <td style={{ padding: '6px 8px' }}>{x.tire_line || '—'}{x.own_size ? ` (${x.own_size})` : ''}</td>
+                    <td style={{ padding: '6px 8px' }}>{x.size_line || '—'}{x.sibling_size ? ` (${x.sibling_size})` : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

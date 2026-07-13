@@ -53,11 +53,19 @@ export default function App() {
   const fullPath = currentPath.replace('#', '') || '/';
   const path = fullPath.split('?')[0];
   
-  // === PUBLIC ROUTES ===
-  
+  // === STAFF-GATED: Store Inventory (QOH + Usage by Size) ===
+  // Was public; now PIN-gated so on-hand, cost, and the group-wide usage
+  // report are staff-only. Any verified employee sees all stores (StaffPinGate
+  // does not lock to home store).
   if (path === '/inventory') {
-    return <StoreInventory />;
+    return (
+      <StaffPinGate>
+        <StoreInventory />
+      </StaffPinGate>
+    );
   }
+
+  // === PUBLIC ROUTES ===
   
   if (path === '/sms-consent') {
     return <SmsConsent />;
