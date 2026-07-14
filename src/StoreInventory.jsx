@@ -129,7 +129,9 @@ export default function StoreInventory() {
   const [rowStatus, setRowStatus] = useState({}); // store_item_id -> 'saving' | 'saved' | 'error'
 
   // --- Usage-by-size (group-wide units sold) view state ---
-  const [viewMode, setViewMode] = useState('onhand');      // 'onhand' | 'usage'
+  // Group scope ('GROUP' from the store selector) drives the Usage view;
+  // any individual store id drives the On Hand (QOH) view.
+  const isGroup = selectedStore === 'GROUP';
   const [usageFrom, setUsageFrom] = useState(isoDaysAgo(6));
   const [usageTo, setUsageTo] = useState(isoToday());
   const [usageRows, setUsageRows] = useState([]);
@@ -141,7 +143,7 @@ export default function StoreInventory() {
 
   // Fetch inventory when store changes
   useEffect(() => {
-    if (!selectedStore) {
+    if (!selectedStore || selectedStore === 'GROUP') {
       setInventory([]);
       setSummary(null);
       return;
@@ -458,18 +460,17 @@ export default function StoreInventory() {
 
   // Auto-load the first time the Usage view is opened.
   useEffect(() => {
-    if (viewMode === 'usage' && !usageLoaded && !usageLoading) {
+    if (selectedStore === 'GROUP' && !usageLoaded && !usageLoading) {
       fetchUsage();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode]);
+  }, [selectedStore]);
 
   // Drill from a usage cell into that store's on-hand, filtered to the size.
   const drillToOnHand = (storeId, size) => {
     if (!size || size === 'Other / Unparsed') return;
     setSearchFilter(size);
     setSelectedStore(String(storeId));
-    setViewMode('onhand');
   };
 
   // Column + group totals for the usage footer row.
@@ -528,6 +529,7 @@ export default function StoreInventory() {
         selectedStore={selectedStore}
         onStoreChange={setSelectedStore}
         showStorePlaceholder={true}
+        showGroupOption={true}
       />
 
       {/* Hero Banner - matches TireFinder */}
@@ -565,38 +567,11 @@ export default function StoreInventory() {
             letterSpacing: '4px',
             fontWeight: '600',
           }}>
-            {viewMode === 'onhand' ? 'VIEW IN-STOCK TIRES BY LOCATION' : 'UNITS SOLD BY SIZE — ALL STORES'}
+            {isGroup ? 'UNITS SOLD BY SIZE — ALL STORES' : 'VIEW IN-STOCK TIRES BY LOCATION'}
           </p>
 
-          {/* View toggle: On Hand (QOH) vs Usage by Size */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '30px' }}>
-            <button
-              onClick={() => setViewMode('onhand')}
-              style={{
-                padding: '10px 24px', border: '2px solid #9b59b6', borderRight: 'none',
-                borderRadius: '25px 0 0 25px',
-                backgroundColor: viewMode === 'onhand' ? '#9b59b6' : 'white',
-                color: viewMode === 'onhand' ? 'white' : '#9b59b6',
-                fontSize: '13px', fontWeight: 700, letterSpacing: '1px', cursor: 'pointer',
-              }}
-            >
-              📦 ON HAND
-            </button>
-            <button
-              onClick={() => setViewMode('usage')}
-              style={{
-                padding: '10px 24px', border: '2px solid #9b59b6', borderRadius: '0 25px 25px 0',
-                backgroundColor: viewMode === 'usage' ? '#9b59b6' : 'white',
-                color: viewMode === 'usage' ? 'white' : '#9b59b6',
-                fontSize: '13px', fontWeight: 700, letterSpacing: '1px', cursor: 'pointer',
-              }}
-            >
-              📊 USAGE BY SIZE
-            </button>
-          </div>
-
-          {/* ===================== USAGE BY SIZE VIEW ===================== */}
-          {viewMode === 'usage' && (
+          {/* ===================== USAGE BY SIZE VIEW (group scope) ===================== */}
+          {isGroup && (
             <div>
               {/* Date range + actions */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px', marginBottom: '20px' }}>
@@ -695,21 +670,21 @@ export default function StoreInventory() {
           )}
 
           {/* Loading State */}
-          {viewMode === 'onhand' && loading && (
+          {!isGroup && loading && (
             <div style={{ textAlign: 'center', padding: '40px', color: '#9b59b6' }}>
               <p style={{ fontSize: '16px' }}>🔍 Loading inventory...</p>
             </div>
           )}
 
           {/* Error State */}
-          {viewMode === 'onhand' && error && (
+          {!isGroup && error && (
             <div style={{ textAlign: 'center', padding: '40px', color: '#e74c3c' }}>
               <p style={{ fontSize: '16px' }}>{error}</p>
             </div>
           )}
 
           {/* Initial State - No Store Selected */}
-          {viewMode === 'onhand' && !selectedStore && !loading && (
+          {!isGroup && !selectedStore && !loading && (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: '#888' }}>
               <div style={{ fontSize: '48px', marginBottom: '15px' }}>🛞</div>
               <p style={{ fontSize: '16px' }}>Select a store from the header to view tire inventory</p>
@@ -717,7 +692,7 @@ export default function StoreInventory() {
           )}
 
           {/* Results */}
-          {viewMode === 'onhand' && !loading && !error && selectedStore && summary && (
+          {!isGroup && !loading && !error && selectedStore && summary && (
             <>
               {/* Summary Cards */}
               <div style={{

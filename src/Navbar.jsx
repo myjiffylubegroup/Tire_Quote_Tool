@@ -137,6 +137,11 @@ export default function Navbar({
   // where CSAs intentionally pick which store to inspect rather than auto-loading
   // their own store's data).
   showStorePlaceholder = false,
+  // When true, the store dropdown includes a "My Jiffy Lube Group" option
+  // (value 'GROUP') at the top. Used by StoreInventory so the group-wide Usage
+  // report has a real scope to select. Off everywhere else so store-specific
+  // pages (TireFinder, Enterprise, Fleet) never show a nonsensical group entry.
+  showGroupOption = false,
   // Theme key — see THEMES above. 'default' is the standard purple branding.
   // 'enterprise' (black/green) and 'fleet' (dark blue/blue) are co-branded
   // workflows where the visual signal is a safety feature: a customer who
@@ -307,6 +312,9 @@ export default function Navbar({
                 >
                   {showStorePlaceholder && (
                     <option value="">Select Store</option>
+                  )}
+                  {showGroupOption && (
+                    <option value="GROUP">🏁 My Jiffy Lube Group</option>
                   )}
                   {STORES.map((store) => (
                     <option key={store.id} value={store.id}>
