@@ -499,12 +499,12 @@ export default function StoreInventory() {
   };
 
   const usageTh = {
-    padding: '10px 12px', textAlign: 'center', color: 'white', background: '#9b59b6',
-    fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px',
+    padding: '8px 6px', textAlign: 'center', color: 'white', background: '#9b59b6',
+    fontSize: '12px', fontWeight: 700, letterSpacing: '0.3px',
     whiteSpace: 'nowrap', border: '1px solid #efe3f5',
   };
   const usageTd = {
-    padding: '7px 12px', textAlign: 'center', borderBottom: '1px solid #eee', whiteSpace: 'nowrap',
+    padding: '6px 8px', textAlign: 'center', borderBottom: '1px solid #eee', whiteSpace: 'nowrap',
   };
 
   const selectedStoreName = STORES.find(s => s.id === parseInt(selectedStore))?.name || '';
@@ -622,12 +622,15 @@ export default function StoreInventory() {
                   <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>
                     Units sold {usageFrom} → {usageTo}. Combines inventoried + wildcard tires. Click a store cell to jump to that store's on-hand for the size.
                   </div>
+                  <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '10px' }}>
+                    {USAGE_STORES.map(s => `${s.id} ${s.name}`).join('  ·  ')}
+                  </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                       <tr>
                         <th style={{ ...usageTh, textAlign: 'left', position: 'sticky', left: 0 }}>Size</th>
                         {USAGE_STORES.map(s => (
-                          <th key={s.key} style={usageTh} title={`#${s.id}`}>{s.name}</th>
+                          <th key={s.key} style={usageTh} title={s.name}>{s.id}</th>
                         ))}
                         <th style={{ ...usageTh, background: '#7d3c98' }}>Group</th>
                       </tr>
