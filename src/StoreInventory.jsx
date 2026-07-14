@@ -134,7 +134,9 @@ export default function StoreInventory() {
   const isGroup = selectedStore === 'GROUP';
   const [usageFrom, setUsageFrom] = useState(isoDaysAgo(6));
   const [usageTo, setUsageTo] = useState(isoToday());
-  const [usageRows, setUsageRows] = useState([]);
+  const [usageRows, setUsageRows] = useState([]);        // sold by size
+  const [usageQoh, setUsageQoh] = useState([]);          // on-hand by size (snapshot)
+  const [usageMetric, setUsageMetric] = useState('sold'); // 'sold' | 'qoh'
   const [usageExceptions, setUsageExceptions] = useState([]);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageError, setUsageError] = useState(null);
@@ -446,6 +448,7 @@ export default function StoreInventory() {
       const data = await res.json();
       if (res.ok && data.success) {
         setUsageRows(data.rows || []);
+        setUsageQoh(data.qoh_rows || []);
         setUsageExceptions(data.exceptions || []);
         setUsageLoaded(true);
       } else {
@@ -474,15 +477,17 @@ export default function StoreInventory() {
   };
 
   // Column + group totals for the usage footer row.
+  // Active dataset for the group grid: sold (date-ranged) or on-hand (snapshot).
+  const activeRows = usageMetric === 'sold' ? usageRows : usageQoh;
   const usageColTotals = USAGE_STORES.reduce((acc, s) => {
-    acc[s.key] = usageRows.reduce((n, r) => n + (parseFloat(r[s.key]) || 0), 0);
+    acc[s.key] = activeRows.reduce((n, r) => n + (parseFloat(r[s.key]) || 0), 0);
     return acc;
   }, {});
-  const usageGroupTotal = usageRows.reduce((n, r) => n + (parseFloat(r.group_total) || 0), 0);
+  const usageGroupTotal = activeRows.reduce((n, r) => n + (parseFloat(r.group_total) || 0), 0);
 
   const exportUsageCSV = () => {
     const headers = ['Tire Size', ...USAGE_STORES.map(s => s.name), 'Group Total'];
-    const lines = usageRows.map(r => {
+    const lines = activeRows.map(r => {
       const cells = [r.tire_size, ...USAGE_STORES.map(s => r[s.key] ?? ''), r.group_total ?? ''];
       return cells.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',');
     });
@@ -493,7 +498,9 @@ export default function StoreInventory() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `usage_by_size_${usageFrom}_to_${usageTo}.csv`;
+    a.download = usageMetric === 'sold'
+      ? `sold_by_size_${usageFrom}_to_${usageTo}.csv`
+      : `onhand_by_size_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -567,41 +574,59 @@ export default function StoreInventory() {
             letterSpacing: '4px',
             fontWeight: '600',
           }}>
-            {isGroup ? 'UNITS SOLD BY SIZE — ALL STORES' : 'VIEW IN-STOCK TIRES BY LOCATION'}
+            {!isGroup ? 'VIEW IN-STOCK TIRES BY LOCATION' : (usageMetric === 'sold' ? 'UNITS SOLD BY SIZE — ALL STORES' : 'ON-HAND BY SIZE — ALL STORES')}
           </p>
 
           {/* ===================== USAGE BY SIZE VIEW (group scope) ===================== */}
           {isGroup && (
             <div>
-              {/* Date range + actions */}
+              {/* Sold vs On Hand sub-toggle */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '22px' }}>
+                <button onClick={() => setUsageMetric('sold')}
+                  style={{ padding: '9px 22px', border: '2px solid #9b59b6', borderRight: 'none', borderRadius: '25px 0 0 25px', backgroundColor: usageMetric === 'sold' ? '#9b59b6' : 'white', color: usageMetric === 'sold' ? 'white' : '#9b59b6', fontSize: '12px', fontWeight: 700, letterSpacing: '1px', cursor: 'pointer' }}>
+                  📊 SOLD
+                </button>
+                <button onClick={() => setUsageMetric('qoh')}
+                  style={{ padding: '9px 22px', border: '2px solid #9b59b6', borderRadius: '0 25px 25px 0', backgroundColor: usageMetric === 'qoh' ? '#9b59b6' : 'white', color: usageMetric === 'qoh' ? 'white' : '#9b59b6', fontSize: '12px', fontWeight: 700, letterSpacing: '1px', cursor: 'pointer' }}>
+                  📦 ON HAND
+                </button>
+              </div>
+
+              {/* Date range (sold only) + actions */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                  <label style={{ fontSize: '12px', color: '#666', fontWeight: 600 }}>
-                    From<br/>
-                    <input type="date" value={usageFrom} max={usageTo}
-                      onChange={(e) => setUsageFrom(e.target.value)}
-                      style={{ padding: '8px 10px', border: '2px solid #9b59b6', borderRadius: '8px', fontSize: '13px', marginTop: '4px' }} />
-                  </label>
-                  <label style={{ fontSize: '12px', color: '#666', fontWeight: 600 }}>
-                    To<br/>
-                    <input type="date" value={usageTo} min={usageFrom}
-                      onChange={(e) => setUsageTo(e.target.value)}
-                      style={{ padding: '8px 10px', border: '2px solid #9b59b6', borderRadius: '8px', fontSize: '13px', marginTop: '4px' }} />
-                  </label>
-                  <button onClick={fetchUsage} disabled={usageLoading}
-                    style={{ padding: '10px 22px', backgroundColor: '#9b59b6', color: 'white', border: 'none', borderRadius: '25px', fontSize: '12px', fontWeight: 700, letterSpacing: '1px', cursor: usageLoading ? 'default' : 'pointer', opacity: usageLoading ? 0.6 : 1 }}>
-                    {usageLoading ? 'LOADING…' : 'APPLY'}
-                  </button>
-                </div>
+                {usageMetric === 'sold' ? (
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <label style={{ fontSize: '12px', color: '#666', fontWeight: 600 }}>
+                      From<br/>
+                      <input type="date" value={usageFrom} max={usageTo}
+                        onChange={(e) => setUsageFrom(e.target.value)}
+                        style={{ padding: '8px 10px', border: '2px solid #9b59b6', borderRadius: '8px', fontSize: '13px', marginTop: '4px' }} />
+                    </label>
+                    <label style={{ fontSize: '12px', color: '#666', fontWeight: 600 }}>
+                      To<br/>
+                      <input type="date" value={usageTo} min={usageFrom}
+                        onChange={(e) => setUsageTo(e.target.value)}
+                        style={{ padding: '8px 10px', border: '2px solid #9b59b6', borderRadius: '8px', fontSize: '13px', marginTop: '4px' }} />
+                    </label>
+                    <button onClick={fetchUsage} disabled={usageLoading}
+                      style={{ padding: '10px 22px', backgroundColor: '#9b59b6', color: 'white', border: 'none', borderRadius: '25px', fontSize: '12px', fontWeight: 700, letterSpacing: '1px', cursor: usageLoading ? 'default' : 'pointer', opacity: usageLoading ? 0.6 : 1 }}>
+                      {usageLoading ? 'LOADING…' : 'APPLY'}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: '#888', fontWeight: 600 }}>
+                    Current on-hand snapshot — refreshed by the nightly inventory sync.
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {usageExceptions.length > 0 && (
+                  {usageMetric === 'sold' && usageExceptions.length > 0 && (
                     <button onClick={() => setShowExceptions(true)}
                       style={{ padding: '10px 18px', backgroundColor: '#fff4e5', color: '#b9770e', border: '1px solid #f0c37b', borderRadius: '25px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
                       ⚠ {usageExceptions.length} NEED ATTENTION
                     </button>
                   )}
-                  <button onClick={exportUsageCSV} disabled={usageRows.length === 0}
-                    style={{ padding: '10px 20px', backgroundColor: usageRows.length ? '#27ae60' : '#e0e0e0', color: usageRows.length ? 'white' : '#999', border: 'none', borderRadius: '25px', fontSize: '12px', fontWeight: 700, letterSpacing: '1px', cursor: usageRows.length ? 'pointer' : 'default' }}>
+                  <button onClick={exportUsageCSV} disabled={activeRows.length === 0}
+                    style={{ padding: '10px 20px', backgroundColor: activeRows.length ? '#27ae60' : '#e0e0e0', color: activeRows.length ? 'white' : '#999', border: 'none', borderRadius: '25px', fontSize: '12px', fontWeight: 700, letterSpacing: '1px', cursor: activeRows.length ? 'pointer' : 'default' }}>
                     ⬇ EXPORT CSV
                   </button>
                 </div>
@@ -613,14 +638,16 @@ export default function StoreInventory() {
               {usageError && !usageLoading && (
                 <div style={{ textAlign: 'center', padding: '30px', color: '#e74c3c' }}>{usageError}</div>
               )}
-              {!usageLoading && !usageError && usageLoaded && usageRows.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>No tire usage in this date range.</div>
+              {!usageLoading && !usageError && usageLoaded && activeRows.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>{usageMetric === 'sold' ? 'No tire sales in this date range.' : 'No tires on hand.'}</div>
               )}
 
-              {!usageLoading && !usageError && usageRows.length > 0 && (
+              {!usageLoading && !usageError && activeRows.length > 0 && (
                 <div style={{ overflowX: 'auto' }}>
                   <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>
-                    Units sold {usageFrom} → {usageTo}. Combines inventoried + wildcard tires. Click a store cell to jump to that store's on-hand for the size.
+                    {usageMetric === 'sold'
+                      ? `Units sold ${usageFrom} → ${usageTo}. Combines inventoried + wildcard tires.`
+                      : 'Current tires on hand across all stores.'} Click a store cell to jump to that store's on-hand for the size.
                   </div>
                   <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '10px' }}>
                     {USAGE_STORES.map(s => `${s.id} ${s.name}`).join('  ·  ')}
@@ -636,7 +663,7 @@ export default function StoreInventory() {
                       </tr>
                     </thead>
                     <tbody>
-                      {usageRows.map((r, i) => (
+                      {activeRows.map((r, i) => (
                         <tr key={r.tire_size} style={{ background: r.is_other ? '#faf6fb' : (i % 2 ? '#faf7fc' : 'white') }}>
                           <td style={{ ...usageTd, textAlign: 'left', fontWeight: 600, position: 'sticky', left: 0, background: 'inherit', color: r.is_other ? '#999' : '#333' }}>
                             {r.tire_size}
