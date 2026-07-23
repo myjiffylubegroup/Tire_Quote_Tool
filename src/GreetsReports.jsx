@@ -714,9 +714,9 @@ export default function GreetsReports() {
   const authStoreId = auth.store_id && auth.store_id !== 'all' ? Number(auth.store_id) : null;
 
   // Date range state (default this_month — per spec)
-  const [preset, setPreset] = useState('this_month');
-  const [dateFrom, setDateFrom] = useState(() => getPreset('this_month').from);
-  const [dateTo, setDateTo]     = useState(() => getPreset('this_month').to);
+  const [preset, setPreset] = useState('today');
+  const [dateFrom, setDateFrom] = useState(() => getPreset('today').from);
+  const [dateTo, setDateTo]     = useState(() => getPreset('today').to);
   const [customMode, setCustomMode] = useState(false);
 
   // Store filter. Corporate users can pick All Stores; single-store users
@@ -899,6 +899,19 @@ export default function GreetsReports() {
                     ))}
                   </select>
                 )}
+                <button
+                  onClick={() => fetchReport()}
+                  disabled={loading}
+                  title="Refresh report"
+                  style={{
+                    padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: '8px',
+                    border: '1px solid #9b59b6', backgroundColor: 'white', color: '#9b59b6',
+                    cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.5 : 1, marginLeft: '4px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {loading ? '…' : '⟳ Refresh'}
+                </button>
               </div>
             </div>
           )}
