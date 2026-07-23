@@ -809,11 +809,14 @@ export default function GreetsReports() {
     <div style={{ minHeight: '100vh', backgroundColor: '#fafafa', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <Navbar
         currentPage="reports"
-        headerRight={
+        selectedStore={isCorporate ? (storeFilter === 'all' ? 'GROUP' : storeFilter) : undefined}
+        onStoreChange={isCorporate ? (v) => setStoreFilter(v === 'GROUP' ? 'all' : Number(v)) : undefined}
+        showGroupOption={isCorporate}
+        headerRight={isCorporate ? null : (
           <div style={{ fontSize: '13px', color: '#888', fontWeight: '600' }}>
-            {isCorporate ? 'All Stores — Corporate View' : `Store ${authStoreId} — ${STORES.find(s => s.id === authStoreId)?.name || ''}`}
+            {`Store ${authStoreId} — ${STORES.find(s => s.id === authStoreId)?.name || ''}`}
           </div>
-        }
+        )}
       />
 
       <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '30px 20px' }}>
@@ -887,18 +890,8 @@ export default function GreetsReports() {
                   onChange={(e) => { setDateTo(e.target.value); setCustomMode(true); setPreset(''); }}
                   style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', border: '1px solid #ddd' }}
                 />
-                {isCorporate && (
-                  <select
-                    value={storeFilter}
-                    onChange={(e) => setStoreFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                    style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', border: '1px solid #ddd', marginLeft: '4px' }}
-                  >
-                    <option value="all">All Stores</option>
-                    {STORES.map((s) => (
-                      <option key={s.id} value={s.id}>#{s.number} — {s.name}</option>
-                    ))}
-                  </select>
-                )}
+                {/* Store selector moved to the Navbar header (top-right) for
+                    corporate, matching the greets staff reports. */}
                 <button
                   onClick={() => fetchReport()}
                   disabled={loading}
