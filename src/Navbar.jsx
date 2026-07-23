@@ -39,6 +39,15 @@ const STORES = [
   { id: 4182, name: 'Santa Barbara (Upper State)' },
 ];
 
+// The demo / training store (greets migration 0012). Deliberately NOT part of
+// STORES: it is not a real location, so it must never appear in Tire Finder,
+// Store Inventory, Mechanical or Retrieve Quote, where picking it would scope
+// a real quote or inventory pull to a store that doesn't exist. Only pages that
+// opt in via showDemoStore (Greets Reports) offer it. Greets rows submitted at
+// store 9999 are flagged is_demo, and greets-analytics keeps those rows only
+// when 9999 is the store being viewed — so this is the one place it belongs.
+const DEMO_STORE = { id: 9999, name: 'Demo Store (Training)' };
+
 // Single source of truth for navigation structure.
 // `key` matches the `currentPage` prop. `children` makes a dropdown.
 const NAV_ITEMS = [
@@ -142,6 +151,11 @@ export default function Navbar({
   // report has a real scope to select. Off everywhere else so store-specific
   // pages (TireFinder, Enterprise, Fleet) never show a nonsensical group entry.
   showGroupOption = false,
+  // When true, the store dropdown includes the demo / training store (9999) at
+  // the bottom, below the real stores. Used ONLY by Greets Reports, so a
+  // trainee's practice greets are viewable without exposing a fake store to the
+  // quoting and inventory pages. See DEMO_STORE above.
+  showDemoStore = false,
   // Theme key — see THEMES above. 'default' is the standard purple branding.
   // 'enterprise' (black/green) and 'fleet' (dark blue/blue) are co-branded
   // workflows where the visual signal is a safety feature: a customer who
@@ -321,6 +335,11 @@ export default function Navbar({
                       {store.id} - {store.name}
                     </option>
                   ))}
+                  {showDemoStore && (
+                    <option value={DEMO_STORE.id}>
+                      {DEMO_STORE.id} - {DEMO_STORE.name}
+                    </option>
+                  )}
                 </select>
               </div>
             ) : null}

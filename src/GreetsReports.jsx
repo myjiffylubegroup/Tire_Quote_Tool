@@ -812,6 +812,10 @@ export default function GreetsReports() {
         selectedStore={isCorporate ? (storeFilter === 'all' ? 'GROUP' : storeFilter) : undefined}
         onStoreChange={isCorporate ? (v) => setStoreFilter(v === 'GROUP' ? 'all' : Number(v)) : undefined}
         showGroupOption={isCorporate}
+        // Demo/training store (9999). Greets Reports is the only page that
+        // offers it: greets-analytics keeps is_demo rows when 9999 is the store
+        // being viewed, so this is where practice greets are actually readable.
+        showDemoStore={isCorporate}
         headerRight={isCorporate ? null : (
           <div style={{ fontSize: '13px', color: '#888', fontWeight: '600' }}>
             {`Store ${authStoreId} — ${STORES.find(s => s.id === authStoreId)?.name || ''}`}
