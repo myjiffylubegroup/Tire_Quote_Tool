@@ -79,7 +79,12 @@ const MAX_WIDTH = '1400px';
 const STORAGE_KEY = 'jl_staff_auth';
 
 // Image URLs (centralized so themes can pick the right logo)
-const LOGO_BLACK = '/images/JL_Multicare_Horzblack.png';
+// NOTE: the default-theme logo must match a file that actually exists in
+// public/images. It previously pointed at 'JL_Multicare_Horzblack.png', which
+// is not present — so the <img> 404'd, onError hid it, and the header logo was
+// invisible (and therefore unclickable) on every default-theme page. The real
+// asset is the 1-color horizontal mark below.
+const LOGO_BLACK = '/images/JL_Multicare_Horz_1C.png';
 const LOGO_WHITE = '/images/JL_Multicare_Horzwhite.png';
 const LOGO_FLEETCARE = '/images/JL_FleetCare_Horizontal.png';
 const LOGO_ENTERPRISE = '/images/logo-enterprise.png';
@@ -167,6 +172,12 @@ export default function Navbar({
   // View" or the user's locked store). Precedence: headerRight > store
   // selector (when onStoreChange given) > nothing.
   headerRight = null,
+  // Optional logo click handler. By default the logo is a link to the app home
+  // (#/, the Tire Finder). When a page owns a multi-step flow it can pass this
+  // to repurpose the logo as a "back to the start of THIS flow" control instead
+  // (e.g. MechanicalFinder resets its quote wizard). The href stays as a
+  // no-JS fallback; the handler preventDefaults so no navigation occurs.
+  onLogoClick = null,
 }) {
   const t = THEMES[theme] || THEMES.default;
 
@@ -241,7 +252,12 @@ export default function Navbar({
           flexWrap: 'wrap',
           gap: '15px',
         }}>
-          <a href="#/" style={{ display: 'inline-flex', alignItems: 'center', gap: '20px', textDecoration: 'none' }}>
+          <a
+            href="#/"
+            onClick={onLogoClick ? (e) => { e.preventDefault(); onLogoClick(); } : undefined}
+            title={onLogoClick ? 'Start over' : undefined}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '20px', textDecoration: 'none', cursor: 'pointer' }}
+          >
             {t.coBrandLogoSrc && (
               <>
                 <img

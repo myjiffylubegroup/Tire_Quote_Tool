@@ -1707,8 +1707,9 @@ function npsBucketColor(b) {
 // add a third report it's worth promoting to a shared component file.
 export function ReportsTabs({ active }) {
   const tabs = [
-    { key: 'tires',  label: 'TIRE QUOTES', href: '#/reports' },
-    { key: 'greets', label: 'GREETS',      href: '#/reports/greets' },
+    { key: 'tires',      label: 'TIRE QUOTES',   href: '#/reports' },
+    { key: 'mechanical', label: 'BRAKES & MECH', href: '#/reports/mechanical' },
+    { key: 'greets',     label: 'GREETS',        href: '#/reports/greets' },
   ];
   return (
     <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>

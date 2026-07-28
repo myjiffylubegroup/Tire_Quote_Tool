@@ -14,6 +14,7 @@ import MechanicalQuoteView from './MechanicalQuoteView';
 import TermsConditions from './TermsConditions';
 import DoNotSell from './DoNotSell';
 import Reports from './Reports';
+import MechanicalReports from './MechanicalReports';
 import GreetsReports from './GreetsReports';
 import GreetsBoard from './GreetsBoard';
 
@@ -128,6 +129,14 @@ export default function App() {
     return (
       <StaffPinGate>
         <FleetTireFinder />
+      </StaffPinGate>
+    );
+  }
+
+  if (path === '/reports/mechanical') {
+    return (
+      <StaffPinGate>
+        <MechanicalReports />
       </StaffPinGate>
     );
   }

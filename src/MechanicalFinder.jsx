@@ -88,21 +88,43 @@ const PurpleButton = ({ onClick, disabled, children, small }) => (
   </button>
 );
 
-const StepLabel = ({ n, label, active, done }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: active || done ? 1 : 0.4 }}>
-    <div style={{
-      width: '28px', height: '28px', borderRadius: '50%',
-      backgroundColor: done ? '#22c55e' : active ? PURPLE : '#ddd',
-      color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: '12px', fontWeight: '700', flexShrink: 0,
-    }}>
-      {done ? '✓' : n}
+// A step in the progress bar. When `onClick` is provided the step becomes a
+// back-nav target: clicking it returns to that step (data is preserved, so the
+// CSA can move forward again). Steps whose prerequisites aren't met get no
+// onClick and render as plain, non-interactive labels.
+const StepLabel = ({ n, label, active, done, onClick }) => {
+  const clickable = typeof onClick === 'function';
+  return (
+    <div
+      onClick={clickable ? onClick : undefined}
+      title={clickable ? `Return to ${label}` : undefined}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '8px',
+        opacity: active || done ? 1 : 0.4,
+        cursor: clickable ? 'pointer' : 'default',
+        userSelect: 'none',
+      }}
+    >
+      <div style={{
+        width: '28px', height: '28px', borderRadius: '50%',
+        backgroundColor: done ? '#22c55e' : active ? PURPLE : '#ddd',
+        color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: '12px', fontWeight: '700', flexShrink: 0,
+      }}>
+        {done ? '✓' : n}
+      </div>
+      <span style={{
+        fontSize: '12px', fontWeight: '600',
+        color: active ? PURPLE : done ? '#22c55e' : '#999',
+        letterSpacing: '0.5px', textTransform: 'uppercase',
+        textDecoration: clickable ? 'underline' : 'none',
+        textDecorationColor: '#cbd5e1', textUnderlineOffset: '3px',
+      }}>
+        {label}
+      </span>
     </div>
-    <span style={{ fontSize: '12px', fontWeight: '600', color: active ? PURPLE : done ? '#22c55e' : '#999', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-      {label}
-    </span>
-  </div>
-);
+  );
+};
 
 // ─── Each Quantity Modal ───────────────────────────────────────────────────────
 
@@ -1104,6 +1126,20 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setQuoteNotes(''); setGeneratedQuote(null); setError('');
   };
 
+  // Start Over — full reset back to step 1. Confirms first if the CSA has real
+  // work in progress so an accidental click (or logo tap) can't silently wipe a
+  // half-built quote. Wired to both the header "Start Over" button and the logo.
+  const handleStartOver = () => {
+    const hasWork =
+      step !== 'vehicle' && step !== 'submitted' &&
+      (!!selModel || cart.length > 0 || parts.length > 0 || jobs.length > 0);
+    if (hasWork && !window.confirm(
+      'Start a new quote? This clears the current vehicle, labor, and parts.'
+    )) return;
+    handleReset();
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   // Derived tree structure
   // ─────────────────────────────────────────────────────────────────────────
@@ -1130,6 +1166,29 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     parts:    step === 'submitted',
   };
 
+  // Which steps the user may jump back to via the progress bar. Gated on the
+  // data each step needs so a jump can never land on a blank/invalid screen:
+  // a submodel list must exist, a config must be picked for Services, and the
+  // cart must be non-empty for Parts (mirrors the "Add Parts →" guard). Data is
+  // preserved on navigation, so moving back then forward again is lossless.
+  // The terminal "Quote" step (submitted) is never a jump target.
+  // In revision mode the vehicle is locked to the existing quote (the "Change
+  // Vehicle" button is hidden for the same reason), so back-nav to the
+  // vehicle-selection steps is disabled entirely.
+  const canGoTo = {
+    vehicle:  !revisionMode && step !== 'vehicle'  && step !== 'submitted',
+    submodel: !revisionMode && step !== 'submodel' && step !== 'submitted' && submodels.length > 0,
+    browse:   !revisionMode && step !== 'browse'   && step !== 'submitted' && !!selConfig,
+    parts:    !revisionMode && step !== 'parts'    && step !== 'submitted' && !!selConfig && cart.length > 0,
+  };
+
+  // Jump to a prior step without clearing entered data.
+  const goToStep = (target) => {
+    setError('');
+    setStep(target);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
@@ -1139,6 +1198,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
         currentPage="mechanical"
         selectedStore={selectedStore}
         onStoreChange={setSelectedStore}
+        onLogoClick={revisionMode ? undefined : handleStartOver}
       />
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px 20px' }}>
@@ -1184,15 +1244,31 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
 
         {/* ── Page title + step progress ── */}
         <div style={{ marginBottom: '24px' }}>
-          <h1 style={{ margin: '0 0 16px 0', fontSize: '22px', fontWeight: '700', color: DARK }}>
-            🔧 Mechanical Labor Quote
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: DARK }}>
+              🔧 Mechanical Labor Quote
+            </h1>
+            {step !== 'vehicle' && step !== 'submitted' && !revisionMode && (
+              <button
+                onClick={handleStartOver}
+                title="Clear this quote and return to the first step"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 16px', border: `2px solid ${BORDER}`, borderRadius: '25px',
+                  backgroundColor: 'white', color: DARK, fontSize: '12px', fontWeight: '700',
+                  letterSpacing: '0.5px', textTransform: 'uppercase', cursor: 'pointer',
+                }}
+              >
+                ↺ Start Over
+              </button>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-            <StepLabel n={1} label="Vehicle"  active={step==='vehicle'}  done={stepDone.vehicle} />
-            <StepLabel n={2} label="Submodel" active={step==='submodel'} done={stepDone.submodel} />
-            <StepLabel n={3} label="Config"   active={step==='submodel'} done={stepDone.config} />
-            <StepLabel n={4} label="Services" active={step==='browse'}   done={stepDone.browse} />
-            <StepLabel n={5} label="Parts"    active={step==='parts'}    done={stepDone.parts} />
+            <StepLabel n={1} label="Vehicle"  active={step==='vehicle'}  done={stepDone.vehicle}  onClick={canGoTo.vehicle  ? () => goToStep('vehicle')  : undefined} />
+            <StepLabel n={2} label="Submodel" active={step==='submodel'} done={stepDone.submodel} onClick={canGoTo.submodel ? () => goToStep('submodel') : undefined} />
+            <StepLabel n={3} label="Config"   active={step==='submodel'} done={stepDone.config}   onClick={canGoTo.submodel ? () => goToStep('submodel') : undefined} />
+            <StepLabel n={4} label="Services" active={step==='browse'}   done={stepDone.browse}   onClick={canGoTo.browse   ? () => goToStep('browse')   : undefined} />
+            <StepLabel n={5} label="Parts"    active={step==='parts'}    done={stepDone.parts}    onClick={canGoTo.parts    ? () => goToStep('parts')    : undefined} />
             <StepLabel n={6} label="Quote"    active={step==='submitted'} done={false} />
           </div>
         </div>
