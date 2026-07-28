@@ -983,7 +983,12 @@ export default function MechanicalQuoteView({ code }) {
         {/* ── Header ── */}
         <div className="mq-header" style={{ borderTop: `5px solid ${MAROON}`, backgroundColor: 'white', padding: '18px 28px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', borderBottom: `1px solid ${BORDER}` }}>
           <div>
-            <img src={JL_LOGO} alt="Jiffy Lube Multicare" style={{ height: '42px', display: 'block', marginBottom: '4px' }} />
+            {/* Logo doubles as a "home" link so staff/customers aren't stranded
+                on the quote view with no way back. The print stylesheet drops
+                the underline; an <a> around an <img> prints the image fine. */}
+            <a href="#/" title="Back to home" className="mq-logo-link" style={{ display: 'inline-block', lineHeight: 0 }}>
+              <img src={JL_LOGO} alt="Jiffy Lube Multicare" style={{ height: '42px', display: 'block', marginBottom: '4px' }} />
+            </a>
             {/* Store details — shown on print only */}
             <div className="print-only" style={{ fontSize: '11px', color: DARK, lineHeight: '1.6', marginTop: '6px' }}>
               <div style={{ fontWeight: '700' }}>{quote.store?.store_name}</div>
