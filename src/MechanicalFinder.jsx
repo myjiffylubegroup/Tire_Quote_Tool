@@ -117,7 +117,7 @@ const StepLabel = ({ n, label, active, done, onClick }) => {
         fontSize: '12px', fontWeight: '600',
         color: active ? PURPLE : done ? '#22c55e' : '#999',
         letterSpacing: '0.5px', textTransform: 'uppercase',
-        textDecoration: clickable ? 'underline' : 'none',
+        textDecorationLine: clickable ? 'underline' : 'none',
         textDecorationColor: '#cbd5e1', textUnderlineOffset: '3px',
       }}>
         {label}

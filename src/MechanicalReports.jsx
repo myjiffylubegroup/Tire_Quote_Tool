@@ -24,6 +24,9 @@ const STORES = [
 
 const formatCurrency = (v) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
+// Whole-dollar currency for KPI tiles, where cents don't fit and don't matter.
+const formatCurrency0 = (v) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v || 0);
 const formatPct = (v) => (v === null || v === undefined ? '—' : `${v}%`);
 const formatNum = (v) => (v === null || v === undefined ? '—' : Number(v).toLocaleString());
 
@@ -68,17 +71,23 @@ const getPreset = (preset) => {
 
 // ─── Sub-components (mirrors Reports.jsx) ────────────────────────────────────
 
-const KpiCard = ({ label, value, sub, color = '#9b59b6', highlight = false }) => (
-  <div style={{
-    backgroundColor: highlight ? color : 'white',
-    border: `2px solid ${color}`, borderRadius: '12px', padding: '18px 22px',
-    textAlign: 'center', flex: '1 1 140px', minWidth: '130px',
-  }}>
-    <div style={{ fontSize: '11px', fontWeight: '700', color: highlight ? 'rgba(255,255,255,0.85)' : '#888', letterSpacing: '1px', marginBottom: '6px' }}>{label}</div>
-    <div style={{ fontSize: '28px', fontWeight: '800', color: highlight ? 'white' : color, lineHeight: 1 }}>{value}</div>
-    {sub && <div style={{ fontSize: '11px', color: highlight ? 'rgba(255,255,255,0.75)' : '#aaa', marginTop: '5px' }}>{sub}</div>}
-  </div>
-);
+const KpiCard = ({ label, value, sub, color = '#9b59b6', highlight = false }) => {
+  // Auto-shrink the value font so long strings (e.g. "$1,234,567") don't
+  // overflow the fixed-width tile.
+  const len = String(value).length;
+  const valueFontSize = len > 11 ? '19px' : len > 9 ? '22px' : len > 7 ? '25px' : '28px';
+  return (
+    <div style={{
+      backgroundColor: highlight ? color : 'white',
+      border: `2px solid ${color}`, borderRadius: '12px', padding: '18px 22px',
+      textAlign: 'center', flex: '1 1 140px', minWidth: '130px', overflow: 'hidden',
+    }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', color: highlight ? 'rgba(255,255,255,0.85)' : '#888', letterSpacing: '1px', marginBottom: '6px' }}>{label}</div>
+      <div style={{ fontSize: valueFontSize, fontWeight: '800', color: highlight ? 'white' : color, lineHeight: 1.1, whiteSpace: 'nowrap' }}>{value}</div>
+      {sub && <div style={{ fontSize: '11px', color: highlight ? 'rgba(255,255,255,0.75)' : '#aaa', marginTop: '5px' }}>{sub}</div>}
+    </div>
+  );
+};
 
 const SectionTitle = ({ children }) => (
   <h3 style={{
@@ -304,7 +313,7 @@ export default function MechanicalReports() {
               <SectionTitle>Overview — {dateFrom === dateTo ? dateFrom : `${dateFrom} to ${dateTo}`}</SectionTitle>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 <KpiCard label="Quotes Issued"      value={formatNum(totals.total_quotes)}         sub="brakes + mechanical" color="#9b59b6" />
-                <KpiCard label="Total Quoted"       value={formatCurrency(totals.total_value)}     sub="pre-tax quoted value" color="#9b59b6" />
+                <KpiCard label="Total Quoted"       value={formatCurrency0(totals.total_value)}    sub="pre-tax quoted value" color="#9b59b6" />
                 <KpiCard label="Avg Quote $"        value={formatCurrency(totals.avg_quote_value)} sub="per quote" color="#9b59b6" />
                 <KpiCard label="Quote Conversion"   value={formatPct(totals.quote_conversion_rate)} sub="purchased ÷ matchable" color="#3b82f6" highlight={totals.quote_conversion_rate !== null} />
                 <KpiCard label="Brakes Converted"   value={formatNum(totals.converted_brakes)}     sub="quotes → brake sale" color="#10b981" />
