@@ -2041,6 +2041,23 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
           <span style={{ fontSize: '18px', fontWeight: '700', color: '#9b59b6', letterSpacing: '1px' }}>
             #{greet.short_code}
           </span>
+          {greet.status === 'in_progress' && (
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              backgroundColor: '#DBEAFE',
+              color: '#1E40AF',
+              border: '2px solid #3B82F6',
+              padding: '2px 10px',
+              borderRadius: '999px',
+              fontSize: '11px',
+              fontWeight: '800',
+              letterSpacing: '0.5px',
+            }}>
+              ● IN PROGRESS
+            </span>
+          )}
           {greet.is_demo === true && (
             <span style={{
               display: 'inline-flex',
