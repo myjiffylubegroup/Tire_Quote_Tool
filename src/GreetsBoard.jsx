@@ -340,6 +340,15 @@ function GreetTile({ greet, now }) {
             <span style={{ fontSize: '17px', fontWeight: 700, color: C.accent, letterSpacing: '1px' }}>
               #{greet.short_code}
             </span>
+            {greet.status === 'in_progress' && (
+              <span style={{
+                fontSize: '13px', fontWeight: 800, letterSpacing: '0.8px',
+                color: '#1e40af', backgroundColor: '#dbeafe',
+                border: '1.5px solid #60a5fa', borderRadius: '999px', padding: '2px 10px',
+              }}>
+                ● IN PROGRESS
+              </span>
+            )}
             <span style={{ fontSize: '28px', fontWeight: 800, color: C.textPrimary, lineHeight: 1.1 }}>
               {displayName(greet)}
             </span>
