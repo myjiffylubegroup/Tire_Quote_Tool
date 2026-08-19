@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import StaffLoginModal from './StaffLoginModal';
 import FeedbackModal from './FeedbackModal';
+import { staffLogout } from './StaffPinGate';
 
 /**
  * Navbar — shared header + navigation bar used by all main pages.
@@ -500,20 +501,46 @@ export default function Navbar({
               🔒 STAFF LOGIN
             </button>
           ) : (
-            <span
-              style={{
-                color: 'white',
-                fontSize: '12px',
-                fontWeight: '600',
-                letterSpacing: '1px',
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                padding: '5px 14px',
-                borderRadius: '14px',
-              }}
-              title="Logged in"
-            >
-              ✓ STAFF{staffDisplayName ? `: ${staffDisplayName.toUpperCase()}` : ''}
-            </span>
+            /* Badge + LOG OUT read as one identity cluster, so they get their
+               own tighter gap instead of the nav's 24px link spacing. */
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span
+                style={{
+                  color: 'white',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  letterSpacing: '1px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  padding: '5px 14px',
+                  borderRadius: '14px',
+                }}
+                title="Logged in"
+              >
+                ✓ STAFF{staffDisplayName ? `: ${staffDisplayName.toUpperCase()}` : ''}
+              </span>
+              {/* Sessions last 12 hours, so on a shared counter tablet everything
+                  stays stamped with whoever PIN'd in that morning. This is how the
+                  next CSA signs in as themselves. Mirrors Greets' StaffNav. */}
+              <button
+                onClick={staffLogout}
+                title="Sign out so the next person can sign in as themselves"
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  color: 'white',
+                  border: '1px solid rgba(255, 255, 255, 0.4)',
+                  padding: '5px 14px',
+                  borderRadius: '14px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  letterSpacing: '1px',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                LOG OUT
+              </button>
+            </div>
           )}
         </div>
       </nav>
