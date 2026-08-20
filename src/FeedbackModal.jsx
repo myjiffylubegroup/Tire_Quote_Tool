@@ -48,6 +48,43 @@ const TYPE_OPTIONS = [
   { value: 'feedback',    label: 'Feedback' },
 ];
 
+// Reply-to contact, keyed BY EMPLOYEE. There is no roster source for staff
+// email/phone (v_employee_emails covers ~55% of active employees via Connecteam
+// and is a NULL stub in a franchisee project), so the modal asks and remembers.
+// Keyed per employee because this modal has a roster picker on a shared phone:
+// one blob per device would pair the selected person's NAME with the previous
+// person's EMAIL, which is worse than asking because it looks correct.
+const CONTACT_KEY = 'jl_feedback_contacts';   // { [employee_id]: { email, phone } }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function readAllContacts() {
+  try {
+    const raw = localStorage.getItem(CONTACT_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function readContact(empId) {
+  if (empId == null || empId === '') return { email: '', phone: '' };
+  const entry = readAllContacts()[String(empId)];
+  return { email: entry?.email || '', phone: entry?.phone || '' };
+}
+
+function saveContact(empId, email, phone) {
+  if (empId == null || empId === '') return;
+  try {
+    const all = readAllContacts();
+    all[String(empId)] = { email, phone };
+    localStorage.setItem(CONTACT_KEY, JSON.stringify(all));
+  } catch {
+    /* private mode / quota — the report still sends, they just retype next time */
+  }
+}
+
 export default function FeedbackModal({ isOpen, onClose, auth, defaultArea = '' }) {
   const [area, setArea] = useState(defaultArea || '');
   const [type, setType] = useState('');
@@ -56,6 +93,8 @@ export default function FeedbackModal({ isOpen, onClose, auth, defaultArea = '' 
   const [roster, setRoster] = useState([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null); // { type: 'success' | 'error', text }
   const successTimer = useRef(null);
@@ -88,6 +127,16 @@ export default function FeedbackModal({ isOpen, onClose, auth, defaultArea = '' 
 
   // Clear any pending auto-close timer on unmount
   useEffect(() => () => { if (successTimer.current) clearTimeout(successTimer.current); }, []);
+
+  // Load the remembered contact for whoever is currently selected as submitter.
+  // Re-runs when the roster pick changes, so switching submitter swaps in that
+  // person's saved address rather than leaving the previous one in the box.
+  useEffect(() => {
+    if (!isOpen) return;
+    const c = readContact(employeeId);
+    setEmail(c.email);
+    setPhone(c.phone);
+  }, [isOpen, employeeId]);
 
   // Load the store roster for the submitter dropdown (re-loads if store changes)
   useEffect(() => {
@@ -123,7 +172,8 @@ export default function FeedbackModal({ isOpen, onClose, auth, defaultArea = '' 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, storeId]);
 
-  const canSubmit = !!(area && type && message.trim() && storeId && employeeId && !submitting);
+  const emailOk = EMAIL_RE.test(email.trim());
+  const canSubmit = !!(area && type && message.trim() && storeId && employeeId && emailOk && !submitting);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -150,6 +200,8 @@ export default function FeedbackModal({ isOpen, onClose, auth, defaultArea = '' 
           submitter_employee_id: selected ? Number(selected.employee_id) : (auth?.employee_id ?? null),
           submitter_name: submitterName,
           submitter_user_name: submitterUserName,
+          submitter_email: email.trim(),       // required — becomes the Zendesk requester
+          submitter_phone: phone.trim() || undefined,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
         }),
       });
@@ -158,7 +210,8 @@ export default function FeedbackModal({ isOpen, onClose, auth, defaultArea = '' 
       const data = await res.json();
 
       if (res.ok && data?.success) {
-        setResult({ type: 'success', text: 'Thanks — your report was sent. We\u2019ll take a look.' });
+        saveContact(employeeId, email.trim(), phone.trim());
+        setResult({ type: 'success', text: 'Thanks — your report was sent. We\u2019ll reply by email.' });
         successTimer.current = setTimeout(() => { onClose(); }, 1600);
       } else {
         setResult({ type: 'error', text: data?.error || 'Could not send. Please try again.' });
@@ -312,6 +365,42 @@ export default function FeedbackModal({ isOpen, onClose, auth, defaultArea = '' 
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="What happened, or what would make this better?"
                   maxLength={5000}
+                />
+              </div>
+
+              {/* Reply-to contact. Email is required because it becomes the Zendesk
+                  ticket requester — without it an agent's reply goes to the API
+                  service account and never reaches the person who filed this. */}
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Your email *</label>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  style={{ ...inputStyle, borderColor: email && !emailOk ? '#e57373' : undefined }}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  maxLength={254}
+                />
+                <div style={{ fontSize: '11px', color: email && !emailOk ? '#b71c1c' : '#888', marginTop: '4px' }}>
+                  {email && !emailOk
+                    ? 'That doesn\u2019t look like an email address.'
+                    : 'So we can reply about this report. Saved on this device.'}
+                </div>
+              </div>
+
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Your phone (optional)</label>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  style={inputStyle}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="805-555-0134"
+                  maxLength={40}
                 />
               </div>
 
