@@ -29,6 +29,9 @@ import { API_BASE } from './config';
 
 // Poll cadence. 30s keeps the board feeling live without hammering the function.
 const POLL_MS = 30000;
+// While a guest is asking to leave, 30s is far too slow -- they are walking to
+// their car. Poll hard only while a flag is open, then fall back.
+const POLL_MS_ALERT = 5000;
 // Header clock + time-ago labels tick on this interval.
 const CLOCK_MS = 1000;
 // Default number of tiles shown (most recent N). Overridable via ?max=.
@@ -51,7 +54,23 @@ const C = {
   divider: '#e2e8f0',
   prepBg: '#facc15',
   prepText: '#451a03',
+  leaveBg: '#dc2626',      // guest wants to leave — highest urgency on the board
+  leaveText: '#ffffff',
 };
+
+// Staff-facing labels for the leave reasons (greets-leave-request vocabulary).
+// Kept in step with the greets repo's board and staff list — three surfaces,
+// one wording.
+const LEAVE_REASON_LABELS = {
+  wait_too_long:        'wait is too long',
+  need_to_be_somewhere: 'has to be somewhere',
+  changed_mind:         'changed their mind',
+  price:                'price concern',
+  emergency:            'emergency',
+  service_concern:      'concern about the service',
+  other:                'unspecified',
+};
+const leaveReasonLabel = (k) => LEAVE_REASON_LABELS[k] || (k || '').replace(/_/g, ' ');
 
 // Store id → display name (header). Mirrors the STORES list in QuoteLookup.
 const STORE_NAMES = {
@@ -288,14 +307,33 @@ function Chip({ children, bg, text, border, bold }) {
 // -----------------------------------------------------------------------------
 function GreetTile({ greet, now }) {
   const cls = classificationMeta(greet.service_classification);
-  const rail = cls ? cls.rail : C.railNeutral;
+  // A guest asking to leave outranks service classification for the rail colour:
+  // the crew needs to see WHO is walking before what they booked.
+  const rail = leaving ? C.leaveBg : (cls ? cls.rail : C.railNeutral);
   const prep = hasEnginePrep(greet);
   const alerts = contactAlerts(greet);
   const wait = waitPreferenceChip(greet.wait_preference);
   const products = serviceProducts(greet);
 
+  const leaving = !!greet.leave_requested_at;
+
+  // isNew keys off arrival — a tile that just appeared should flash NEW
+  // regardless of which clock we display.
   const ageMin = Math.floor((now - new Date(greet.created_at).getTime()) / 60000);
   const isNew = ageMin < 3;
+
+  // WAITING runs from SUBMIT, not created_at: under progressive save created_at
+  // is when the guest STARTED the kiosk, and those minutes were not spent
+  // waiting. Falls back for rows predating submitted_at (migration 0034).
+  const waitFrom = greet.submitted_at || greet.created_at;
+  const waitMin = Math.max(0, Math.floor((now - new Date(waitFrom).getTime()) / 60000));
+
+  // In-bay estimate the GUEST was shown (migration 0030). Shown as its own chip,
+  // never combined with the waiting clock -- it excludes waiting for a bay, so
+  // merging them would flag every queued vehicle as overdue.
+  const bayMin = greet.promised_bay_min_minutes;
+  const bayMax = greet.promised_bay_max_minutes;
+  const hasBayEstimate = bayMin != null && bayMax != null;
 
   return (
     <div style={{
@@ -304,12 +342,35 @@ function GreetTile({ greet, now }) {
       border: `1px solid ${C.cardBorder}`,
       borderRadius: '14px',
       overflow: 'hidden',
-      boxShadow: isNew ? `0 0 0 3px ${rail}33, ${C.cardShadow}` : C.cardShadow,
+      boxShadow: leaving
+        ? `0 0 0 4px ${C.leaveBg}55, ${C.cardShadow}`
+        : (isNew ? `0 0 0 3px ${rail}33, ${C.cardShadow}` : C.cardShadow),
     }}>
-      {/* Classification rail */}
+      {/* Classification rail (red when the guest wants to leave) */}
       <div style={{ width: '8px', backgroundColor: rail, flexShrink: 0 }} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Leave-request takeover banner. Rendered FIRST so it reads before
+            anything else on the tile. */}
+        {leaving && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '12px',
+            backgroundColor: C.leaveBg, color: C.leaveText, padding: '10px 20px',
+          }}>
+            <span style={{ fontSize: '22px', lineHeight: 1 }}>🚨</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '0.02em' }}>
+                WANTS TO LEAVE
+              </div>
+              <div style={{ fontSize: '15px', opacity: 0.95 }}>
+                {leaveReasonLabel(greet.leave_reason)}
+                {greet.leave_requested_at && (
+                  <> · {Math.max(0, Math.floor((now - new Date(greet.leave_requested_at).getTime()) / 60000))}m ago</>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {/* Engine Prep takeover banner */}
         {prep && (
           <div style={{
@@ -360,6 +421,15 @@ function GreetTile({ greet, now }) {
               }}>
                 NEW
               </span>
+            )}
+            {/* Elapsed since SUBMIT — "how long has this guest been waiting?" */}
+            <Chip bg="#f1f5f9" text={C.textFaint} border="#e2e8f0">⏱ {waitMin}m waiting</Chip>
+            {/* In-bay estimate the guest was told. Labelled "bay" so it never
+                reads as a promised completion time. */}
+            {hasBayEstimate && (
+              <Chip bg="#eef2ff" text="#4338ca" border="#c7d2fe">
+                🔧 bay {bayMin}–{bayMax}m
+              </Chip>
             )}
             {greet.language === 'es' && (
               <Chip bg="#dbeafe" text="#1d4ed8" border="#bfdbfe">🇲🇽 ES</Chip>
@@ -473,6 +543,10 @@ export default function GreetsBoard() {
 
   const hasDataRef = useRef(false);
 
+  // Drives the faster poll below. Any OPEN leave request means the board is now
+  // an alert surface, not a status display.
+  const anyLeaveOpen = greets.some((g) => !!g.leave_requested_at);
+
   const load = useCallback(async () => {
     if (!configValid) return;
     try {
@@ -501,9 +575,11 @@ export default function GreetsBoard() {
   useEffect(() => {
     if (!configValid) return;
     load();
-    const id = setInterval(load, POLL_MS);
+    const id = setInterval(load, anyLeaveOpen ? POLL_MS_ALERT : POLL_MS);
     return () => clearInterval(id);
-  }, [configValid, load]);
+    // anyLeaveOpen must be a dependency or the interval keeps the 30s cadence
+    // it was created with and the alert poll never actually speeds up.
+  }, [configValid, load, anyLeaveOpen]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), CLOCK_MS);
@@ -546,7 +622,15 @@ export default function GreetsBoard() {
         : status === 'stale' ? 'Reconnecting…'
           : 'Connection error';
 
-  const visible = greets.slice(0, maxTiles);
+  // Anyone asking to leave jumps the queue on the board, newest first.
+  const ordered = [...greets].sort((a, b) => {
+    const al = a.leave_requested_at ? 1 : 0;
+    const bl = b.leave_requested_at ? 1 : 0;
+    if (al !== bl) return bl - al;
+    if (al && bl) return new Date(b.leave_requested_at) - new Date(a.leave_requested_at);
+    return 0;
+  });
+  const visible = ordered.slice(0, maxTiles);
   const overflow = greets.length - visible.length;
 
   return (
