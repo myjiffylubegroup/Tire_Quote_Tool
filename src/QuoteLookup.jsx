@@ -2223,13 +2223,24 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
             );
           })()}
         </div>
-        <span style={{ fontSize: '12px', color: '#888', whiteSpace: 'nowrap' }}>
-          {/* SUBMIT time, not created_at. Under progressive save created_at is
-              when the guest STARTED the kiosk — several minutes earlier, and the
-              wrong clock for "how long has this person been waiting". Falls back
-              only for rows predating submitted_at (migration 0034). */}
-          {timePacific(greet.submitted_at || greet.created_at)} · {timeAgo(greet.submitted_at || greet.created_at)}
-        </span>
+        {/* Time cluster, top-right. The bay estimate belongs HERE with the other
+            clocks rather than down in the badge row — it is time information, and
+            splitting it away from the submit/elapsed pair made it read as just
+            another status pill. */}
+        <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: '12px', color: '#888' }}>
+            {/* SUBMIT time, not created_at. Under progressive save created_at is
+                when the guest STARTED the kiosk — several minutes earlier, and the
+                wrong clock for "how long has this person been waiting". Falls back
+                only for rows predating submitted_at (migration 0034). */}
+            {timePacific(greet.submitted_at || greet.created_at)} · {timeAgo(greet.submitted_at || greet.created_at)}
+          </span>
+          {greet.promised_bay_min_minutes != null && greet.promised_bay_max_minutes != null && (
+            <div style={{ fontSize: '12px', fontWeight: '700', color: '#4338ca', marginTop: '2px' }}>
+              🔧 Bay {greet.promised_bay_min_minutes}–{greet.promised_bay_max_minutes} min
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Vehicle line */}
@@ -2272,26 +2283,8 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
 
       {/* Classification badge + wait preference — paired on one row so the CSA
           sees urgency/scope and where the customer is together at a glance. */}
-      {(greetAppointmentTime(greet) || classificationBadge(greet.service_classification) || waitPreferenceChip(greet.wait_preference) || greet.promised_bay_min_minutes != null) && (
+      {(greetAppointmentTime(greet) || classificationBadge(greet.service_classification) || waitPreferenceChip(greet.wait_preference)) && (
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '6px' }}>
-          {/* In-bay estimate the GUEST was shown at check-in (migration 0030).
-              Labelled "Bay" on purpose: it covers time in the bay and excludes
-              waiting for one, so it must not be read against the elapsed clock
-              in the header as if it were a completion promise. */}
-          {greet.promised_bay_min_minutes != null && greet.promised_bay_max_minutes != null && (
-            <span style={{
-              display: 'inline-block',
-              fontSize: '12px',
-              fontWeight: '700',
-              color: '#4338ca',
-              backgroundColor: '#eef2ff',
-              border: '1px solid #c7d2fe',
-              padding: '3px 10px',
-              borderRadius: '8px',
-            }}>
-              🔧 Bay {greet.promised_bay_min_minutes}–{greet.promised_bay_max_minutes} min
-            </span>
-          )}
           {/* Appointment pill — booked guest. Placed first so scheduled
               customers stand out from walk-ins at a glance. Stronger indigo
               than the wait-preference chip so the two don't read as the same
