@@ -482,6 +482,26 @@ export default function QuoteLookup() {
     setQuoteDeleteError(null);
   }, [selectedStore, quoteMode]);
 
+  // Close out an open leave request. Refetches rather than patching local state:
+  // the server arbitrates whether the flag was still open (another crew member
+  // may have resolved it seconds earlier, in which case it returns 404).
+  const handleResolveLeave = async (greet, outcome) => {
+    try {
+      const response = await apiCall(`${API_BASE}/greets-leave-resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ short_code: greet.short_code, outcome }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        alert(data.error || 'Could not resolve the leave request.');
+      }
+    } catch (e) {
+      alert('Could not reach the server to resolve the leave request.');
+    }
+    loadGreets();
+  };
+
   const loadGreets = async () => {
     setGreetsLoading(true);
     setGreetsError(null);
@@ -1439,6 +1459,7 @@ export default function QuoteLookup() {
                     editMode={greetsEditMode}
                     selected={selectedGreetIds.has(g.greet_id)}
                     onToggleSelect={() => toggleGreetSelection(g.greet_id)}
+                    onResolveLeave={handleResolveLeave}
                   />
                 ))}
               </div>
@@ -1834,7 +1855,26 @@ function RecoveryVoucherChip({ greet, size = 'normal' }) {
 // =============================================================================
 // GreetCard — list-view card for a single greet
 // =============================================================================
-function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggleSelect }) {
+// Staff-facing labels for the leave-request vocabulary. Mirrors GreetsBoard.jsx
+// here and the greets repo's copies — one wording across every surface.
+const LEAVE_REASON_LABELS = {
+  wait_too_long:        'wait is too long',
+  need_to_be_somewhere: 'has to be somewhere',
+  changed_mind:         'changed their mind',
+  price:                'price concern',
+  emergency:            'emergency',
+  service_concern:      'concern about the service',
+  other:                'unspecified',
+};
+function leaveReasonLabel(k) {
+  return LEAVE_REASON_LABELS[k] || (k || '').replace(/_/g, ' ');
+}
+function leaveWaitingMinutes(greet) {
+  if (!greet.leave_requested_at) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(greet.leave_requested_at).getTime()) / 60000));
+}
+
+function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggleSelect, onResolveLeave }) {
   const promoted = greet.classification_promoted === true;
   const hasConcerns = (greet.concerns_selected && greet.concerns_selected.length > 0)
     || (greet.concerns_text && greet.concerns_text.trim().length > 0);
@@ -1846,7 +1886,10 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
   const apptTime = greetAppointmentTime(greet);
   const hasApptRibbon = apptTime != null;
   const roughCheckin = hasCheckinFeedback(greet) && greet.checkin_rating === 'rough';
-  const bannerBelowRibbon = prepNeeded || roughCheckin;
+  // An OPEN leave request outranks everything: the guest is walking out right
+  // now, so it sits topmost and everything below squares its top-right corner.
+  const leaveOpen = !!greet.leave_requested_at && !greet.leave_resolved_at;
+  const bannerBelowRibbon = prepNeeded || roughCheckin || leaveOpen;
 
   // Classification drives the card's left border + faint background tint.
   // (Classification wins the border; promote-up is shown via its pill, not the
@@ -1936,9 +1979,68 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
           margins escape the card's padding) so it can't be missed. The 3-min
           pre-treat window means the CSA needs to grab the bottle BEFORE the
           car pulls in, so this banner has to read from across the room. */}
-      {prepNeeded && (
+      {/* Guest asked to LEAVE and nobody has closed it out. Topmost banner —
+          the only one where the guest is mid-exit. Carries the resolve buttons,
+          because whoever walks over should record what happened, and
+          leave_outcome is the only retention measurement this flow produces. */}
+      {leaveOpen && (
         <div style={{
           margin: hasApptRibbon ? '0 -18px 12px -18px' : '-16px -18px 12px -18px',
+          backgroundColor: '#7f1d1d',
+          color: 'white',
+          padding: '10px 14px',
+          borderTopRightRadius: hasApptRibbon ? '0' : '9px',
+          boxShadow: 'inset 0 0 0 2px #fecaca',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.5px' }}>
+              🚨 WANTS TO LEAVE — {leaveReasonLabel(greet.leave_reason)}
+            </span>
+            <span style={{ fontSize: '11px', opacity: 0.9 }}>
+              {leaveWaitingMinutes(greet)}m ago
+            </span>
+          </div>
+          {greet.leave_comment && greet.leave_comment.trim() && (
+            <div style={{ fontSize: '12px', fontStyle: 'italic', opacity: 0.95 }}>
+              "{greet.leave_comment.trim()}"
+            </div>
+          )}
+          {greet.recovery_code && (
+            <div style={{ fontSize: '12px' }}>
+              Auto-offered ${Math.round(Number(greet.recovery_amount))} off ({greet.recovery_code})
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onResolveLeave && onResolveLeave(greet, 'stayed'); }}
+              style={{
+                fontSize: '12px', fontWeight: '700', padding: '5px 12px', borderRadius: '6px',
+                border: 'none', cursor: 'pointer', backgroundColor: '#16a34a', color: 'white',
+              }}
+            >
+              They stayed
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onResolveLeave && onResolveLeave(greet, 'left'); }}
+              style={{
+                fontSize: '12px', fontWeight: '700', padding: '5px 12px', borderRadius: '6px',
+                border: '1px solid #fecaca', cursor: 'pointer', backgroundColor: 'transparent', color: 'white',
+              }}
+            >
+              They left
+            </button>
+          </div>
+        </div>
+      )}
+
+      {prepNeeded && (
+        <div style={{
+          margin: (hasApptRibbon || leaveOpen) ? '0 -18px 12px -18px' : '-16px -18px 12px -18px',
           // Safety / construction-sign yellow. The Engine Prep bottle is a
           // black silhouette, so this color gives maximum contrast — the
           // bottle reads crisply at the small card size. (Earlier dark-navy
@@ -1946,7 +2048,7 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
           backgroundColor: '#facc15',
           color: '#111827',
           padding: '10px 14px',
-          borderTopRightRadius: hasApptRibbon ? '0' : '9px',
+          borderTopRightRadius: (hasApptRibbon || leaveOpen) ? '0' : '9px',
           // borderTopLeftRadius intentionally not rounded — the card's 4px
           // classification border sits flush to the banner on the left.
           display: 'flex',
@@ -1995,11 +2097,11 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
         const urgent = checkinIsUrgent(greet);
         return (
         <div style={{
-          margin: (prepNeeded || hasApptRibbon) ? '0 -18px 12px -18px' : '-16px -18px 12px -18px',
+          margin: (prepNeeded || hasApptRibbon || leaveOpen) ? '0 -18px 12px -18px' : '-16px -18px 12px -18px',
           backgroundColor: urgent ? '#7f1d1d' : '#dc2626',
           color: 'white',
           padding: '10px 14px',
-          borderTopRightRadius: (prepNeeded || hasApptRibbon) ? '0' : '9px',
+          borderTopRightRadius: (prepNeeded || hasApptRibbon || leaveOpen) ? '0' : '9px',
           boxShadow: urgent ? 'inset 0 0 0 2px #fecaca' : 'none',
           display: 'flex',
           flexDirection: 'column',
@@ -2122,7 +2224,11 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
           })()}
         </div>
         <span style={{ fontSize: '12px', color: '#888', whiteSpace: 'nowrap' }}>
-          {timePacific(greet.created_at)} · {timeAgo(greet.created_at)}
+          {/* SUBMIT time, not created_at. Under progressive save created_at is
+              when the guest STARTED the kiosk — several minutes earlier, and the
+              wrong clock for "how long has this person been waiting". Falls back
+              only for rows predating submitted_at (migration 0034). */}
+          {timePacific(greet.submitted_at || greet.created_at)} · {timeAgo(greet.submitted_at || greet.created_at)}
         </span>
       </div>
 
@@ -2166,8 +2272,26 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
 
       {/* Classification badge + wait preference — paired on one row so the CSA
           sees urgency/scope and where the customer is together at a glance. */}
-      {(greetAppointmentTime(greet) || classificationBadge(greet.service_classification) || waitPreferenceChip(greet.wait_preference)) && (
+      {(greetAppointmentTime(greet) || classificationBadge(greet.service_classification) || waitPreferenceChip(greet.wait_preference) || greet.promised_bay_min_minutes != null) && (
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '6px' }}>
+          {/* In-bay estimate the GUEST was shown at check-in (migration 0030).
+              Labelled "Bay" on purpose: it covers time in the bay and excludes
+              waiting for one, so it must not be read against the elapsed clock
+              in the header as if it were a completion promise. */}
+          {greet.promised_bay_min_minutes != null && greet.promised_bay_max_minutes != null && (
+            <span style={{
+              display: 'inline-block',
+              fontSize: '12px',
+              fontWeight: '700',
+              color: '#4338ca',
+              backgroundColor: '#eef2ff',
+              border: '1px solid #c7d2fe',
+              padding: '3px 10px',
+              borderRadius: '8px',
+            }}>
+              🔧 Bay {greet.promised_bay_min_minutes}–{greet.promised_bay_max_minutes} min
+            </span>
+          )}
           {/* Appointment pill — booked guest. Placed first so scheduled
               customers stand out from walk-ins at a glance. Stronger indigo
               than the wait-preference chip so the two don't read as the same
@@ -2569,7 +2693,7 @@ function GreetDetailModal({ greet, onClose, loading }) {
               )}
             </div>
             <div style={{ fontSize: '12px', opacity: 0.85, marginTop: '2px' }}>
-              Submitted {timePacific(greet.created_at)} · {timeAgo(greet.created_at)} · {timePressureLabel(greet.time_pressure)}
+              Submitted {timePacific(greet.submitted_at || greet.created_at)} · {timeAgo(greet.submitted_at || greet.created_at)} · {timePressureLabel(greet.time_pressure)}
             </div>
           </div>
           <button
