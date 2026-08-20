@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import StaffLoginForm from './StaffLoginForm';
 import { setStaffToken, clearStaffToken, getStaffToken, apiCallPublic } from './apiClient';
 
-import { API_BASE } from './config';
+import { API_BASE, SUPABASE_ANON_KEY } from './config';
 const STORAGE_KEY = 'jl_staff_auth';
 const SESSION_HOURS = 12;
 
@@ -252,6 +252,32 @@ export const getStaffStoreId = () => {
 };
 
 export const staffLogout = () => {
+  // Record the sign-out before dropping the token (migration 0034). Three
+  // deliberate choices:
+  //   • keepalive — the reload below tears this page down immediately and a
+  //     normal fetch would be cancelled mid-flight, losing nearly every logout.
+  //   • not awaited, errors swallowed — signing out MUST work with the network
+  //     down. The audit row is the nice-to-have; ending the session is the point.
+  //   • token read straight from storage rather than getStaffToken(), which
+  //     returns null inside its expiry buffer — end of shift is exactly when
+  //     people sign out, and that would drop the events we most want.
+  const token = localStorage.getItem('jl_staff_token');
+  if (token) {
+    try {
+      fetch(`${API_BASE}/staff-logout`, {
+        method: 'POST',
+        keepalive: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'X-Staff-Token': token,
+        },
+        body: '{}',
+      }).catch(() => { /* best effort — see above */ });
+    } catch { /* older browsers without keepalive */ }
+  }
+
   localStorage.removeItem('jl_staff_auth');
   localStorage.removeItem('jl_staff_token');
   localStorage.removeItem('jl_staff_token_expires');
