@@ -71,6 +71,19 @@ const sanitizeVinInput = (raw) => {
     .slice(0, 17);
 };
 
+// A lookup can resolve a VEHICLE without resolving a CUSTOMER, and both the
+// public (vehicle-lookup) and staff (customer-lookup) endpoints still answer
+// `found: true` in that case:
+//   - vehicle-lookup returns no PII at all, ever.
+//   - customer-lookup returns an all-empty `customer` object when the plate/VIN
+//     missed Turbo and was decoded by PartsTech/NHTSA instead.
+// We keep building a `customer` object regardless because it carries the plate
+// and VIN for the result card, so "a customer object exists" is NOT the same as
+// "we know who this is". This is the single test for the latter — use it before
+// handing a customer off to QuoteBuilder or claiming a match in the UI.
+export const hasCustomerIdentity = (c) =>
+  !!(c && (c.first_name || c.last_name || c.full_name || c.phone || c.email));
+
 // Read auth fresh from localStorage on each render. Cheap and correct.
 const readIsAuthenticated = () => {
   if (typeof window === 'undefined') return false;
@@ -581,13 +594,13 @@ export default function CustomerVehicleLookup({
               Public users see vehicle Y/M/M only; PII is hidden. */}
           {authed && result.source !== 'vin-nhtsa' && (
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '5px' }}>
-              {result.customer.license_plate && (
+              {result.customer?.license_plate && (
                 <span>
                   Plate: {result.customer.license_plate}
                   {result.customer.license_state && ` (${result.customer.license_state})`}
                 </span>
               )}
-              {result.customer.full_name && (
+              {result.customer?.full_name && (
                 <span>
                   {result.customer.license_plate ? ' • ' : ''}
                   {result.customer.full_name}
@@ -596,7 +609,7 @@ export default function CustomerVehicleLookup({
             </div>
           )}
           {/* For NHTSA-decoded VINs, show the decoded VIN */}
-          {result.source === 'vin-nhtsa' && result.customer.vin && (
+          {result.source === 'vin-nhtsa' && result.customer?.vin && (
             <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '5px', fontFamily: 'monospace', letterSpacing: '1px' }}>
               VIN: {result.customer.vin}
             </div>

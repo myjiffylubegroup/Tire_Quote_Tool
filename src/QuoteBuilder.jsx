@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
 import { apiCall } from './apiClient';
+import { hasCustomerIdentity } from './CustomerVehicleLookup';
 
 import { API_BASE, REST_BASE, SUPABASE_ANON_KEY } from './config';
 
@@ -817,7 +818,9 @@ export default function QuoteBuilder() {
       if (savedCustomer) {
         try {
           const customer = JSON.parse(savedCustomer);
-          setCustomerFound(true);
+          // Only claim a match when the handoff actually carries an identity —
+          // a decode-only lookup hands over plate/VIN with blank name fields.
+          setCustomerFound(hasCustomerIdentity(customer));
           setCustomerData({
             first_name: customer.first_name || '',
             last_name: customer.last_name || '',
@@ -1052,7 +1055,10 @@ export default function QuoteBuilder() {
       const response = await apiCall(`${API_BASE}/customer-lookup?plate=${encodeURIComponent(licensePlate)}&state=${licenseState}&store_id=${encodeURIComponent(selectedStore)}`);
       const data = await response.json();
       if (data.success && data.found) {
-        setCustomerFound(true);
+        // `found` means a VEHICLE was resolved. When the plate missed Turbo and
+        // came back from the PartsTech decode instead, customer-lookup still
+        // returns an all-empty customer object — that is not a customer match.
+        setCustomerFound(hasCustomerIdentity(data.customer));
         const formattedPhone = data.customer.phone ? formatPhoneNumber(data.customer.phone) : '';
         setCustomerData({
           first_name: data.customer.first_name || '', 

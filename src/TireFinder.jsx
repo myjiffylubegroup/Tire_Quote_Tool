@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
-import CustomerVehicleLookup from './CustomerVehicleLookup';
+import CustomerVehicleLookup, { hasCustomerIdentity } from './CustomerVehicleLookup';
 
 import { API_BASE } from './config';
 const API_KEY = 'TIRES2026';
@@ -1067,7 +1067,12 @@ export default function TireFinder() {
   // name/phone/email they typed at the kiosk. We still fold in plate/state
   // from whichever source has them so QuoteBuilder's plate field populates.
   const resolveQuoteCustomer = () => {
-    const lookup = plateLookupResult?.customer || null;
+    // A plate/VIN that only DECODED (PartsTech/NHTSA, or any public lookup)
+    // still carries a customer object, but it holds no identity — handing it
+    // off makes QuoteBuilder announce "Customer found!" over blank fields.
+    const lookup = hasCustomerIdentity(plateLookupResult?.customer)
+      ? plateLookupResult.customer
+      : null;
     const greet = greetHandoff?.customer || null;
     if (!greet && !lookup) return null;
     if (!greet) return lookup;

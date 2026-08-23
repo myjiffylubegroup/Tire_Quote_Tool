@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
-import CustomerVehicleLookup from './CustomerVehicleLookup';
+import CustomerVehicleLookup, { hasCustomerIdentity } from './CustomerVehicleLookup';
 
 import { API_BASE } from './config';
 const API_KEY = 'TIRES2026';
@@ -632,7 +632,7 @@ export default function EnterpriseTireFinder() {
     }
 
     // Customer data: only if a lookup was performed
-    if (lookupResult?.customer) {
+    if (hasCustomerIdentity(lookupResult?.customer)) {
       sessionStorage.setItem('jl_quote_customer', JSON.stringify(lookupResult.customer));
     } else {
       sessionStorage.removeItem('jl_quote_customer');
