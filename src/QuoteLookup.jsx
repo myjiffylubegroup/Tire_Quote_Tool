@@ -2161,34 +2161,17 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
               ● IN PROGRESS
             </span>
           )}
-          {/* Guest-entered promo code. 'other_service' means the guest is
-              holding a REAL coupon for work they have NOT booked (brakes,
-              tires) -- a lead for the advisor, surfaced quietly. */}
-          {greet.promo_status === 'applied' && greet.promo_code && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: '5px',
-              backgroundColor: '#DCFCE7', color: '#166534',
-              border: '2px solid #22C55E', padding: '2px 10px',
-              borderRadius: '999px', fontSize: '11px', fontWeight: '800',
-              letterSpacing: '0.5px',
-            }}>
-              🏷 {greet.promo_code}
-              {greet.promo_savings_estimate != null && ` −$${Number(greet.promo_savings_estimate).toFixed(0)}`}
-            </span>
-          )}
-          {greet.promo_status === 'other_service' && (
-            <span
-              title={greet.promo_description || undefined}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '5px',
-                backgroundColor: '#FEF3C7', color: '#92400E',
-                border: '2px solid #F59E0B', padding: '2px 10px',
-                borderRadius: '999px', fontSize: '11px', fontWeight: '800',
-                letterSpacing: '0.5px',
-              }}
-            >
-              🏷 HAS COUPON: {promoShortLabel(greet.promo_description)}
-            </span>
+          {/* Guest-entered promo code, as a TAP-TO-COPY chip so staff can paste
+              the code into GROW rather than keying it by hand. 'other_service'
+              means the guest holds a REAL coupon for work they have NOT booked
+              (brakes, tires) -- a lead for the advisor. */}
+          {greet.promo_status && (
+            <PromoChip
+              code={greet.promo_code}
+              description={greet.promo_description}
+              status={greet.promo_status}
+              savings={greet.promo_savings_estimate}
+            />
           )}
           {greet.is_demo === true && (
             <span style={{
@@ -3297,6 +3280,80 @@ function GrowCodesSection({ codes, callouts }) {
 // Shows a label + monospace value; tapping copies the value (not the label).
 // Modeled on GrowCodeChip's copy handling, including the stopPropagation so a
 // copy never opens the greet card's detail modal.
+// PromoChip -- the guest's coupon, as a TAP-TO-COPY target.
+//
+// Staff key this into GROW by hand, and a promo code is exactly the kind of
+// string that gets mistyped: mixed case, no word shape, often a random block
+// like X9PRUGPKK2 or 8FFWU2. Copying only the CODE -- never the description or
+// the savings -- means the paste into GROW lands clean.
+//
+// Same "Copied" flash as CopyChip and the GROW code chips so it behaves the way
+// staff already expect. stopPropagation keeps the copy tap from opening the
+// greet's detail modal underneath.
+function PromoChip({ code, description, status, savings }) {
+  const [copied, setCopied] = useState(false);
+  if (!code && !description) return null;
+
+  const applied = status === 'applied';
+  const toCopy = code || '';
+
+  const handleCopy = async (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (!toCopy) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(toCopy);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = toCopy;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch (err) { /* code stays visible to key in manually */ }
+  };
+
+  const palette = copied
+    ? { bg: '#D1FAE5', fg: '#065F46', border: '#34D399' }
+    : applied
+      ? { bg: '#DCFCE7', fg: '#166534', border: '#22C55E' }
+      : { bg: '#FEF3C7', fg: '#92400E', border: '#F59E0B' };
+
+  return (
+    <button
+      onClick={handleCopy}
+      title={toCopy ? `Tap to copy ${toCopy}` : (description || '')}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '5px',
+        backgroundColor: palette.bg,
+        color: palette.fg,
+        border: `2px solid ${palette.border}`,
+        padding: '2px 10px',
+        borderRadius: '999px',
+        fontSize: '11px',
+        fontWeight: '800',
+        letterSpacing: '0.5px',
+        cursor: toCopy ? 'pointer' : 'default',
+        appearance: 'none',
+        transition: 'all 0.12s',
+      }}
+    >
+      {copied ? '✓ Copied' : (
+        applied
+          ? <>🏷 {code}{savings != null && ` −$${Number(savings).toFixed(0)}`}</>
+          : <>🏷 HAS COUPON: {promoShortLabel(description)}</>
+      )}
+    </button>
+  );
+}
+
 function CopyChip({ label, value, copyValue }) {
   const [copied, setCopied] = useState(false);
   if (!value) return null;
