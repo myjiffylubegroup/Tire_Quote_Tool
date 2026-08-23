@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { promoShortLabel } from './promoLabel'
 import Navbar from './Navbar';
 import { apiCall } from './apiClient';
 import {
@@ -2158,6 +2159,35 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
               letterSpacing: '0.5px',
             }}>
               ● IN PROGRESS
+            </span>
+          )}
+          {/* Guest-entered promo code. 'other_service' means the guest is
+              holding a REAL coupon for work they have NOT booked (brakes,
+              tires) -- a lead for the advisor, surfaced quietly. */}
+          {greet.promo_status === 'applied' && greet.promo_code && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              backgroundColor: '#DCFCE7', color: '#166534',
+              border: '2px solid #22C55E', padding: '2px 10px',
+              borderRadius: '999px', fontSize: '11px', fontWeight: '800',
+              letterSpacing: '0.5px',
+            }}>
+              🏷 {greet.promo_code}
+              {greet.promo_savings_estimate != null && ` −$${Number(greet.promo_savings_estimate).toFixed(0)}`}
+            </span>
+          )}
+          {greet.promo_status === 'other_service' && (
+            <span
+              title={greet.promo_description || undefined}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                backgroundColor: '#FEF3C7', color: '#92400E',
+                border: '2px solid #F59E0B', padding: '2px 10px',
+                borderRadius: '999px', fontSize: '11px', fontWeight: '800',
+                letterSpacing: '0.5px',
+              }}
+            >
+              🏷 HAS COUPON: {promoShortLabel(greet.promo_description)}
             </span>
           )}
           {greet.is_demo === true && (

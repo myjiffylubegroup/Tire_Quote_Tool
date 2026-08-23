@@ -22,6 +22,7 @@
 // =============================================================================
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { promoShortLabel } from './promoLabel'
 import { apiCallPublic } from './apiClient';
 import { oilTierLabel } from './concernLabels';
 
@@ -439,6 +440,23 @@ function GreetTile({ greet, now }) {
             )}
             {greet.is_fleet_vehicle && (
               <Chip bg="#dbeafe" text="#1d4ed8" border="#bfdbfe">FLEET</Chip>
+            )}
+            {/* Guest-entered promo code. A CHIP, not a takeover banner: banners
+                are reserved for WANTS TO LEAVE and Engine Prep, and adding a
+                third claimant to that lane is how a board stops being read. */}
+            {greet.promo_status === 'applied' && greet.promo_code && (
+              <Chip bg="#dcfce7" text="#166534" border="#86efac">
+                🏷 {greet.promo_code}
+                {greet.promo_savings_estimate != null && ` −$${Number(greet.promo_savings_estimate).toFixed(0)}`}
+              </Chip>
+            )}
+            {/* The guest is holding a REAL, live coupon for work they have NOT
+                booked -- brakes and tires are ~29% of PCJL's live restricted
+                promos, and this is the tenant that actually sells them. */}
+            {greet.promo_status === 'other_service' && (
+              <Chip bg="#fef3c7" text="#92400e" border="#fcd34d">
+                🏷 {promoShortLabel(greet.promo_description)}
+              </Chip>
             )}
             <span style={{ fontSize: '16px', color: C.textSecondary, whiteSpace: 'nowrap' }}>
               · {pacificTimeOf(greet.created_at)} · {timeAgo(greet.created_at, now)}
