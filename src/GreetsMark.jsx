@@ -25,7 +25,10 @@
 // tire/mechanical screens. Those are a different product. Greets surfaces only.
 // =============================================================================
 
-export const GREETS_PURPLE = '#4A0972'
+export const GREETS_PURPLE = '#4a0972'
+// Brighter partner for highlights and active states on light grounds. Sampled
+// from the logo's lighter gradient stops, so it belongs to the same family.
+export const GREETS_PURPLE_ACCENT = '#6a0fa8'
 
 const MARK_FONT =
   "'Inter', 'TT Commons Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"

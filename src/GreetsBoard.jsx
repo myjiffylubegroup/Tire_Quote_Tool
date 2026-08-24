@@ -49,7 +49,7 @@ const C = {
   textSecondary: '#475569',
   textTertiary: '#94a3b8',
   textFaint: '#64748b',
-  accent: '#7c3aed',          // purple — Greets identity
+  accent: '#6a0fa8',          // purple — Greets identity
   railNeutral: '#cbd5e1',
   railExpress: '#dc2626',
   railFull: '#16a34a',

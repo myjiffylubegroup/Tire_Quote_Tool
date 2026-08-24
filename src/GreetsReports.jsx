@@ -72,7 +72,7 @@ const getPreset = (preset) => {
 // Same KpiCard contract as Reports.jsx — copied so this page has no
 // hidden dependency on the other. When `onClick` is supplied the card
 // becomes interactive (hover state, pointer cursor, tiny "→" cue).
-const KpiCard = ({ label, value, sub, color = '#9b59b6', highlight = false, onClick }) => {
+const KpiCard = ({ label, value, sub, color = '#4a0972', highlight = false, onClick }) => {
   const isClickable = typeof onClick === 'function';
   return (
     <div
@@ -122,7 +122,7 @@ const KpiCard = ({ label, value, sub, color = '#9b59b6', highlight = false, onCl
 
 const SectionTitle = ({ children, tooltip }) => (
   <h3 style={{
-    fontSize: '13px', fontWeight: '700', color: '#9b59b6',
+    fontSize: '13px', fontWeight: '700', color: '#4a0972',
     letterSpacing: '1.5px', textTransform: 'uppercase',
     borderBottom: '2px solid #f3e8ff', paddingBottom: '8px',
     marginBottom: '16px', marginTop: '0',
@@ -144,7 +144,7 @@ const SectionTitle = ({ children, tooltip }) => (
 // If `onSegmentClick` is supplied each row becomes clickable; the segment's
 // `key` is what gets sent (we pass machine-readable keys like 'express',
 // 'max_protect', etc. alongside the display labels).
-const SegmentBar = ({ segments, total, color = '#9b59b6', onSegmentClick }) => {
+const SegmentBar = ({ segments, total, color = '#4a0972', onSegmentClick }) => {
   if (!segments || segments.length === 0 || !total) {
     return <div style={{ fontSize: '12px', color: '#aaa' }}>No data</div>;
   }
@@ -406,7 +406,7 @@ const CheckinDurationCard = ({ data, onSegmentClick }) => {
           {overall && overall.median_sec != null && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid #f3f4f6' }}>
               <span style={{ fontSize: '12px', color: '#555', fontWeight: '600' }}>All themes</span>
-              <span style={{ fontSize: '18px', color: '#9b59b6', fontWeight: '800' }}>
+              <span style={{ fontSize: '18px', color: '#4a0972', fontWeight: '800' }}>
                 {formatDuration(overall.median_sec)}
                 <span style={{ fontSize: '11px', color: '#888', fontWeight: '500', marginLeft: '6px' }}>
                   p90 {formatDuration(overall.p90_sec)} · n={overall.n}
@@ -466,8 +466,8 @@ const GreetToQuoteCard = ({ data }) => {
   if (!data) return null;
   const denom = data.greets_in_range || 0;
   const rows = [
-    { key: 'any',  label: 'Any quote',  count: data.converted_any,        pct: data.pct_any,        color: '#9b59b6' },
-    { key: 'tire', label: '🛞 Tire',    count: data.converted_tire,       pct: data.pct_tire,       color: '#7c3aed' },
+    { key: 'any',  label: 'Any quote',  count: data.converted_any,        pct: data.pct_any,        color: '#4a0972' },
+    { key: 'tire', label: '🛞 Tire',    count: data.converted_tire,       pct: data.pct_tire,       color: '#6a0fa8' },
     { key: 'mech', label: '🔧 Mechanical', count: data.converted_mechanical, pct: data.pct_mechanical, color: '#334155' },
   ];
   return (
@@ -672,7 +672,7 @@ const RelationshipFunnel = ({ title, data, color, offeredLabel, purchasedLabel, 
   const d = data || { offered: 0, purchased: 0, purchase_rate_pct: null, saved_by_free_ep: 0 };
   return (
     <>
-      <div style={{ marginBottom: '6px', fontSize: '11px', fontWeight: '700', color: '#9b59b6', letterSpacing: '1px', textTransform: 'uppercase' }}>
+      <div style={{ marginBottom: '6px', fontSize: '11px', fontWeight: '700', color: '#4a0972', letterSpacing: '1px', textTransform: 'uppercase' }}>
         {title}
       </div>
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
@@ -876,8 +876,8 @@ export default function GreetsReports() {
                         letterSpacing: '0.5px',
                         textTransform: 'uppercase',
                         borderRadius: '14px',
-                        border: active ? '2px solid #9b59b6' : '2px solid #e5e7eb',
-                        backgroundColor: active ? '#9b59b6' : 'white',
+                        border: active ? '2px solid #4a0972' : '2px solid #e5e7eb',
+                        backgroundColor: active ? '#4a0972' : 'white',
                         color: active ? 'white' : '#666',
                         cursor: 'pointer',
                       }}
@@ -911,7 +911,7 @@ export default function GreetsReports() {
                   title="Refresh report"
                   style={{
                     padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: '8px',
-                    border: '1px solid #9b59b6', backgroundColor: 'white', color: '#9b59b6',
+                    border: '1px solid #4a0972', backgroundColor: 'white', color: '#4a0972',
                     cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.5 : 1, marginLeft: '4px',
                     whiteSpace: 'nowrap',
                   }}
@@ -935,7 +935,7 @@ export default function GreetsReports() {
 
         {/* Loading / Error */}
         {loading && (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9b59b6', fontSize: '15px', fontWeight: '600' }}>
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4a0972', fontSize: '15px', fontWeight: '600' }}>
             Loading report data…
           </div>
         )}
@@ -975,7 +975,7 @@ export default function GreetsReports() {
               <RelationshipFunnel
                 title="Repeat (Returning TM)"
                 data={s1.tm_funnels?.repeat}
-                color="#9b59b6"
+                color="#4a0972"
                 offeredLabel="Repeat — Offered"
                 purchasedLabel="Repeat — Purchased"
                 showSavedEp
@@ -1020,7 +1020,7 @@ export default function GreetsReports() {
                   title="Oil Tier Selected"
                   total={s1.oil_change_greets}
                   segments={[
-                    { key: 'synthetic',         label: 'Synthetic',        count: s1.oil_tier_mix?.synthetic || 0,         color: '#7c3aed' },
+                    { key: 'synthetic',         label: 'Synthetic',        count: s1.oil_tier_mix?.synthetic || 0,         color: '#6a0fa8' },
                     { key: 'blend',             label: 'Blend',            count: s1.oil_tier_mix?.blend || 0,             color: '#a78bfa' },
                     { key: 'european',          label: 'European',         count: s1.oil_tier_mix?.european || 0,          color: '#3b82f6' },
                     { key: 'diesel_synthetic',  label: 'Diesel Synth',     count: s1.oil_tier_mix?.diesel_synthetic || 0,  color: '#0ea5e9' },
@@ -1048,8 +1048,8 @@ export default function GreetsReports() {
                   title="TM Package Attach"
                   total={s1.tm_eligible_greets}
                   segments={[
-                    { key: 'max_protect',     label: 'Max Protect',  count: s1.tm_attach.by_tier.max_protect,     color: '#7c3aed' },
-                    { key: 'vip',             label: 'VIP',          count: s1.tm_attach.by_tier.vip,             color: '#9b59b6' },
+                    { key: 'max_protect',     label: 'Max Protect',  count: s1.tm_attach.by_tier.max_protect,     color: '#6a0fa8' },
+                    { key: 'vip',             label: 'VIP',          count: s1.tm_attach.by_tier.vip,             color: '#4a0972' },
                     { key: 'high_mileage',    label: 'High Mileage', count: s1.tm_attach.by_tier.high_mileage,    color: '#a78bfa' },
                     { key: 'basic_synthetic', label: 'Basic Synth',  count: s1.tm_attach.by_tier.basic_synthetic, color: '#c4b5fd' },
                     { key: 'none',            label: '— None',       count: s1.tm_attach.by_tier.none,            color: '#e5e7eb' },
@@ -1074,7 +1074,7 @@ export default function GreetsReports() {
                   segments={[
                     { key: 'lobby',    label: 'Lobby',    count: s1.wait_preference.lobby,    color: '#3b82f6' },
                     { key: 'in_car',   label: 'In car',   count: s1.wait_preference.in_car,   color: '#f59e0b' },
-                    { key: 'drop_off', label: 'Drop off', count: s1.wait_preference.drop_off, color: '#7c3aed' },
+                    { key: 'drop_off', label: 'Drop off', count: s1.wait_preference.drop_off, color: '#6a0fa8' },
                   ].filter((seg) => seg.count > 0)}
                   tooltip="All greets (not just oil-change)."
                   onSegmentClick={(seg) => openDrill('wait_preference', seg, `Wait Preference — ${formatWaitPref(seg)}`)}
@@ -1160,7 +1160,7 @@ export default function GreetsReports() {
                   label="Avg Estimate (matched)"
                   value={s2.avg_kiosk_estimate_matched != null ? formatCurrency(s2.avg_kiosk_estimate_matched) : '—'}
                   sub="pre-tax kiosk estimate"
-                  color="#9b59b6"
+                  color="#4a0972"
                 />
                 <KpiCard
                   label="Avg Invoice Net"
@@ -1182,7 +1182,7 @@ export default function GreetsReports() {
                   label="Avg Total (paid)"
                   value={s2.avg_invoice_total != null ? formatCurrency(s2.avg_invoice_total) : '—'}
                   sub="post-tax — what customer paid"
-                  color="#9b59b6"
+                  color="#4a0972"
                 />
                 <KpiCard
                   label="Avg Promo Discount"
@@ -1392,7 +1392,7 @@ function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
       case 'tm_retention': return [
         ...universal,
         { key: 'audience',           label: 'Audience',      render: (r) => r.audience === 'welcome' ? 'Welcome' : r.audience === 'returning' ? 'Returning' : '—', bold: true },
-        { key: 'retention_offered',  label: 'Pitch Shown',   render: (r) => r.retention_offered  ? '✓' : '—', color: (r) => r.retention_offered  ? '#9b59b6' : '#ccc' },
+        { key: 'retention_offered',  label: 'Pitch Shown',   render: (r) => r.retention_offered  ? '✓' : '—', color: (r) => r.retention_offered  ? '#4a0972' : '#ccc' },
         { key: 'retention_accepted', label: 'Saved',         render: (r) => r.retention_accepted ? '✓' : '—', bold: true, color: (r) => r.retention_accepted ? '#10b981' : '#ccc' },
         { key: 'tm_package',         label: 'Final TM Pkg',  render: (r) => formatTmPackage(r.tm_package) },
         { key: 'free_engine_prep',   label: 'Free EPS',      render: (r) => r.free_engine_prep ? '✓' : '—', color: (r) => r.free_engine_prep ? '#f59e0b' : '#ccc' },
@@ -1536,7 +1536,7 @@ function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
       >
         {/* Header */}
         <div style={{
-          backgroundColor: '#9b59b6', color: 'white',
+          backgroundColor: '#4a0972', color: 'white',
           padding: '16px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
           <div>
@@ -1551,7 +1551,7 @@ function DrillDownModal({ open, onClose, metric, segment, scope, title }) {
               disabled={rows.length === 0}
               style={{
                 backgroundColor: rows.length === 0 ? 'rgba(255,255,255,0.3)' : 'white',
-                color: rows.length === 0 ? 'rgba(255,255,255,0.7)' : '#9b59b6',
+                color: rows.length === 0 ? 'rgba(255,255,255,0.7)' : '#4a0972',
                 border: 'none', padding: '8px 14px', borderRadius: '18px',
                 fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px',
                 cursor: rows.length === 0 ? 'not-allowed' : 'pointer',
@@ -1742,8 +1742,8 @@ export function ReportsTabs({ active }) {
               letterSpacing: '1px',
               textTransform: 'uppercase',
               borderRadius: '18px',
-              border: isActive ? '2px solid #9b59b6' : '2px solid #e5e7eb',
-              backgroundColor: isActive ? '#9b59b6' : 'white',
+              border: isActive ? '2px solid #4a0972' : '2px solid #e5e7eb',
+              backgroundColor: isActive ? '#4a0972' : 'white',
               color: isActive ? 'white' : '#666',
               textDecoration: 'none',
               cursor: 'pointer',
