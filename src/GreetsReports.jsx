@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { GreetsMark, TrademarkNotice } from './GreetsMark';
 import Navbar from './Navbar';
 import { apiCall } from './apiClient';
 
@@ -831,6 +832,14 @@ export default function GreetsReports() {
         {/* Title + Date Controls */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '28px' }}>
           <div>
+            {/* The mark sits above the page heading rather than inside it. The
+                heading is a description of the page ("Greets Performance") and
+                needs to stay ordinary English; the lockup is what carries the
+                brand. Keeping them on separate lines keeps the two roles from
+                blurring into one another. */}
+            <div style={{ marginBottom: '10px' }}>
+              <GreetsMark variant="horizontal" size="md" />
+            </div>
             <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#1a1a1a' }}>Greets Performance</h1>
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#888' }}>
               Kiosk activity · Estimate vs. actual ticket · Bay time · NPS
@@ -1267,6 +1276,13 @@ export default function GreetsReports() {
             title={drill.title}
           />
         )}
+
+        {/* Ownership line. Managers and office staff live on this page, so it
+            is a natural place for the claim to sit alongside the mark in the
+            header above. */}
+        <div style={{ marginTop: '28px', paddingTop: '16px', borderTop: '1px solid #eef0f4' }}>
+          <TrademarkNotice />
+        </div>
       </div>
     </div>
   );

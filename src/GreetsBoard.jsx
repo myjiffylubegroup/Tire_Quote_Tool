@@ -22,6 +22,7 @@
 // =============================================================================
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { GreetsMark } from './GreetsMark';
 import { promoShortLabel } from './promoLabel'
 import { apiCallPublic } from './apiClient';
 import { oilTierLabel } from './concernLabels';
@@ -662,8 +663,16 @@ export default function GreetsBoard() {
       }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '30px', fontWeight: 800, color: C.textPrimary }}>{storeName}</span>
-          <span style={{ fontSize: '20px', fontWeight: 700, color: C.accent, letterSpacing: '0.5px' }}>
-            👋 GREETS · NOW ARRIVING
+          {/* Was a plain "GREETS" text run in the accent colour. The board is
+              an unattended display seen all day by staff and waiting customers,
+              so it carries the real lockup — same mark, colour and TM as every
+              other surface. "NOW ARRIVING" stays a separate generic phrase; it
+              is not part of the mark. Mirrors the standalone greets app. */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '14px' }}>
+            <GreetsMark variant="horizontal" size="md" />
+            <span style={{ fontSize: '20px', fontWeight: 700, color: C.accent, letterSpacing: '0.5px' }}>
+              · NOW ARRIVING
+            </span>
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '22px', flexWrap: 'wrap' }}>

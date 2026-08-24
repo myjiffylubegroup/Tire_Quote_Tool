@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { GreetsMark } from './GreetsMark';
 import { promoShortLabel } from './promoLabel'
 import Navbar from './Navbar';
 import { apiCall } from './apiClient';
@@ -931,6 +932,14 @@ export default function QuoteLookup() {
           boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
           marginBottom: '25px'
         }}>
+          {/* Greets mode only. This card is shared with the tire and
+              mechanical retrieval modes, which are a different product — the
+              mark must not appear over those. */}
+          {quoteMode === 'greets' && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '14px' }}>
+              <GreetsMark variant="stacked" size="lg" />
+            </div>
+          )}
           <h2 style={{
             color: '#9b59b6',
             fontSize: '24px',
