@@ -1833,6 +1833,17 @@ export default function QuoteBuilder() {
                         <div style={{ fontSize: '12px', color: '#15803d', fontWeight: '600', marginTop: '1px' }}>
                           {rebateDescription} — <strong>${parseFloat(rebateAmount).toFixed(0)} back by mail</strong>
                         </div>
+                        {/* Card bonus prompt — the CSA has to raise this at the
+                            counter, so it rides along with the rebate chip. It
+                            is conditional on the card, so it never touches the
+                            quote's rebate_amount. */}
+                        {nexenRebateConfig?.bonus?.amount > 0 && (
+                          <div style={{ fontSize: '11px', color: '#166534', marginTop: '2px' }}>
+                            + <strong>${parseFloat(nexenRebateConfig.bonus.amount).toFixed(0)} more</strong>
+                            {nexenRebateConfig.bonus.condition ? ` ${nexenRebateConfig.bonus.condition}` : ''}
+                            {nexenRebateConfig.bonus.apply_hint ? ` · ${nexenRebateConfig.bonus.apply_hint}` : ''}
+                          </div>
+                        )}
                       </div>
                       <button
                         onClick={() => {

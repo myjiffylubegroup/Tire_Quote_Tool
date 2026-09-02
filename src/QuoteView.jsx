@@ -131,7 +131,14 @@ function getNexenRebate(cfg, tireName, rearTireName, isStaggered, quantity) {
   const validText = `Purchase by ${formatConfigDate(cfg.end_date)}` +
     (cfg.submit_by ? ` · Submit by ${formatConfigDate(cfg.submit_by)}` : '');
 
-  return { amount: tier.amount, label: tier.description, url: cfg.rebate_url, validText };
+  // Optional card bonus (Nexen's +$40 on the 1stMILE Mastercard). This is
+  // CONDITIONAL on paying with that card, which most customers do not carry, so
+  // it is deliberately kept OUT of `amount` and out of the price table — folding
+  // it in would overstate savings for every cash/other-card customer. It is
+  // surfaced as a separate "you could also get" line in the callout instead.
+  const bonus = cfg.bonus && cfg.bonus.amount > 0 ? cfg.bonus : null;
+
+  return { amount: tier.amount, label: tier.description, url: cfg.rebate_url, validText, bonus };
 }
 
 // Tire replacement reason options (must match generate-quote/update-quote codes)
@@ -1173,6 +1180,28 @@ const QuoteView = () => {
                         >
                           {nexenRebate.url.replace('https://', '')}
                         </a>
+                      </div>
+                    )}
+                    {/* Card bonus — stacks ON TOP of the rebate above, but only
+                        if the customer pays with that card, so it is stated as a
+                        condition and kept out of the price table above. */}
+                    {nexenRebate.bonus && (
+                      <div style={{
+                        fontSize: '11px',
+                        color: '#15803d',
+                        marginTop: '6px',
+                        paddingTop: '6px',
+                        borderTop: '1px dashed #86efac'
+                      }}>
+                        <strong style={{ fontWeight: '700' }}>
+                          + {formatCurrency(nexenRebate.bonus.amount)} more
+                        </strong>
+                        {nexenRebate.bonus.condition ? ` ${nexenRebate.bonus.condition}` : ''}
+                        {nexenRebate.bonus.apply_hint && (
+                          <span style={{ display: 'block', marginTop: '1px', opacity: 0.85 }}>
+                            {nexenRebate.bonus.apply_hint}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
