@@ -33,7 +33,7 @@ export default function InspectionHandoff({ code }) {
           return;
         }
 
-        const { inspection: i, handoff: h } = data;
+        const { inspection: i, handoff: h, customer: c } = data;
         const requote = {
           source: 'inspection',
           inspection: { id: i.id, short_code: i.short_code },
@@ -52,6 +52,18 @@ export default function InspectionHandoff({ code }) {
           },
           plate: i.vehicle.plate,
           plate_state: i.vehicle.plate_state,
+          // The customer Pitstop matched. QuoteBuilder's re-quote path fills the customer
+          // form from this (name, phone, email, plate) exactly as it does for a re-quote.
+          customer: c ? {
+            first_name: c.first_name,
+            last_name: c.last_name,
+            full_name: c.full_name,
+            phone: c.phone,
+            email: c.email,
+            license_plate: i.vehicle.plate,
+            license_state: i.vehicle.plate_state,
+            data_source: 'inspection',
+          } : null,
           vin: i.vehicle.vin,
           treads: h.treads,
           tire_replacement_reasons: h.tire_replacement_reasons,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Navbar from './Navbar';
 import CustomerVehicleLookup, { hasCustomerIdentity } from './CustomerVehicleLookup';
 
@@ -970,8 +970,14 @@ export default function TireFinder() {
     searchInventory(spec.tire_size, spec);
   };
 
-  // Check for re-quote data on mount
+  // Check for re-quote data on mount. Guarded to run once: React StrictMode (on in main.jsx)
+  // runs mount effects twice in development, and the second pass found the data without its
+  // just-consumed pending flag, took it for stale and deleted it — so QuoteBuilder got no
+  // customer, plate or tread (found 2026-09-18 testing the Pitstop inspection handoff).
+  const reQuoteChecked = useRef(false);
   useEffect(() => {
+    if (reQuoteChecked.current) return;
+    reQuoteChecked.current = true;
     const pending = sessionStorage.getItem('jl_requote_pending');
     const saved = sessionStorage.getItem('jl_requote_data');
     
