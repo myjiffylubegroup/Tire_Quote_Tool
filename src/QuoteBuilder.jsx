@@ -195,6 +195,32 @@ const MiniTreadInput = ({ value, onChange }) => {
   );
 };
 
+// The person signed in to Tire Finder, shaped like an employee-list row. "Prepared by"
+// defaults to them on every quote, even when they aren't on the selected store's employee list
+// (corporate staff, district managers) — Sean, 2026-09-18. user_name follows employee-list's
+// convention (first initial + last name, lowercase) so tire_quotes.created_by_username stays
+// consistent across both.
+function signedInEmployee() {
+  try {
+    const a = JSON.parse(localStorage.getItem('jl_staff_auth') || 'null');
+    if (!a?.employee_id) return null;
+    const first = a.first_name || '';
+    const last = a.last_name || '';
+    return {
+      employee_id: a.employee_id,
+      user_id: a.user_id,
+      first_name: first,
+      last_name: last,
+      display_name: (a.display_name || `${first} ${last}`).trim() || `Employee ${a.employee_id}`,
+      user_name: first && last
+        ? `${first.charAt(0).toLowerCase()}${last.toLowerCase()}`
+        : `emp${a.employee_id}`,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 // Tire tread block - 3 inputs (IN/MID/OUT) for one tire + replacement reasons.
 // edgeLabels: quotes started from a Jiffy Pitstop inspection carry Anyline's three readings
 // in scan order — which edge is the inside shoulder isn't known — so they read EDGE/MID/EDGE
@@ -684,10 +710,10 @@ export default function QuoteBuilder() {
     return localStorage.getItem('jl_tire_store') || '609';
   });
   const [employees, setEmployees] = useState([]);
-  const [selectedEmployee, setSelectedEmployee] = useState(() => {
-    const saved = localStorage.getItem('jl_quote_employee');
-    return saved ? JSON.parse(saved) : null;
-  });
+  // Every quote starts on the signed-in person. It used to start on whoever was picked last on
+  // this browser (localStorage jl_quote_employee), which is how a quote Sean built came out
+  // "Prepared by: DEVIN B.". The CSA can still change it in the dropdown.
+  const [selectedEmployee, setSelectedEmployee] = useState(() => signedInEmployee());
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [licensePlate, setLicensePlate] = useState('');
   const [licenseState, setLicenseState] = useState('CA');
@@ -878,7 +904,6 @@ export default function QuoteBuilder() {
   }, []);
 
   useEffect(() => { localStorage.setItem('jl_tire_store', selectedStore); }, [selectedStore]);
-  useEffect(() => { if (selectedEmployee) localStorage.setItem('jl_quote_employee', JSON.stringify(selectedEmployee)); }, [selectedEmployee]);
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -887,28 +912,17 @@ export default function QuoteBuilder() {
         const response = await apiCall(`${API_BASE}/employee-list?store_id=${selectedStore}`);
         const data = await response.json();
         if (data.success) {
-          setEmployees(data.employees || []);
-          
-          // If current selection is not in the new store's list, clear it
-          if (selectedEmployee && !data.employees?.some(e => e.employee_id === selectedEmployee.employee_id)) {
-            setSelectedEmployee(null);
-          }
-          
-          // Auto-select logged-in employee if no employee is currently selected
-          if (!selectedEmployee && data.employees?.length > 0) {
-            try {
-              const authData = localStorage.getItem('jl_staff_auth');
-              if (authData) {
-                const auth = JSON.parse(authData);
-                if (auth.employee_id) {
-                  const loggedInEmp = data.employees.find(e => e.employee_id === auth.employee_id);
-                  if (loggedInEmp) {
-                    setSelectedEmployee(loggedInEmp);
-                  }
-                }
-              }
-            } catch (e) { /* ignore auth parse errors */ }
-          }
+          // The store's staff, plus the signed-in person if they aren't one of them.
+          const list = data.employees || [];
+          const me = signedInEmployee();
+          const options = me && !list.some(e => e.employee_id === me.employee_id) ? [...list, me] : list;
+          setEmployees(options);
+
+          // Keep the current pick if it's an option at this store; otherwise the signed-in person.
+          setSelectedEmployee(prev => {
+            if (prev && options.some(e => e.employee_id === prev.employee_id)) return prev;
+            return me ? options.find(e => e.employee_id === me.employee_id) || null : null;
+          });
         }
       } catch (e) { console.error('Failed to fetch employees:', e); }
       finally { setEmployeesLoading(false); }
@@ -1712,7 +1726,7 @@ export default function QuoteBuilder() {
                 <SelectDropdown 
                   value={selectedEmployee?.employee_id || ''} 
                   onChange={(val) => setSelectedEmployee(employees.find(e => e.employee_id === parseInt(val)) || null)} 
-                  options={employees.map(e => ({ value: e.employee_id, label: e.display_name }))} 
+                  options={employees.map(e => ({ value: e.employee_id, label: e.employee_id === signedInEmployee()?.employee_id ? `${e.display_name} (you)` : e.display_name }))} 
                   placeholder={employeesLoading ? "LOADING..." : "SELECT EMPLOYEE"} 
                 />
               </div>
