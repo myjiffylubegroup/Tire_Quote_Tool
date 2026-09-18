@@ -47,7 +47,7 @@
 // =============================================================================
 
 import React, { useState, useEffect } from 'react';
-import { apiCall, apiCallPublic } from './apiClient';
+import { apiCall, apiCallPublic, getStaffToken } from './apiClient';
 
 import { API_BASE, REST_BASE, SUPABASE_ANON_KEY } from './config';
 const JL_LOGO = '/images/JL_Multicare_Horz_1C.png';
@@ -318,8 +318,10 @@ const QuoteView = () => {
   // Edit mode (same-day only)
   const [editMode, setEditMode] = useState(false);
 
-  // Staff detection - hide staff-only buttons for customers
-  const isStaff = typeof window !== 'undefined' && !!localStorage.getItem('jl_staff_auth');
+  // Staff detection - hide staff-only buttons for customers. Needs a live staff token, not
+  // just the saved login: jl_staff_auth outlives the 12-hour session, so a phone someone
+  // signed in on days ago (a CSA opening a texted quote, say) kept the staff buttons.
+  const isStaff = typeof window !== 'undefined' && !!localStorage.getItem('jl_staff_auth') && !!getStaffToken();
   const [editQuantity, setEditQuantity] = useState(4);
   const [editPromo, setEditPromo] = useState('');
   const [editCustomer, setEditCustomer] = useState({});
