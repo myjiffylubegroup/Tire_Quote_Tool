@@ -1714,8 +1714,10 @@ export default function QuoteBuilder() {
             </div>
           )}
 
-          {/* Two Column Layout */}
-          <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
+          {/* Two Column Layout — always stacked on phones. Wrapping alone isn't enough: on a
+              wider iPhone the left column's 280px minimum plus a shrunken tread column still
+              fit on one row, and the tread blocks overflowed off the right edge. */}
+          <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', flexDirection: narrow ? 'column' : 'row' }}>
             
             {/* Left Column - Employee & Customer */}
             <div style={{ flex: '1', minWidth: '280px' }}>
