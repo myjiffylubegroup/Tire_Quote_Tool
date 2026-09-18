@@ -21,6 +21,7 @@ import {
 } from './concernLabels';
 
 import { API_BASE } from './config';
+import InspectionCard from './InspectionCard';
 
 const STORES = [
   { id: 609, name: 'Santa Maria' },
@@ -364,7 +365,14 @@ export default function QuoteLookup() {
   const [selectedStore, setSelectedStore] = useState(() => localStorage.getItem('jl_tire_store') || '609');
 
   // Quote type toggle
-  const [quoteMode, setQuoteMode] = useState('tires'); // 'tires' | 'mechanical' | 'greets'
+  const [quoteMode, setQuoteMode] = useState('tires'); // 'tires' | 'mechanical' | 'greets' | 'inspections'
+
+  // Inspections tab — finished Jiffy Pitstop inspections for the store, like Greets.
+  const [inspections, setInspections] = useState([]);
+  const [inspectionsLoading, setInspectionsLoading] = useState(false);
+  const [inspectionsError, setInspectionsError] = useState(null);
+  const [inspDateFrom, setInspDateFrom] = useState('');
+  const [inspDateTo, setInspDateTo] = useState('');
 
   // Search state (tires/mechanical)
   const [searchType, setSearchType] = useState('name');
@@ -431,8 +439,9 @@ export default function QuoteLookup() {
 
   // Load recent quotes on mount / when store or mode changes (tires/mechanical only)
   useEffect(() => {
-    if (quoteMode === 'greets') {
-      // Greets has its own effect — bail out so we don't fire an unwanted quote search.
+    if (quoteMode === 'greets' || quoteMode === 'inspections') {
+      // Greets and Inspections have their own effects — bail out so we don't fire an
+      // unwanted quote search.
       return;
     }
     setQuotes([]);
@@ -450,6 +459,40 @@ export default function QuoteLookup() {
     loadGreets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStore, quoteMode, greetsDateFrom, greetsDateTo]);
+
+  // Load inspections when entering the tab, switching store, or changing the date range.
+  useEffect(() => {
+    if (quoteMode !== 'inspections') return;
+    loadInspections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStore, quoteMode, inspDateFrom, inspDateTo]);
+
+  const loadInspections = async () => {
+    setInspectionsLoading(true);
+    setInspectionsError(null);
+    setInspections([]);
+    try {
+      // Blank = today (store-local, server-side). One end filled = that single day.
+      const from = inspDateFrom || inspDateTo || undefined;
+      const to = inspDateTo || inspDateFrom || undefined;
+      const response = await apiCall(`${API_BASE}/list-store-inspections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          store_id: parseInt(selectedStore),
+          date_from: from,
+          date_to: to,
+          limit: from ? 200 : undefined,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) setInspections(data.inspections || []);
+      else setInspectionsError(data.error || 'Failed to load inspections');
+    } catch (e) {
+      setInspectionsError('Failed to connect to server');
+    }
+    setInspectionsLoading(false);
+  };
 
   // Fetch staff profile once per session (gates both the greets Edit UI and
   // the tire-quote Void UI). Fetched on first render regardless of mode.
@@ -909,10 +952,14 @@ export default function QuoteLookup() {
   };
 
   // The header text and helper depend on mode
-  const headerTitle = quoteMode === 'greets' ? 'Today\'s Greets' : 'Retrieve Quote';
+  const headerTitle = quoteMode === 'greets' ? 'Today\'s Greets'
+    : quoteMode === 'inspections' ? 'Tire Inspections'
+    : 'Retrieve Quote';
   const headerSubtitle = quoteMode === 'greets'
     ? 'Customers who pre-checked in at the kiosk — find them by their 4-character code'
-    : 'Search saved quotes by customer name, license plate, phone, or quote number';
+    : quoteMode === 'inspections'
+      ? 'Inspections finished in Jiffy Pitstop — open one to start a quote with the tires, tread and customer filled in'
+      : 'Search saved quotes by customer name, license plate, phone, or quote number';
 
   return (
     <div style={{ fontFamily: "'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
@@ -998,10 +1045,22 @@ export default function QuoteLookup() {
             >
               👋 Greets
             </button>
+            <button
+              onClick={() => setQuoteMode('inspections')}
+              style={{
+                padding: '10px 24px', border: 'none', cursor: 'pointer',
+                backgroundColor: quoteMode === 'inspections' ? '#9b59b6' : 'white',
+                color: quoteMode === 'inspections' ? 'white' : '#9b59b6',
+                fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px',
+                borderLeft: '1px solid #9b59b6',
+              }}
+            >
+              🔍 Inspections
+            </button>
           </div>
 
           {/* Search form is hidden in Greets mode (no search; today-only view) */}
-          {quoteMode !== 'greets' && (
+          {(quoteMode === 'tires' || quoteMode === 'mechanical') && (
             <>
               {/* Search Form — Row 1: What to search for */}
               <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '15px' }}>
@@ -1193,6 +1252,50 @@ export default function QuoteLookup() {
 
           {/* In greets mode, show the date range + refresh + edit controls
               instead of the search form. */}
+          {quoteMode === 'inspections' && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end', justifyContent: 'center' }}>
+              <div style={{ width: '320px' }}>
+                <label style={{ fontSize: '10px', color: '#888', fontWeight: '600', display: 'block', marginBottom: '5px', letterSpacing: '1px' }}>
+                  DATE RANGE (LEAVE BLANK FOR TODAY)
+                </label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <DateInput value={inspDateFrom} onChange={setInspDateFrom} />
+                  </div>
+                  <span style={{ color: '#9b59b6', fontSize: '14px', fontWeight: '700', flexShrink: 0 }}>→</span>
+                  <div style={{ flex: 1 }}>
+                    <DateInput value={inspDateTo} onChange={setInspDateTo} />
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={loadInspections}
+                disabled={inspectionsLoading}
+                style={{
+                  backgroundColor: '#9b59b6', color: 'white', border: 'none',
+                  padding: '10px 24px', borderRadius: '25px', fontSize: '13px',
+                  fontWeight: '700', letterSpacing: '1px',
+                  cursor: inspectionsLoading ? 'not-allowed' : 'pointer',
+                  opacity: inspectionsLoading ? 0.7 : 1,
+                }}
+              >
+                {inspectionsLoading ? 'REFRESHING...' : '↻ REFRESH'}
+              </button>
+              {(inspDateFrom || inspDateTo) && (
+                <button
+                  onClick={() => { setInspDateFrom(''); setInspDateTo(''); }}
+                  style={{
+                    backgroundColor: '#f1f5f9', color: '#64748b', border: 'none',
+                    padding: '10px 16px', borderRadius: '25px', fontSize: '13px',
+                    fontWeight: '600', cursor: 'pointer',
+                  }}
+                >
+                  Clear dates
+                </button>
+              )}
+            </div>
+          )}
+
           {quoteMode === 'greets' && (
             <div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end', justifyContent: 'center' }}>
@@ -1339,7 +1442,9 @@ export default function QuoteLookup() {
             <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
               {quoteMode === 'greets'
                 ? `${greets.length} Greet${greets.length !== 1 ? 's' : ''} ${(greetsDateFrom || greetsDateTo) ? 'in Range' : 'Today'}`
-                : `${quotes.length} Quote${quotes.length !== 1 ? 's' : ''} Found`}
+                : quoteMode === 'inspections'
+                  ? `${inspections.length} Inspection${inspections.length !== 1 ? 's' : ''} ${(inspDateFrom || inspDateTo) ? 'in Range' : 'Today'}`
+                  : `${quotes.length} Quote${quotes.length !== 1 ? 's' : ''} Found`}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {/* Void controls — tires only, manager-only. The API enforces
@@ -1422,7 +1527,7 @@ export default function QuoteLookup() {
           )}
 
           {/* Limit-reached banner (tires/mechanical only) */}
-          {quoteMode !== 'greets' && limitReached && limitApplied != null && (
+          {(quoteMode === 'tires' || quoteMode === 'mechanical') && limitReached && limitApplied != null && (
             <div style={{
               backgroundColor: '#fef3c7',
               color: '#92400e',
@@ -1454,7 +1559,36 @@ export default function QuoteLookup() {
           {/* ──────────────────────────────────────────────────────────────── */}
           {/* GREETS MODE — card list                                          */}
           {/* ──────────────────────────────────────────────────────────────── */}
-          {quoteMode === 'greets' ? (
+          {quoteMode === 'inspections' ? (
+            inspectionsLoading ? (
+              <div style={{ padding: '50px 20px', textAlign: 'center', color: '#888' }}>
+                <p>Loading inspections...</p>
+              </div>
+            ) : inspectionsError ? (
+              <div style={{ padding: '50px 20px', textAlign: 'center', color: '#dc2626' }}>
+                <p>{inspectionsError}</p>
+              </div>
+            ) : inspections.length > 0 ? (
+              <div style={{ padding: '20px', display: 'grid', gap: '12px' }}>
+                {inspections.map((insp) => (
+                  <InspectionCard
+                    key={insp.short_code}
+                    inspection={insp}
+                    showDate={Boolean(inspDateFrom || inspDateTo)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: '50px 20px', textAlign: 'center', color: '#888' }}>
+                <p style={{ fontSize: '16px', marginBottom: '10px' }}>
+                  {(inspDateFrom || inspDateTo) ? 'No inspections in that date range' : 'No inspections finished yet today'}
+                </p>
+                <p style={{ fontSize: '13px' }}>
+                  Inspections appear here once they're finished in Jiffy Pitstop. Tap REFRESH to check again.
+                </p>
+              </div>
+            )
+          ) : quoteMode === 'greets' ? (
             greetsLoading ? (
               <div style={{ padding: '50px 20px', textAlign: 'center', color: '#888' }}>
                 <p>Loading greets...</p>
