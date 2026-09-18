@@ -195,8 +195,11 @@ const MiniTreadInput = ({ value, onChange }) => {
   );
 };
 
-// Tire tread block - 3 inputs (IN/MID/OUT) for one tire + replacement reasons
-const TireTreadBlock = ({ label, values, onChange, reasons, onReasonsChange }) => {
+// Tire tread block - 3 inputs (IN/MID/OUT) for one tire + replacement reasons.
+// edgeLabels: quotes started from a Jiffy Pitstop inspection carry Anyline's three readings
+// in scan order — which edge is the inside shoulder isn't known — so they read EDGE/MID/EDGE
+// (Sean, 2026-09-18: PCJL doesn't sell alignments, so the side doesn't matter).
+const TireTreadBlock = ({ label, values, onChange, reasons, onReasonsChange, edgeLabels = false }) => {
   const [showReasons, setShowReasons] = useState(reasons && reasons.length > 0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = React.useRef(null);
@@ -261,7 +264,7 @@ const TireTreadBlock = ({ label, values, onChange, reasons, onReasonsChange }) =
       <span style={{ fontSize: '10px', fontWeight: '700', color: '#666', letterSpacing: '1px' }}>{label}</span>
       <div style={{ display: 'flex', gap: '4px' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '8px', color: '#999', marginBottom: '2px' }}>IN</div>
+          <div style={{ fontSize: '8px', color: '#999', marginBottom: '2px' }}>{edgeLabels ? 'EDGE' : 'IN'}</div>
           <MiniTreadInput value={values.inside} onChange={(v) => onChange('inside', v)} />
         </div>
         <div style={{ textAlign: 'center' }}>
@@ -269,7 +272,7 @@ const TireTreadBlock = ({ label, values, onChange, reasons, onReasonsChange }) =
           <MiniTreadInput value={values.middle} onChange={(v) => onChange('middle', v)} />
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '8px', color: '#999', marginBottom: '2px' }}>OUT</div>
+          <div style={{ fontSize: '8px', color: '#999', marginBottom: '2px' }}>{edgeLabels ? 'EDGE' : 'OUT'}</div>
           <MiniTreadInput value={values.outside} onChange={(v) => onChange('outside', v)} />
         </div>
       </div>
@@ -848,6 +851,7 @@ export default function QuoteBuilder() {
   // Inspection link (Jiffy Pitstop). Set by TireFinder when the quote started from an
   // inspection; consumed once here and sent as inspection_id on generate.
   const [inspectionLink, setInspectionLink] = useState(null);
+  const [treadFromInspection, setTreadFromInspection] = useState(false);
   useEffect(() => {
     const il = sessionStorage.getItem('jl_quote_inspection_link');
     if (!il) return;
@@ -1007,6 +1011,7 @@ export default function QuoteBuilder() {
 
       // An inspection carries the plate but no customer record: pre-fill the plate so
       // one tap on lookup fills the customer, rather than claiming a customer was found.
+      if (rq.source === 'inspection') setTreadFromInspection(true);
       if (rq.source === 'inspection' && rq.plate) {
         setLicensePlate(rq.plate);
         setLicenseState(rq.plate_state || 'CA');
@@ -1957,8 +1962,8 @@ export default function QuoteBuilder() {
                   
                   {/* LEFT SIDE: Front tires (RF top, LF bottom) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '50px' }}>
-                    <TireTreadBlock label="PASS FRONT" values={treadDepths.rf} onChange={(pos, val) => updateTread('rf', pos, val)} reasons={replacementReasons.rf} onReasonsChange={(r) => updateReasons('rf', r)} />
-                    <TireTreadBlock label="DRIVER FRONT" values={treadDepths.lf} onChange={(pos, val) => updateTread('lf', pos, val)} reasons={replacementReasons.lf} onReasonsChange={(r) => updateReasons('lf', r)} />
+                    <TireTreadBlock label="PASS FRONT" values={treadDepths.rf} onChange={(pos, val) => updateTread('rf', pos, val)} reasons={replacementReasons.rf} onReasonsChange={(r) => updateReasons('rf', r)} edgeLabels={treadFromInspection} />
+                    <TireTreadBlock label="DRIVER FRONT" values={treadDepths.lf} onChange={(pos, val) => updateTread('lf', pos, val)} reasons={replacementReasons.lf} onReasonsChange={(r) => updateReasons('lf', r)} edgeLabels={treadFromInspection} />
                   </div>
 
                   {/* Center - Car Image */}
@@ -1972,8 +1977,8 @@ export default function QuoteBuilder() {
 
                   {/* RIGHT SIDE: Rear tires (RR top, LR bottom) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '50px' }}>
-                    <TireTreadBlock label="PASS REAR" values={treadDepths.rr} onChange={(pos, val) => updateTread('rr', pos, val)} reasons={replacementReasons.rr} onReasonsChange={(r) => updateReasons('rr', r)} />
-                    <TireTreadBlock label="DRIVER REAR" values={treadDepths.lr} onChange={(pos, val) => updateTread('lr', pos, val)} reasons={replacementReasons.lr} onReasonsChange={(r) => updateReasons('lr', r)} />
+                    <TireTreadBlock label="PASS REAR" values={treadDepths.rr} onChange={(pos, val) => updateTread('rr', pos, val)} reasons={replacementReasons.rr} onReasonsChange={(r) => updateReasons('rr', r)} edgeLabels={treadFromInspection} />
+                    <TireTreadBlock label="DRIVER REAR" values={treadDepths.lr} onChange={(pos, val) => updateTread('lr', pos, val)} reasons={replacementReasons.lr} onReasonsChange={(r) => updateReasons('lr', r)} edgeLabels={treadFromInspection} />
                   </div>
                 </div>
 
