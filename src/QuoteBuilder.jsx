@@ -845,6 +845,20 @@ export default function QuoteBuilder() {
     }
   }, []);
 
+  // Inspection link (Jiffy Pitstop). Set by TireFinder when the quote started from an
+  // inspection; consumed once here and sent as inspection_id on generate.
+  const [inspectionLink, setInspectionLink] = useState(null);
+  useEffect(() => {
+    const il = sessionStorage.getItem('jl_quote_inspection_link');
+    if (!il) return;
+    sessionStorage.removeItem('jl_quote_inspection_link');
+    try {
+      setInspectionLink(JSON.parse(il));
+    } catch (e) {
+      console.error('Failed to parse inspection link:', e);
+    }
+  }, []);
+
   // Greet link read (Phase 2). Set by TireFinder's greet handoff; consumed
   // once here. Sent on generate so the quote stamps from_greet_* and links
   // back to the originating greet.
@@ -990,6 +1004,13 @@ export default function QuoteBuilder() {
       const rq = JSON.parse(saved);
       console.log('[RE-QUOTE] Parsed data:', JSON.stringify({ from_quote_id: rq.from_quote_id, hasCustomer: !!rq.customer, hasTreads: !!rq.treads, store_id: rq.store_id }));
       setRevisedFromQuoteId(rq.from_quote_id);
+
+      // An inspection carries the plate but no customer record: pre-fill the plate so
+      // one tap on lookup fills the customer, rather than claiming a customer was found.
+      if (rq.source === 'inspection' && rq.plate) {
+        setLicensePlate(rq.plate);
+        setLicenseState(rq.plate_state || 'CA');
+      }
 
       // Pre-fill customer
       if (rq.customer) {
@@ -1266,7 +1287,9 @@ export default function QuoteBuilder() {
         revised_from_quote_id: revisedFromQuoteId || null,
         // Greet linkage (Phase 2)
         from_greet_short_code: greetLink?.short_code || null,
-        from_greet_store_id: greetLink?.store_id ?? null
+        from_greet_store_id: greetLink?.store_id ?? null,
+        // Inspection linkage (Jiffy Pitstop)
+        inspection_id: inspectionLink?.id ?? null
       };
       
       const response = await apiCall(`${API_BASE}/generate-quote`, {

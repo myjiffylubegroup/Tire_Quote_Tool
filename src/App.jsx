@@ -17,6 +17,7 @@ import Reports from './Reports';
 import MechanicalReports from './MechanicalReports';
 import GreetsReports from './GreetsReports';
 import GreetsBoard from './GreetsBoard';
+import InspectionHandoff from './InspectionHandoff';
 
 // Simple hash-based router (no additional dependencies needed)
 export default function App() {
@@ -113,6 +114,16 @@ export default function App() {
     return (
       <StaffPinGate>
         <QuoteBuilder />
+      </StaffPinGate>
+    );
+  }
+
+  // #/inspection/<short_code> — start a quote from a Jiffy Pitstop inspection
+  if (path.startsWith('/inspection/')) {
+    const code = decodeURIComponent(path.replace('/inspection/', ''));
+    return (
+      <StaffPinGate>
+        <InspectionHandoff code={code} />
       </StaffPinGate>
     );
   }

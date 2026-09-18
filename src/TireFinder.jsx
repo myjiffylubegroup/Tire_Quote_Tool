@@ -1242,6 +1242,14 @@ export default function TireFinder() {
       sessionStorage.removeItem('jl_quote_greet_link');
     }
     
+    // Inspection link → QuoteBuilder sends inspection_id so the quote links back to the
+    // Pitstop inspection and marks it quoted (same pattern as the greet link above)
+    if (reQuoteData?.source === 'inspection' && reQuoteData.inspection?.id) {
+      sessionStorage.setItem('jl_quote_inspection_link', JSON.stringify(reQuoteData.inspection));
+    } else {
+      sessionStorage.removeItem('jl_quote_inspection_link');
+    }
+
     // Navigate to quote builder
     window.location.hash = '#/quote/build';
   };
@@ -1682,12 +1690,25 @@ export default function TireFinder() {
                 fontWeight: '700',
                 letterSpacing: '1px',
               }}>
-                RE-QUOTE
+                {reQuoteData.source === 'inspection' ? 'INSPECTION' : 'RE-QUOTE'}
               </span>
               <span style={{ fontSize: '13px', color: '#1e40af', fontWeight: '500' }}>
-                <strong>{reQuoteData.from_quote_number}</strong> for <strong>{reQuoteData.customer?.full_name || 'Customer'}</strong>
-                {reQuoteData.vehicle?.display ? ` · ${reQuoteData.vehicle.display}` : ''}
-                {' — select new tires below'}
+                {reQuoteData.source === 'inspection' ? (
+                  <>
+                    <strong>{reQuoteData.inspection?.short_code}</strong>
+                    {reQuoteData.vehicle?.display ? ` · ${reQuoteData.vehicle.display}` : ''}
+                    {reQuoteData.is_staggered && reQuoteData.tire_size_rear
+                      ? ` · front ${reQuoteData.tire_size} / rear ${reQuoteData.tire_size_rear}`
+                      : reQuoteData.tire_size ? ` · ${reQuoteData.tire_size}` : ''}
+                    {' — pick the tires to quote'}
+                  </>
+                ) : (
+                  <>
+                    <strong>{reQuoteData.from_quote_number}</strong> for <strong>{reQuoteData.customer?.full_name || 'Customer'}</strong>
+                    {reQuoteData.vehicle?.display ? ` · ${reQuoteData.vehicle.display}` : ''}
+                    {' — select new tires below'}
+                  </>
+                )}
               </span>
             </div>
             <button
