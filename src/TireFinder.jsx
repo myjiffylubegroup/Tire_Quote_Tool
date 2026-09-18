@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Navbar from './Navbar';
+import useNarrow from './useNarrow';
 import CustomerVehicleLookup, { hasCustomerIdentity } from './CustomerVehicleLookup';
 
 import { API_BASE } from './config';
@@ -932,6 +933,13 @@ export default function TireFinder() {
 
   // Re-Quote mode: data carried forward from a previous quote
   const [reQuoteData, setReQuoteData] = useState(null);
+
+  // Phones only: an inspection opens with the size already searched, but the results sit
+  // below the lookup and search panels (~2,000px down at 375px wide). Scroll to them once
+  // they arrive, once per inspection, so the CSA lands on the tires.
+  const narrow = useNarrow();
+  const resultsAnchorRef = useRef(null);
+  const scrolledForInspectionRef = useRef(null);
   // Greet handoff (greet → tire quote). Holds the seed plate/state for the
   // lookup component and the greet's customer object so it carries through to
   // QuoteBuilder even when the plate decode returns no customer (new kiosk
@@ -1098,6 +1106,14 @@ export default function TireFinder() {
   };
 
   // Handle continue to quote - save chosen tire + alternatives to sessionStorage
+  useEffect(() => {
+    const code = reQuoteData?.source === 'inspection' ? reQuoteData.inspection?.short_code : null;
+    if (!narrow || !code || inventoryLoading || !inventoryResults) return;
+    if (scrolledForInspectionRef.current === code) return;
+    scrolledForInspectionRef.current = code;
+    resultsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [narrow, reQuoteData, inventoryLoading, inventoryResults]);
+
   const handleContinueToQuote = () => {
     // ===== STAGGERED MODE =====
     if (isStaggeredMode) {
@@ -2206,6 +2222,7 @@ export default function TireFinder() {
             />
           )}
 
+          <div ref={resultsAnchorRef} />
           {/* Inventory Results */}
           {!isStaggeredMode ? (
             // ===== STANDARD MODE: existing behavior =====

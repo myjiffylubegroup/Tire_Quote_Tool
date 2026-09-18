@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import StaffLoginModal from './StaffLoginModal';
 import FeedbackModal from './FeedbackModal';
 import { staffLogout } from './StaffPinGate';
+import { isEmbedded } from './embed';
 
 /**
  * Navbar — shared header + navigation bar used by all main pages.
@@ -181,6 +182,8 @@ export default function Navbar({
   onLogoClick = null,
 }) {
   const t = THEMES[theme] || THEMES.default;
+  // Inside Jiffy Pitstop: header only (logo + store) — the app has its own navigation.
+  const embedded = isEmbedded();
 
   // ── Auth state (read from localStorage; refreshed via page reload after login) ──
   const [auth, setAuth] = useState(() => readAuth());
@@ -284,8 +287,8 @@ export default function Navbar({
               1. headerRight (explicit JSX from page) — e.g. Reports' scope label
               2. Store selector (when onStoreChange is given)
               3. Nothing */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {isAuthenticated && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', maxWidth: '100%' }}>
+            {isAuthenticated && !embedded && (
               <button
                 onClick={() => setFeedbackOpen(true)}
                 title="Report a problem or suggest an improvement"
@@ -364,6 +367,7 @@ export default function Navbar({
         </div>
       </header>
 
+      {!embedded && (<>
       {/* ── Nav Bar (themed background) ────────────────────────────────────── */}
       <nav style={{ backgroundColor: t.navBg, padding: '12px 0' }}>
         <div style={{
@@ -544,6 +548,7 @@ export default function Navbar({
           )}
         </div>
       </nav>
+      </>)}
 
       {/* ── Staff Login Modal (rendered here so any page using Navbar gets it) ── */}
       <StaffLoginModal

@@ -1601,6 +1601,19 @@ const QuoteView = () => {
 
       {/* ═══ PRINT STYLES ═══ Portrait, 1-page */}
       <style>{`
+        /* Phones — customers open this from the texted link, and CSAs quote from Jiffy
+           Pitstop. The desktop layout's two header columns and tread/pricing grid clip at
+           ~375px (the main container hides overflow), so stack them. */
+        @media screen and (max-width: 600px) {
+          .quote-outer-container { padding: 8px !important; }
+          .quote-header { flex-direction: column !important; padding: 14px 16px !important; }
+          .quote-header > div:first-child { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+          .quote-header > div:last-child { text-align: left !important; }
+          .quote-header > div:last-child button { margin-left: 0 !important; }
+          .quote-content { padding: 16px !important; }
+          .tread-pricing-row { grid-template-columns: 1fr !important; }
+        }
+
         @media print {
           @page {
             size: portrait;

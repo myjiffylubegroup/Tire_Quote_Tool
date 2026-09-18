@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
+import useNarrow from './useNarrow';
+import { notifyApp } from './embed';
 import { apiCall } from './apiClient';
 import { hasCustomerIdentity } from './CustomerVehicleLookup';
 
@@ -696,6 +698,7 @@ const Footer = () => (
 );
 
 export default function QuoteBuilder() {
+  const narrow = useNarrow();
   const [tireData, setTireData] = useState(null);
   const [vehicleData, setVehicleData] = useState(null);
   const [selectedStore, setSelectedStore] = useState(() => {
@@ -1328,6 +1331,8 @@ export default function QuoteBuilder() {
         sessionStorage.removeItem('jl_requote_pending');
         sessionStorage.removeItem('jl_quote_staggered');
         sessionStorage.removeItem('jl_quote_tire_rear');
+        // Inside Jiffy Pitstop: let the app know which quote this inspection became.
+        notifyApp({ type: 'quote_created', short_code: data.quote.short_code, quote_number: data.quote.quote_number ?? null });
         if (data.promo_warning) {
           // A selected promo was declined — the quote was created without it.
           // Hold the CSA on an acknowledgment before showing the quote.
@@ -1956,7 +1961,7 @@ export default function QuoteBuilder() {
             </div>
 
             {/* Right Column - Tread Depth with Car Image */}
-            <div style={{ flex: '1.2', minWidth: '400px' }}>
+            <div style={{ flex: '1.2', minWidth: narrow ? 0 : '400px' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
                 <span style={{ color: '#9b59b6', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' }}>CURRENT TREAD DEPTH (32nds)</span>
                 <div style={{ flex: 1, height: '1px', backgroundColor: '#9b59b6', marginLeft: '8px', position: 'relative' }}>
@@ -1980,8 +1985,8 @@ export default function QuoteBuilder() {
                     <TireTreadBlock label="DRIVER FRONT" values={treadDepths.lf} onChange={(pos, val) => updateTread('lf', pos, val)} reasons={replacementReasons.lf} onReasonsChange={(r) => updateReasons('lf', r)} edgeLabels={treadFromInspection} />
                   </div>
 
-                  {/* Center - Car Image */}
-                  <div style={{ padding: '0 15px' }}>
+                  {/* Center - Car Image (dropped on phones so all four tires fit) */}
+                  <div style={{ padding: '0 15px', display: narrow ? 'none' : 'block' }}>
                     <img 
                       src="/images/Vehicle-image.png"
                       alt="Vehicle"
