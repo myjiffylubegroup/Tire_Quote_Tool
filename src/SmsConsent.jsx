@@ -276,7 +276,7 @@ const SmsConsent = () => {
               fontSize: '14px',
               color: '#334155'
             }}>
-              Jiffy Lube Multicare: During your inspection we measured 2 tires in the red zone (under 3/32). Safe stopping distance is significantly reduced. View your tire quote: tires.myjiffylube.ai/#/quote/Ab3kX9 - Your quote expires in 7 days. Reply STOP to opt out.
+              Jiffy Lube Multicare: During your inspection we measured 2 tires in the red zone (4/32 or less). Safe stopping distance is significantly reduced. View your tire quote: tires.myjiffylube.ai/#/quote/Ab3kX9 - Your quote expires in 7 days. Reply STOP to opt out.
             </div>
           </section>
 
