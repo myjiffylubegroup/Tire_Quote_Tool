@@ -90,7 +90,9 @@ export default function StaffPinGate({ children }) {
     try {
       const response = await apiCallPublic(`${API_BASE}/verify-staff-pin`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // The live staff token is what proves the session now; verify-staff-pin refuses a
+        // re-verify without it, and ends the session 12 hours after the PIN was entered.
+        headers: { 'Content-Type': 'application/json', 'X-Staff-Token': getStaffToken() || '' },
         body: JSON.stringify({
           user_name: storedAuth.user_name,
           employee_id: storedAuth.employee_id
