@@ -37,6 +37,8 @@ export default function InspectionHandoff({ code }) {
         const requote = {
           source: 'inspection',
           inspection: { id: i.id, short_code: i.short_code },
+          // The GREET check-in the inspection started from, if any — the quote links back to it.
+          greet: data.greet ?? null,
           store_id: i.store_id,
           quantity: h.quantity,
           tire_size: h.tire_size,

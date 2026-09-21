@@ -18,6 +18,7 @@ import MechanicalReports from './MechanicalReports';
 import GreetsReports from './GreetsReports';
 import GreetsBoard from './GreetsBoard';
 import InspectionHandoff from './InspectionHandoff';
+import TireCheck from './TireCheck';
 
 // Simple hash-based router (no additional dependencies needed)
 export default function App() {
@@ -100,6 +101,13 @@ export default function App() {
     return <QuoteView code={code} />;
   }
   
+  // TireCheck - public (customer's "Your tire check", linked from their GREET check-in;
+  // the random greet_id in the URL is the only key get-tire-check accepts)
+  if (path.startsWith('/tire-check/')) {
+    const greetId = decodeURIComponent(path.replace('/tire-check/', ''));
+    return <TireCheck greetId={greetId} />;
+  }
+
   // === PROTECTED ROUTES (wrapped with StaffPinGate) ===
   
   if (path === '/quotes') {

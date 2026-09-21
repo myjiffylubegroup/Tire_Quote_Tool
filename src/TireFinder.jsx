@@ -1114,6 +1114,18 @@ export default function TireFinder() {
     resultsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [narrow, reQuoteData, inventoryLoading, inventoryResults]);
 
+  // The greet a quote links back to: a greet handoff from the Greets tab, or — for a quote
+  // started from a Jiffy Pitstop inspection that began at a GREET check-in — that check-in.
+  const resolveGreetLink = () => {
+    if (greetHandoff?.greet_short_code) {
+      return { short_code: greetHandoff.greet_short_code, store_id: greetHandoff.store_id ?? null };
+    }
+    if (reQuoteData?.source === 'inspection' && reQuoteData.greet?.short_code) {
+      return { short_code: reQuoteData.greet.short_code, store_id: reQuoteData.greet.store_id ?? null };
+    }
+    return null;
+  };
+
   const handleContinueToQuote = () => {
     // ===== STAGGERED MODE =====
     if (isStaggeredMode) {
@@ -1171,11 +1183,9 @@ export default function TireFinder() {
         sessionStorage.removeItem('jl_quote_customer');
       }
       // Greet link → QuoteBuilder stamps it onto the generated quote (Phase 2)
-      if (greetHandoff?.greet_short_code) {
-        sessionStorage.setItem('jl_quote_greet_link', JSON.stringify({
-          short_code: greetHandoff.greet_short_code,
-          store_id: greetHandoff.store_id ?? null,
-        }));
+      const greetLink = resolveGreetLink();
+      if (greetLink) {
+        sessionStorage.setItem('jl_quote_greet_link', JSON.stringify(greetLink));
       } else {
         sessionStorage.removeItem('jl_quote_greet_link');
       }
@@ -1255,11 +1265,9 @@ export default function TireFinder() {
       sessionStorage.removeItem('jl_quote_customer');
     }
     // Greet link → QuoteBuilder stamps it onto the generated quote (Phase 2)
-    if (greetHandoff?.greet_short_code) {
-      sessionStorage.setItem('jl_quote_greet_link', JSON.stringify({
-        short_code: greetHandoff.greet_short_code,
-        store_id: greetHandoff.store_id ?? null,
-      }));
+    const greetLink = resolveGreetLink();
+    if (greetLink) {
+      sessionStorage.setItem('jl_quote_greet_link', JSON.stringify(greetLink));
     } else {
       sessionStorage.removeItem('jl_quote_greet_link');
     }
