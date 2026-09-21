@@ -22,6 +22,7 @@ import {
 
 import { API_BASE } from './config';
 import InspectionCard from './InspectionCard';
+import useNarrow from './useNarrow';
 
 const STORES = [
   { id: 609, name: 'Santa Maria' },
@@ -362,6 +363,8 @@ const StyledSelect = ({ value, onChange, options, placeholder, style }) => (
 );
 
 export default function QuoteLookup() {
+  // Phones (a CSA's phone, Jiffy Pitstop): quotes as cards instead of the 1240px table.
+  const narrow = useNarrow();
   const [selectedStore, setSelectedStore] = useState(() => localStorage.getItem('jl_tire_store') || '609');
 
   // Quote type toggle
@@ -1623,7 +1626,41 @@ export default function QuoteLookup() {
             /* ────────────────────────────────────────────────────────────── */
             /* TIRES / MECHANICAL MODE — existing table                       */
             /* ────────────────────────────────────────────────────────────── */
-            quotes.length > 0 ? (
+            quotes.length > 0 && narrow && !quotesEditMode ? (
+              <div style={{ padding: '12px', display: 'grid', gap: '10px' }}>
+                {quotes.map((quote) => (
+                  <div
+                    key={quote.quote_id}
+                    onClick={() => openQuote(quote.short_code)}
+                    style={{
+                      backgroundColor: 'white', border: '1px solid #eee', borderLeft: `4px solid ${quote.is_expired ? '#f59e0b' : '#9b59b6'}`,
+                      borderRadius: '10px', padding: '12px 14px', cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px' }}>
+                      <span style={{ fontWeight: 700, color: '#9b59b6', fontSize: '13px' }}>{quote.quote_number}</span>
+                      <span style={{ fontWeight: 700, color: '#333', fontSize: '15px' }}>
+                        {formatCurrency(quoteMode === 'mechanical' ? quote.total : quote.total_amount)}
+                      </span>
+                    </div>
+                    <div style={{ fontWeight: 600, color: '#1e293b', marginTop: '4px' }}>
+                      {quote.customer?.full_name || 'No name'}
+                      {quote.customer?.license_plate ? <span style={{ fontWeight: 400, color: '#888', fontSize: '12px' }}>{`  ·  ${quote.customer.license_plate}`}</span> : null}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>{quote.vehicle_display}</div>
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                      {quoteMode === 'tires'
+                        ? `${quote.tire?.brand ?? ''} ${quote.tire?.size ?? ''} · Qty ${quote.quantity}`
+                        : `${quote.item_count} labor${quote.parts_count > 0 ? ` · ${quote.parts_count} parts` : ''}`}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                      {formatDate(quote.created_at)}{quote.is_expired ? ' · EXPIRED' : ''}
+                      {quote.conversion?.status === 'purchased' ? ' · ✅ purchased' : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : quotes.length > 0 ? (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', minWidth: quoteMode === 'tires' ? '1240px' : '880px', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
