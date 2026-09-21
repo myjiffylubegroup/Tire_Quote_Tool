@@ -23,6 +23,7 @@ import {
 import { API_BASE } from './config';
 import InspectionCard from './InspectionCard';
 import useNarrow from './useNarrow';
+import { tireScanBadge } from './tireScanBadge';
 
 const STORES = [
   { id: 609, name: 'Santa Maria' },
@@ -2696,6 +2697,20 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
             fontWeight: '600',
           }}>
             ✓ Accepted CAW
+          </span>
+        )}
+        {/* Jiffy Pitstop tire scan started from this check-in (greets-list tire_scan). */}
+        {tireScanBadge(greet.tire_scan) && (
+          <span style={{
+            fontSize: '11px',
+            color: tireScanBadge(greet.tire_scan).text,
+            backgroundColor: tireScanBadge(greet.tire_scan).bg,
+            border: `1px solid ${tireScanBadge(greet.tire_scan).border}`,
+            padding: '3px 8px',
+            borderRadius: '10px',
+            fontWeight: '700',
+          }}>
+            🛞 {tireScanBadge(greet.tire_scan).label}
           </span>
         )}
         {/* Quote-exists badges (Phase 2): a quote of this type has been

@@ -28,6 +28,7 @@ import { apiCallPublic } from './apiClient';
 import { oilTierLabel } from './concernLabels';
 
 import { API_BASE } from './config';
+import { tireScanBadge } from './tireScanBadge';
 
 // Poll cadence. 30s keeps the board feeling live without hammering the function.
 const POLL_MS = 30000;
@@ -431,6 +432,16 @@ function GreetTile({ greet, now }) {
             {hasBayEstimate && (
               <Chip bg="#eef2ff" text="#4338ca" border="#c7d2fe">
                 🔧 bay {bayMin}–{bayMax}m
+              </Chip>
+            )}
+            {/* Still on the kiosk — greets-display always sent in-progress greets. */}
+            {greet.status === 'in_progress' && (
+              <Chip bg="#f1f5f9" text="#475569" border="#cbd5e1">⏳ CHECKING IN</Chip>
+            )}
+            {/* Jiffy Pitstop tire scan started from this check-in. */}
+            {tireScanBadge(greet.tire_scan) && (
+              <Chip bg={tireScanBadge(greet.tire_scan).bg} text={tireScanBadge(greet.tire_scan).text} border={tireScanBadge(greet.tire_scan).border}>
+                🛞 {tireScanBadge(greet.tire_scan).label}
               </Chip>
             )}
             {greet.language === 'es' && (
