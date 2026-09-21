@@ -308,7 +308,7 @@ function Chip({ children, bg, text, border, bold }) {
 // -----------------------------------------------------------------------------
 // GreetTile — one greet on the board
 // -----------------------------------------------------------------------------
-function GreetTile({ greet, now }) {
+function GreetTile({ greet, now, pitstop = false }) {
   const cls = classificationMeta(greet.service_classification);
   // A guest asking to leave outranks service classification for the rail colour:
   // the crew needs to see WHO is walking before what they booked.
@@ -435,7 +435,7 @@ function GreetTile({ greet, now }) {
               </Chip>
             )}
             {/* Still on the kiosk — greets-display always sent in-progress greets. */}
-            {greet.status === 'in_progress' && (
+            {pitstop && greet.status === 'in_progress' && (
               <Chip bg="#f1f5f9" text="#475569" border="#cbd5e1">⏳ CHECKING IN</Chip>
             )}
             {/* Jiffy Pitstop tire scan started from this check-in. */}
@@ -566,6 +566,7 @@ export default function GreetsBoard() {
   const configValid = Number.isInteger(storeId) && storeId > 0 && Boolean(key);
 
   const [greets, setGreets] = useState([]);
+  const [pitstop, setPitstop] = useState(false);
   const [status, setStatus] = useState('loading'); // loading | live | stale | error
   const [errorMsg, setErrorMsg] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -588,6 +589,8 @@ export default function GreetsBoard() {
       const data = await res.json();
       if (res.ok && data.success) {
         setGreets(Array.isArray(data.greets) ? data.greets : []);
+        // Store runs the GREET → Pitstop flow (public.pitstop_stores): show CHECKING IN.
+        setPitstop(data.pitstop === true);
         setStatus('live');
         setLastUpdated(Date.now());
         hasDataRef.current = true;
@@ -720,7 +723,7 @@ export default function GreetsBoard() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {visible.map((g) => (
-            <GreetTile key={g.greet_id} greet={g} now={now} />
+            <GreetTile key={g.greet_id} greet={g} now={now} pitstop={pitstop} />
           ))}
         </div>
       )}

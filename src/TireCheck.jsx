@@ -112,6 +112,8 @@ export default function TireCheck({ greetId }) {
       const res = await apiCallPublic(`${API_BASE}/get-tire-check?greet=${encodeURIComponent(greetId)}`, { method: 'GET' });
       const json = await res.json();
       if (!json.success) setError(res.status === 404 ? 'We couldn’t find this tire check.' : 'Something went wrong. Please try again.');
+      // Store not running tire checks (public.pitstop_stores) — nothing to show.
+      else if (json.enabled === false) setError('Tire checks aren’t available for this visit.');
       else {
         setData(json);
         setError(null);
