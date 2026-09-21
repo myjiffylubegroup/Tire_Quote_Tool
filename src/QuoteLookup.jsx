@@ -1012,11 +1012,15 @@ export default function QuoteLookup() {
           </p>
 
           {/* Mode toggle — Tires / Mechanical / Greets */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '0', marginBottom: '25px', border: '2px solid #9b59b6', borderRadius: '25px', overflow: 'hidden', width: 'fit-content', margin: '0 auto 25px' }}>
+          {/* Phones: a 2×2 grid — four tabs in one row ran off the right edge. The 1px gaps over
+              the purple background draw the dividers. */}
+          <div style={narrow
+            ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', backgroundColor: '#9b59b6', border: '2px solid #9b59b6', borderRadius: '14px', overflow: 'hidden', width: '100%', margin: '0 auto 20px' }
+            : { display: 'flex', justifyContent: 'center', gap: '0', marginBottom: '25px', border: '2px solid #9b59b6', borderRadius: '25px', overflow: 'hidden', width: 'fit-content', margin: '0 auto 25px' }}>
             <button
               onClick={() => setQuoteMode('tires')}
               style={{
-                padding: '10px 24px', border: 'none', cursor: 'pointer',
+                padding: narrow ? '10px 6px' : '10px 24px', border: 'none', cursor: 'pointer',
                 backgroundColor: quoteMode === 'tires' ? '#9b59b6' : 'white',
                 color: quoteMode === 'tires' ? 'white' : '#9b59b6',
                 fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px',
@@ -1027,7 +1031,7 @@ export default function QuoteLookup() {
             <button
               onClick={() => setQuoteMode('mechanical')}
               style={{
-                padding: '10px 24px', border: 'none', cursor: 'pointer',
+                padding: narrow ? '10px 6px' : '10px 24px', border: 'none', cursor: 'pointer',
                 backgroundColor: quoteMode === 'mechanical' ? '#9b59b6' : 'white',
                 color: quoteMode === 'mechanical' ? 'white' : '#9b59b6',
                 fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px',
@@ -1040,7 +1044,7 @@ export default function QuoteLookup() {
             <button
               onClick={() => setQuoteMode('greets')}
               style={{
-                padding: '10px 24px', border: 'none', cursor: 'pointer',
+                padding: narrow ? '10px 6px' : '10px 24px', border: 'none', cursor: 'pointer',
                 backgroundColor: quoteMode === 'greets' ? '#9b59b6' : 'white',
                 color: quoteMode === 'greets' ? 'white' : '#9b59b6',
                 fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px',
@@ -1051,7 +1055,7 @@ export default function QuoteLookup() {
             <button
               onClick={() => setQuoteMode('inspections')}
               style={{
-                padding: '10px 24px', border: 'none', cursor: 'pointer',
+                padding: narrow ? '10px 6px' : '10px 24px', border: 'none', cursor: 'pointer',
                 backgroundColor: quoteMode === 'inspections' ? '#9b59b6' : 'white',
                 color: quoteMode === 'inspections' ? 'white' : '#9b59b6',
                 fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px',
