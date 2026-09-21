@@ -37,6 +37,17 @@ const TIRES = [
   { key: 'rf', label: 'Passenger front' },
 ];
 
+// Dually: six tires. The rear corners in `tires` are the worse of each pair, so the rear tiles
+// read each tire on its own from rear_pairs.
+const DUALLY_TIRES = [
+  { key: 'lf', label: "Driver's front" },
+  { key: 'lr', label: "Driver's rear outer", pair: 'outer' },
+  { key: 'lr', label: "Driver's rear inner", pair: 'inner' },
+  { key: 'rr', label: 'Passenger rear inner', pair: 'inner' },
+  { key: 'rr', label: 'Passenger rear outer', pair: 'outer' },
+  { key: 'rf', label: 'Passenger front' },
+];
+
 const REASONS = {
   age: 'Over 10 years old',
   uneven_wear: 'Uneven wear',
@@ -67,12 +78,13 @@ function lowestOf(t) {
 function TireGrid({ scan, compact = false }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: compact ? '6px' : '10px' }}>
-      {TIRES.map(({ key, label }) => {
-        const t = scan.tires?.treads?.[key];
-        const r = RATING[scan.tires?.ratings?.[key]] || null;
-        const reasons = scan.tires?.reasons?.[key] || [];
+ {(scan.dually && scan.rear_pairs ? DUALLY_TIRES : TIRES).map(({ key, label, pair }) => {
+        const own = pair ? scan.rear_pairs?.[pair]?.[key] : null;
+        const t = pair ? own?.tread : scan.tires?.treads?.[key];
+        const r = RATING[pair ? own?.rating : scan.tires?.ratings?.[key]] || null;
+        const reasons = (pair ? own?.reasons : scan.tires?.reasons?.[key]) || [];
         return (
-          <div key={key} style={{ border: `1.5px solid ${r ? r.color : '#e2e8f0'}`, backgroundColor: r ? r.bg : 'white', borderRadius: '10px', padding: compact ? '6px 8px' : '10px' }}>
+          <div key={label} style={{ border: `1.5px solid ${r ? r.color : '#e2e8f0'}`, backgroundColor: r ? r.bg : 'white', borderRadius: '10px', padding: compact ? '6px 8px' : '10px' }}>
             <div style={{ fontSize: compact ? '11px' : '12px', fontWeight: 700, color: '#334155' }}>{label}</div>
             {r && <div style={{ fontSize: compact ? '12px' : '14px', fontWeight: 800, color: r.color, marginTop: '2px' }}>{r.label}</div>}
             {compact ? (
