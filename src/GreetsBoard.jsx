@@ -437,7 +437,7 @@ function GreetTile({ greet, now, pitstop = false }) {
             {/* Walked away (abandoned after 30 minutes idle): without this it reads as a guest
                 still waiting. */}
             {greet.status === 'abandoned' && (
-              <Chip bg="#f1f5f9" text="#475569" border="#cbd5e1">○ LEFT</Chip>
+              <Chip bg="#f1f5f9" text="#475569" border="#cbd5e1">○ NOT SUBMITTED</Chip>
             )}
             {/* Still on the kiosk — greets-display always sent in-progress greets. */}
             {pitstop && greet.status === 'in_progress' && (

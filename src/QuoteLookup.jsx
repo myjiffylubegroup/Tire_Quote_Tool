@@ -2395,7 +2395,8 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
               ● IN PROGRESS
             </span>
           )}
-          {/* Walked away: abandoned after 30 minutes idle. Without this it reads as completed. */}
+          {/* The guest never hit Submit (abandoned after 30 minutes idle). Most stayed — 56% had
+              an invoice that day — so the badge doesn't claim they left. */}
           {greet.status === 'abandoned' && (
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: '5px',
@@ -2403,7 +2404,7 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
               padding: '2px 10px', borderRadius: '999px',
               fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px',
             }}>
-              ○ LEFT WITHOUT FINISHING
+              ○ NOT SUBMITTED
             </span>
           )}
           {(greet.status === 'abandoned' || greet.status === 'in_progress') && (
@@ -2435,7 +2436,7 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
             }}
           >
             {greet.processed_at
-              ? `✓ PROCESSED${greet.processed_by_username ? ` · ${greet.processed_by_username}` : ''}`
+              ? `✓ PROCESSED${greet.processed_source === 'invoice' ? ' · INVOICE' : greet.processed_by_username ? ` · ${greet.processed_by_username}` : ''}`
               : 'PROCESSED?'}
           </button>
           {greet.submitted_for_guest && (
@@ -2447,7 +2448,7 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
                 backgroundColor: '#EDE9FE', color: '#5B21B6', border: '2px solid #C4B5FD',
               }}
             >
-              SUBMITTED BY STAFF
+              {greet.submitted_source === 'invoice' ? 'SUBMITTED · INVOICE MATCH' : 'SUBMITTED BY STAFF'}
             </span>
           )}
           {/* Guest-entered promo code, as a TAP-TO-COPY chip so staff can paste
