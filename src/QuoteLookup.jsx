@@ -534,6 +534,42 @@ export default function QuoteLookup() {
   // Close out an open leave request. Refetches rather than patching local state:
   // the server arbitrates whether the flag was still open (another crew member
   // may have resolved it seconds earlier, in which case it returns 404).
+  // A guest who stopped tapping but stayed — the CSA finishes the check-in for them. Over 30
+  // days, 56% of abandoned check-ins still had an invoice that day at that store.
+  const handleSubmitForGuest = async (greet) => {
+    if (!window.confirm(`Submit this check-in for ${greet.customer_first_name || 'the guest'}?\n\nIt's recorded as submitted by you, with whatever they had already entered.`)) return;
+    try {
+      const response = await apiCall(`${API_BASE}/greets-submit-for-guest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ greet_id: greet.greet_id }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) alert(data.error || 'Could not submit the check-in.');
+    } catch (e) {
+      alert('Could not reach the server to submit the check-in.');
+    }
+    loadGreets();
+  };
+
+  // Everything from this check-in keyed into GROW. Tapping a processed one unmarks it.
+  const handleProcessed = async (greet) => {
+    const processed = !greet.processed_at;
+    if (!processed && !window.confirm(`Unmark #${greet.short_code} as processed?`)) return;
+    try {
+      const response = await apiCall(`${API_BASE}/mark-greet-processed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ greet_id: greet.greet_id, processed }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) alert(data.error || 'Could not update the check-in.');
+    } catch (e) {
+      alert('Could not reach the server.');
+    }
+    loadGreets();
+  };
+
   const handleResolveLeave = async (greet, outcome) => {
     try {
       const response = await apiCall(`${API_BASE}/greets-leave-resolve`, {
@@ -1603,7 +1639,7 @@ export default function QuoteLookup() {
               </div>
             ) : greets.length > 0 ? (
               <div style={{ padding: '20px', display: 'grid', gap: '15px' }}>
-                {greets.map((g) => (
+                {sortUnprocessedFirst(greets).map((g) => (
                   <GreetCard
                     key={g.greet_id}
                     greet={g}
@@ -1612,6 +1648,8 @@ export default function QuoteLookup() {
                     selected={selectedGreetIds.has(g.greet_id)}
                     onToggleSelect={() => toggleGreetSelection(g.greet_id)}
                     onResolveLeave={handleResolveLeave}
+                    onSubmitForGuest={handleSubmitForGuest}
+                    onProcessed={handleProcessed}
                   />
                 ))}
               </div>
@@ -2060,7 +2098,18 @@ function leaveWaitingMinutes(greet) {
   return Math.max(0, Math.floor((Date.now() - new Date(greet.leave_requested_at).getTime()) / 60000));
 }
 
-function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggleSelect, onResolveLeave }) {
+// What's left to key into GROW stays at the top; processed ones sink, newest first in each
+// group (a busy store asked for this — a handled record mid-list costs a second look).
+function sortUnprocessedFirst(list) {
+  return [...list].sort((a, b) => {
+    const ap = a.processed_at ? 1 : 0;
+    const bp = b.processed_at ? 1 : 0;
+    if (ap !== bp) return ap - bp;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+}
+
+function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggleSelect, onResolveLeave, onSubmitForGuest, onProcessed }) {
   const promoted = greet.classification_promoted === true;
   const hasConcerns = (greet.concerns_selected && greet.concerns_selected.length > 0)
     || (greet.concerns_text && greet.concerns_text.trim().length > 0);
@@ -2344,6 +2393,61 @@ function GreetCard({ greet, onOpen, editMode = false, selected = false, onToggle
               letterSpacing: '0.5px',
             }}>
               ● IN PROGRESS
+            </span>
+          )}
+          {/* Walked away: abandoned after 30 minutes idle. Without this it reads as completed. */}
+          {greet.status === 'abandoned' && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              backgroundColor: '#F1F5F9', color: '#475569', border: '2px solid #CBD5E1',
+              padding: '2px 10px', borderRadius: '999px',
+              fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px',
+            }}>
+              ○ LEFT WITHOUT FINISHING
+            </span>
+          )}
+          {(greet.status === 'abandoned' || greet.status === 'in_progress') && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onSubmitForGuest && onSubmitForGuest(greet); }}
+              style={{
+                fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px',
+                padding: '2px 10px', borderRadius: '999px', cursor: 'pointer',
+                backgroundColor: '#9b59b6', color: 'white', border: '2px solid #9b59b6',
+              }}
+            >
+              SUBMIT FOR GUEST
+            </button>
+          )}
+          {/* Keyed into GROW. Tap to mark; tap the green badge to unmark. */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onProcessed && onProcessed(greet); }}
+            title={greet.processed_at
+              ? `Keyed into GROW${greet.processed_by_username ? ` by ${greet.processed_by_username}` : ''} at ${new Date(greet.processed_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} — tap to unmark`
+              : 'Everything from this check-in has been keyed into GROW'}
+            style={{
+              fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px',
+              padding: '2px 10px', borderRadius: '999px', cursor: 'pointer',
+              backgroundColor: greet.processed_at ? '#DCFCE7' : 'white',
+              color: greet.processed_at ? '#166534' : '#475569',
+              border: `2px solid ${greet.processed_at ? '#22C55E' : '#CBD5E1'}`,
+            }}
+          >
+            {greet.processed_at
+              ? `✓ PROCESSED${greet.processed_by_username ? ` · ${greet.processed_by_username}` : ''}`
+              : 'PROCESSED?'}
+          </button>
+          {greet.submitted_for_guest && (
+            <span
+              title="A CSA submitted this check-in for the guest"
+              style={{
+                fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px',
+                padding: '2px 10px', borderRadius: '999px',
+                backgroundColor: '#EDE9FE', color: '#5B21B6', border: '2px solid #C4B5FD',
+              }}
+            >
+              SUBMITTED BY STAFF
             </span>
           )}
           {/* Guest-entered promo code, as a TAP-TO-COPY chip so staff can paste
