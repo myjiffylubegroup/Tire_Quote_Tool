@@ -204,8 +204,21 @@ export function rotationVerdict(report) {
 const BASE = 84;
 const TOP = 28;
 
+/**
+ * One tire, drawn as a tire: a crowned tread with grooves cut through it, filled to the depth
+ * that is actually left.
+ *
+ * The team's note on the sheet this replaces was that its blocks look like tread and ours looked
+ * like a chart, which they did — a flat fill with nothing to read. So the GROOVE PATTERN here is
+ * generic, four grooves on every tire whatever it really has, and it carries no information. The
+ * HEIGHTS are the measurement: the rubber surface is interpolated across the three readings the
+ * scanner returns, and the grooves cut from that surface down to the carcass, which is why a worn
+ * tire's blocks are shallow. Depth and groove depth are the same thing on a real tire.
+ */
 export function TreadProfile({ tread, color, deepest, side }) {
-  const y = (d) => BASE - d * ((BASE - TOP) / deepest);
+  const scale = (BASE - TOP) / deepest;
+  const depthAt = (d) => BASE - d * scale;
+
   // Left to right as you look at the tire: the outside shoulder is outboard of the car.
   const [l, m, r] = side === 'driver'
     ? [tread?.outside, tread?.middle, tread?.inside]
@@ -213,31 +226,67 @@ export function TreadProfile({ tread, color, deepest, side }) {
   const leftLabel = side === 'driver' ? 'OUTSIDE' : 'INSIDE';
   const rightLabel = side === 'driver' ? 'INSIDE' : 'OUTSIDE';
   const have = [l, m, r].every((v) => typeof v === 'number');
-  const legalY = y(2);
+
+  const X0 = 14, X1 = 316;
+  const READ = [55, 165, 275];
+  const GROOVES = [[74, 86], [126, 138], [192, 204], [244, 256]];
+  const FLOOR = BASE - 4;          // grooves stop at the carcass, not the page
+
+  // The worn surface, interpolated between the three readings and drooping at the shoulders the
+  // way a tire's crown falls away at its edges.
+  const surface = (x) => {
+    if (!have) return BASE;
+    let y;
+    if (x <= READ[0]) y = depthAt(l);
+    else if (x >= READ[2]) y = depthAt(r);
+    else if (x <= READ[1]) y = depthAt(l) + ((x - READ[0]) / (READ[1] - READ[0])) * (depthAt(m) - depthAt(l));
+    else y = depthAt(m) + ((x - READ[1]) / (READ[2] - READ[1])) * (depthAt(r) - depthAt(m));
+    // Rounded shoulders, not ramps: squared falloff so the crown rolls off at the very edge the
+    // way a tire does, instead of slanting from a third of the way in.
+    const SHOULDER = 26, DROP = 6;
+    if (x < X0 + SHOULDER) y += DROP * Math.pow((X0 + SHOULDER - x) / SHOULDER, 2);
+    if (x > X1 - SHOULDER) y += DROP * Math.pow((x - (X1 - SHOULDER)) / SHOULDER, 2);
+    return Math.min(y, FLOOR);
+  };
+
+  // Rubber: up the left wall, across the ribs, down into each groove, out at the right wall.
+  const path = [];
+  path.push(`M ${X0} ${BASE}`, `L ${X0} ${surface(X0).toFixed(1)}`);
+  GROOVES.forEach(([gx, gx2]) => {
+    path.push(`L ${gx} ${surface(gx).toFixed(1)}`, `L ${gx} ${FLOOR}`, `L ${gx2} ${FLOOR}`, `L ${gx2} ${surface(gx2).toFixed(1)}`);
+  });
+  path.push(`L ${X1} ${surface(X1).toFixed(1)}`, `L ${X1} ${BASE}`, 'Z');
+
+  const legalY = depthAt(2);
 
   return (
     <svg viewBox="0 0 330 118" style={{ width: '100%', height: 'auto', marginTop: '6px' }} role="img"
       aria-label={have ? `Tread readings ${l}, ${m} and ${r} thirty-seconds of an inch across the tire.` : 'Tread readings not available for this tire.'}>
       <text x="10" y="13" fontSize="10.5" letterSpacing="1.3" fill="#94a3b8" fontWeight="700">{leftLabel}</text>
       <text x="320" y="13" textAnchor="end" fontSize="10.5" letterSpacing="1.3" fill="#94a3b8" fontWeight="700">{rightLabel}</text>
-      <rect x="10" y="28" width="310" height="56" rx="4" fill="#eef2f7" />
-      {have && (
-        <polygon
-          points={`10,${BASE} 10,${y(l)} 55,${y(l)} 165,${y(m)} 275,${y(r)} 320,${y(r)} 320,${BASE}`}
-          fill={color}
-        />
-      )}
+
+      {/* The space the tread sits in */}
+      <rect x="10" y="28" width="310" height="56" rx="4" fill="#f4f6f9" />
+
+      {have && <path d={path.join(' ')} fill={color} stroke="#334155" strokeWidth="0.8" strokeLinejoin="round" />}
+
       <line x1="10" y1={legalY} x2="320" y2={legalY} stroke="#1e293b" strokeWidth="1.2" strokeDasharray="3 3" />
-      {/* White outline behind the glyphs: on a healthy tire the fill reaches this line, and dark
-          text straight on the colour was barely readable. */}
       <text x="14" y={legalY - 4} fontSize="9.5" fill="#1e293b" stroke="white" strokeWidth="3"
         strokeLinejoin="round" style={{ paintOrder: 'stroke' }}>2/32 legal minimum</text>
+
+      {/* An arrow up to each reading, the way the printed sheet marks its grooves */}
+      {have && READ.map((x, i) => (
+        <g key={i}>
+          <line x1={x} y1={Math.min(surface(x) + 3, BASE)} x2={x} y2="90" stroke="#475569" strokeWidth="1" />
+          <path d={`M ${x} ${Math.min(surface(x) + 2, BASE)} l -2.5 4 l 5 0 Z`} fill="#475569" />
+        </g>
+      ))}
       {[l, m, r].map((v, i) => (
-        <text key={i} x={[55, 165, 275][i]} y="101" textAnchor="middle" fontSize="17" fontWeight="700" fill="#1e293b">
+        <text key={i} x={READ[i]} y="104" textAnchor="middle" fontSize="16" fontWeight="700" fill="#1e293b">
           {typeof v === 'number' ? v : '—'}
         </text>
       ))}
-      <text x="165" y="114" textAnchor="middle" fontSize="9.5" fill="#94a3b8">tread depth in 32nds</text>
+      <text x="165" y="115" textAnchor="middle" fontSize="9" fill="#94a3b8">tread depth in 32nds</text>
     </svg>
   );
 }
