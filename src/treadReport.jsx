@@ -69,18 +69,24 @@ export function lowestOf(t) {
 }
 
 /**
- * The top of the plot, shared by every tire on the vehicle so they can be read against each
- * other: the deepest reading anywhere on the car, but never less than FLOOR.
+ * The top of the plot: the height the tire's outline is drawn at, shared by every tire on the
+ * vehicle so they can be read against each other.
  *
- * The floor is what stops a worn-out set from being flattered. Scaled purely to its own deepest
- * reading, a car with four bald tires fills every box to the top and looks no different from a
- * healthy one. A new tire is anywhere from 8/32 to 15/32 depending on the tire and we hold no
- * per-tire spec, so there is no honest fixed ceiling to use instead.
+ * Now that the outline is a whole tire and the fill stops where the rubber stops, the gap between
+ * them reads as "this much has worn away" — so the outline has to stand at a full tread, not at
+ * whatever the best tire on this car happens to be. Floored at FULL_TREAD: a car whose four tires
+ * are all at 5/32 must not draw four nearly-full tires.
+ *
+ * FULL_TREAD is a reference, not a measurement. New tires run from about 8/32 to 15/32 depending
+ * on the tire and we hold no per-tire spec, so 10/32 is a common, conservative stand-in: it
+ * understates wear on a deeper tire rather than overstating it. A tire measuring more than that
+ * simply sets its own ceiling.
  */
-export const FLOOR = 6;
+const FULL_TREAD = 10;
+export const FLOOR = FULL_TREAD;
 
 export function scaleFor(report) {
-  let deepest = FLOOR;
+  let deepest = FULL_TREAD;
   const eat = (t) => readingsOf(t).forEach((v) => { if (v > deepest) deepest = v; });
   Object.values(report?.treads || {}).forEach(eat);
   ['outer', 'inner'].forEach((p) => Object.values(report?.rear_pairs?.[p] || {}).forEach((x) => eat(x?.tread)));
@@ -205,30 +211,35 @@ const BASE = 84;
 const TOP = 28;
 
 /**
- * One tire, drawn as a tire: a crowned tread with grooves cut through it to the carcass, wear
- * bars standing in the bottom of each groove, filled to the depth that is actually left.
+ * One tire, drawn the way the printed sheet draws one: the whole tread pattern in black outline
+ * at full depth, then filled with colour only as far up as the rubber that is actually left. The
+ * empty space between the fill and the outline is what has worn away, which is the thing a guest
+ * understands without being told (Sean, 2026-09-24).
  *
- * The wear bars are what make the legal minimum physical instead of a dashed line floating over a
- * chart (Sean, 2026-09-24). On a real tire they are moulded into the groove floors at 2/32", and
- * the tread going flush with them is the thing a tech shows a guest. Here they are drawn at
- * exactly 2/32 on the same scale as everything else, so a tire at 2/32 draws flush with its own
- * bars and a healthy one towers over them.
+ * Earlier versions drew the fill and outlined the fill, so there was no reference shape for a worn
+ * tire to fall short of and it read as a bar chart.
  *
- * The groove PATTERN is generic — four grooves on every tire whatever it really has — and carries
- * no information. The HEIGHTS are the measurement: the surface is interpolated across the three
- * readings the scanner returns, and groove depth equals tread depth, as on a real tire.
+ * Wear bars stand in the groove floors at 2/32, part of the outline like everything else. A tire
+ * at 2/32 fills flush with them and its grooves disappear — the same thing a tech points at on
+ * the car.
+ *
+ * The groove PATTERN is generic: four grooves on every tire whatever it really has, carrying no
+ * information. The HEIGHTS are the measurement — the fill surface is interpolated across the three
+ * readings the scanner returns. The outline stands at the top of the scale, which is the deepest
+ * reading on this vehicle (never under 6/32), NOT a claim about what this tire measured new: a new
+ * tire is anywhere from 8/32 to 15/32 and we hold no per-tire spec.
  */
 export function TreadProfile({ tread, color, deepest, side }) {
+  const clipId = React.useId();
   const TOP = 24, CARCASS_TOP = 82, CARCASS_BOT = 93;
-  const X0 = 16, X1 = 314, GROOVE_W = 9;
-  const GROOVES = [66, 124, 206, 264];
+  const X0 = 16, X1 = 314, GROOVE_W = 10;
+  const GROOVES = [64, 122, 208, 266];
   const READ = [58, 165, 272];
   const CROWN = 3.5, SHOULDER = 30, DROP = 7;
 
   const scale = (CARCASS_TOP - TOP) / deepest;
   const depthAt = (d) => CARCASS_TOP - d * scale;
 
-  // Left to right as you look at the tire: the outside shoulder is outboard of the car.
   const [l, m, r] = side === 'driver'
     ? [tread?.outside, tread?.middle, tread?.inside]
     : [tread?.inside, tread?.middle, tread?.outside];
@@ -236,53 +247,63 @@ export function TreadProfile({ tread, color, deepest, side }) {
   const rightLabel = side === 'driver' ? 'INSIDE' : 'OUTSIDE';
   const have = [l, m, r].every((v) => typeof v === 'number');
 
+  // The crown falls away toward each shoulder. Applied to the outline and the fill alike, so an
+  // evenly worn tire's surface sits parallel to the pattern above it.
   const centre = (X0 + X1) / 2, half = (X1 - X0) / 2;
-  const surface = (x) => {
+  const contour = (x) => {
+    let d = CROWN * Math.pow(Math.abs(x - centre) / half, 2);
+    if (x < X0 + SHOULDER) d += DROP * Math.pow((X0 + SHOULDER - x) / SHOULDER, 2);
+    if (x > X1 - SHOULDER) d += DROP * Math.pow((x - (X1 - SHOULDER)) / SHOULDER, 2);
+    return d;
+  };
+  const measured = (x) => {
     let y;
     if (x <= READ[0]) y = depthAt(l);
     else if (x >= READ[2]) y = depthAt(r);
     else if (x <= READ[1]) y = depthAt(l) + ((x - READ[0]) / (READ[1] - READ[0])) * (depthAt(m) - depthAt(l));
     else y = depthAt(m) + ((x - READ[1]) / (READ[2] - READ[1])) * (depthAt(r) - depthAt(m));
-    y += CROWN * Math.pow(Math.abs(x - centre) / half, 2);      // the crown falls away to the edges
-    if (x < X0 + SHOULDER) y += DROP * Math.pow((X0 + SHOULDER - x) / SHOULDER, 2);
-    if (x > X1 - SHOULDER) y += DROP * Math.pow((x - (X1 - SHOULDER)) / SHOULDER, 2);
-    return Math.min(y, CARCASS_TOP);
+    return Math.min(y + contour(x), CARCASS_TOP);
   };
 
-  const path = [`M ${X0} ${CARCASS_TOP}`, `L ${X0} ${surface(X0).toFixed(1)}`];
+  // ── The tire, at full depth: tread blocks, then a wear bar standing in each groove.
+  const wearY = depthAt(2);
+  const outline = [`M ${X0} ${CARCASS_TOP}`, `L ${X0} ${(TOP + contour(X0)).toFixed(1)}`];
   GROOVES.forEach((gx) => {
-    path.push(
-      `L ${gx} ${surface(gx).toFixed(1)}`, `L ${gx} ${CARCASS_TOP}`,
-      `L ${gx + GROOVE_W} ${CARCASS_TOP}`, `L ${gx + GROOVE_W} ${surface(gx + GROOVE_W).toFixed(1)}`,
+    outline.push(
+      `L ${gx} ${(TOP + contour(gx)).toFixed(1)}`, `L ${gx} ${CARCASS_TOP}`,
+      `L ${gx + GROOVE_W} ${CARCASS_TOP}`, `L ${gx + GROOVE_W} ${(TOP + contour(gx + GROOVE_W)).toFixed(1)}`,
     );
   });
-  path.push(`L ${X1} ${surface(X1).toFixed(1)}`, `L ${X1} ${CARCASS_TOP}`, 'Z');
+  outline.push(`L ${X1} ${(TOP + contour(X1)).toFixed(1)}`, `L ${X1} ${CARCASS_TOP}`, 'Z');
+  const bars = GROOVES.map((gx) =>
+    `M ${gx} ${CARCASS_TOP} L ${gx} ${wearY.toFixed(1)} L ${gx + GROOVE_W} ${wearY.toFixed(1)} L ${gx + GROOVE_W} ${CARCASS_TOP} Z`);
+  const tirePath = [...outline, ...bars].join(' ');
 
-  const wearY = depthAt(2);
+  // ── What is left: everything below the measured surface, clipped to the tire above.
+  const step = 6;
+  const fill = [`M ${X0} ${CARCASS_TOP}`];
+  for (let x = X0; x <= X1; x += step) fill.push(`L ${x} ${measured(x).toFixed(1)}`);
+  fill.push(`L ${X1} ${measured(X1).toFixed(1)}`, `L ${X1} ${CARCASS_TOP}`, 'Z');
 
   return (
     <svg viewBox="0 0 330 126" style={{ width: '100%', height: 'auto', marginTop: '6px' }} role="img"
       aria-label={have ? `Tread readings ${l}, ${m} and ${r} thirty-seconds of an inch across the tire; wear bars sit at 2/32.` : 'Tread readings not available for this tire.'}>
+      <defs>
+        <clipPath id={clipId}><path d={tirePath} /></clipPath>
+      </defs>
+
       <text x="10" y="12" fontSize="10.5" letterSpacing="1.3" fill="#94a3b8" fontWeight="700">{leftLabel}</text>
       <text x="320" y="12" textAnchor="end" fontSize="10.5" letterSpacing="1.3" fill="#94a3b8" fontWeight="700">{rightLabel}</text>
 
-      {/* The tire body the tread sits on */}
       <rect x={X0} y={CARCASS_TOP} width={X1 - X0} height={CARCASS_BOT - CARCASS_TOP} rx="3" fill="#3f4854" />
 
-      {have && (
-        <>
-          {/* Wear bars, moulded into the groove floors at 2/32 — same rubber, so a tire worn to
-              them draws flush and the grooves disappear. */}
-          {GROOVES.map((gx) => (
-            <rect key={gx} x={gx} y={wearY} width={GROOVE_W} height={Math.max(0, CARCASS_TOP - wearY)}
-              fill={color} stroke="#334155" strokeWidth="0.7" />
-          ))}
-          <path d={path.join(' ')} fill={color} stroke="#334155" strokeWidth="0.8" strokeLinejoin="round" />
-          <line x1={X0} y1={wearY} x2={X1} y2={wearY} stroke="#1e293b" strokeWidth="0.9" strokeDasharray="3 3" opacity="0.5" />
-        </>
-      )}
+      {/* The rubber that is left, poured into the tire's own shape */}
+      {have && <g clipPath={`url(#${clipId})`}><path d={fill.join(' ')} fill={color} /></g>}
 
-      {/* Arrows up at each reading, from under the tire so they are not mistaken for grooves */}
+      {/* The tire itself, on top, so the outline reads whole however little is left in it */}
+      <path d={tirePath} fill="none" stroke="#1e293b" strokeWidth="1.1" strokeLinejoin="round" />
+      <line x1={X0} y1={wearY} x2={X1} y2={wearY} stroke="#1e293b" strokeWidth="0.8" strokeDasharray="3 3" opacity="0.45" />
+
       {have && READ.map((x, i) => (
         <g key={i}>
           <line x1={x} y1={CARCASS_BOT + 9} x2={x} y2={CARCASS_BOT + 3} stroke="#475569" strokeWidth="1" />
