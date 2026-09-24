@@ -137,44 +137,78 @@ function wearNote(t) {
 }
 
 /**
- * Would a rotation actually help this car?
+ * Would a rotation help this car?
  *
  * The kiosk promises it outright — "one of the first things we do is measure your tread depth. If
- * you choose a rotation and your tires won't benefit from it, we'll let you know." This page is
- * the only place that measurement is shown back to the guest, so it is where that promise lands.
+ * you choose a rotation and your tires won't benefit from it, we'll let you know." This page shows
+ * the guest the only measurement we take, so it is where that promise lands.
  *
- * Front and rear are compared on the average of each end's lowest reading. Under EVEN_32NDS apart
- * they are wearing together and swapping them changes little today; that is the answer the kiosk
- * undertook to give, and it is the one worth saying plainly even though it sells nothing.
+ * The point of a rotation is to get ahead of uneven wear, not to answer it once it has happened
+ * (Sean, 2026-09-24). So the bar is low: more than 1/32" between the best and worst tire and it is
+ * worth doing. Within 1/32" they are wearing together and the honest answer is to stay the course
+ * — which means keeping to the normal schedule, NOT skipping the service. An earlier draft said a
+ * rotation "wouldn't change much today", which reads as permission to skip one and would quietly
+ * argue against the warranty the kiosk tells them to protect.
+ *
+ * Edge wear is judged separately: fronts scrub their shoulders in every turn, so shoulders that
+ * are dropping away faster at the front are a reason to rotate even while the lowest readings
+ * still look level. (A single low edge is alignment, which the per-tire notes raise on their own —
+ * rotating a misaligned car moves the problem rather than fixing it.)
  */
-const EVEN_32NDS = 2;
+const EVEN_32NDS = 1;     // spread across the four tires before a rotation is worth doing
+const EDGE_32NDS = 1;     // how much more shoulder wear the front axle needs before it counts
+
+const CORNERS = ['lf', 'rf', 'lr', 'rr'];
+
+// How far the shoulders have dropped below the middle of one tire.
+function edgeWearOf(t) {
+  const { inside, middle, outside } = t || {};
+  if (typeof inside !== 'number' || typeof middle !== 'number' || typeof outside !== 'number') return null;
+  return Math.max(0, middle - Math.min(inside, outside));
+}
 
 function rotationVerdict(scan) {
   if (scan.dually) return null;                       // six tires; not this diagram's problem
   if (scan.tire_size_rear && scan.tire_size_rear !== scan.tire_size) {
-    return { kind: 'sizes', text: 'Your front and rear tires are different sizes, so they can’t be rotated front to back.' };
+    return { kind: 'sizes', text: 'Your front and rear tires are different sizes, so they can\u2019t be rotated front to back.' };
   }
 
-  const low = (k) => lowestOf(scan.tires?.treads?.[k]);
-  const [lf, rf, lr, rr] = ['lf', 'rf', 'lr', 'rr'].map(low);
-  if ([lf, rf, lr, rr].some((v) => v === null)) return null;
+  const treads = scan.tires?.treads || {};
+  const lows = CORNERS.map((k) => lowestOf(treads[k]));
+  if (lows.some((v) => v === null)) return null;
 
   const ratings = scan.tires?.ratings || {};
-  if (['lf', 'rf', 'lr', 'rr'].some((k) => ratings[k] === 'replace')) {
-    return { kind: 'replace', text: 'With tires this worn, a rotation won’t bring the tread back. Replacing them is the fix.' };
+  if (CORNERS.some((k) => ratings[k] === 'replace')) {
+    return { kind: 'replace', text: 'With tires this worn, a rotation won\u2019t bring the tread back. Replacing them is the fix.' };
   }
 
-  const front = (lf + rf) / 2;
-  const rear = (lr + rr) / 2;
-  const gap = Math.round(Math.abs(front - rear) * 10) / 10;
-  if (gap >= EVEN_32NDS) {
+  // Shoulder wear, front axle against rear.
+  const edges = Object.fromEntries(CORNERS.map((k) => [k, edgeWearOf(treads[k])]));
+  const pairAvg = (a, b) => (edges[a] === null || edges[b] === null ? null : (edges[a] + edges[b]) / 2);
+  const frontEdge = pairAvg('lf', 'rf');
+  const rearEdge = pairAvg('lr', 'rr');
+  if (frontEdge !== null && rearEdge !== null && frontEdge - rearEdge >= EDGE_32NDS) {
+    return {
+      kind: 'helps',
+      text: 'Your front tires are wearing down at the edges faster than the rears. Rotating them now evens that out before it costs you tread.',
+    };
+  }
+
+  const spread = Math.round((Math.max(...lows) - Math.min(...lows)) * 10) / 10;
+  if (spread > EVEN_32NDS) {
+    const front = (lows[0] + lows[1]) / 2;
+    const rear = (lows[2] + lows[3]) / 2;
     const worn = front < rear ? 'front' : 'rear';
     return {
       kind: 'helps',
-      text: `Your ${worn} tires are about ${gap}/32" more worn than the others. A rotation would even that out and make the set last longer.`,
+      text: `There\u2019s about ${spread}/32" between your most and least worn tire, with the ${worn} pair ahead. A rotation would even that out and make the set last longer.`,
     };
   }
-  return { kind: 'even', text: 'Your tires are wearing evenly, so a rotation wouldn’t change much today.' };
+
+  return {
+    kind: 'even',
+    text: 'Your tires are within 1/32" of each other, so they\u2019re wearing evenly \u2014 keep to your normal rotation schedule and they\u2019ll stay that way.',
+  };
 }
 
 // ─── The tread profile ───────────────────────────────────────────────────────
