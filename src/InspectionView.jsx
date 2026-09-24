@@ -217,10 +217,12 @@ export default function InspectionView({ code }) {
               </div>
             </div>
 
-            {lowestOnCar !== null && lowestOnCar <= AAA_TEST_DEPTH && (
+            {data.stopping_distance && (
               <div className="card" style={cardStyle}>
-                <div className="heading" className="heading" style={heading}>STOPPING DISTANCE</div>
-                <StoppingDistance lowest={lowestOnCar} />
+                <StoppingDistance
+                  currentFt={data.stopping_distance.current_ft}
+                  newFt={data.stopping_distance.new_ft}
+                />
               </div>
             )}
 
