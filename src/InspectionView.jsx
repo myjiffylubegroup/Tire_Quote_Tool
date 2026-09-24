@@ -47,7 +47,9 @@ const PRINT_CSS = `
   .card { padding: 10px !important; margin-bottom: 8px !important; border-radius: 6px !important; }
   .tiles { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
   .tile { break-inside: avoid; page-break-inside: avoid; padding: 8px !important; }
-  .car { max-width: 250px !important; }
+  .car { max-width: 215px !important; }
+  .summaryGrid { grid-template-columns: 0.85fr 1.15fr !important; gap: 10px !important; }
+  .rec { break-inside: avoid; page-break-inside: avoid; padding: 8px 10px !important; }
   h1, h2, .heading { margin-bottom: 6px !important; }
 }
 `;
@@ -125,6 +127,7 @@ export default function InspectionView({ code }) {
   const vehicle = v ? (v.display || [v.year, v.make, v.model].filter(Boolean).join(' ')) : null;
 
   const cardStyle = { backgroundColor: 'white', borderRadius: '12px', padding: '18px', marginBottom: '14px', border: '1px solid #e2e8f0' };
+  const recStyle = { border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', backgroundColor: '#fbfcfe' };
   const heading = { fontSize: '11px', letterSpacing: '2px', color: MAROON, fontWeight: 700, marginBottom: '10px' };
 
   return (
@@ -182,8 +185,49 @@ export default function InspectionView({ code }) {
               <div style={{ textAlign: 'center', fontSize: '12px', color: '#64748b', marginTop: '2px', marginBottom: '10px' }}>
                 {report?.tire_size ? (report.tire_size_rear ? `${report.tire_size} front, ${report.tire_size_rear} rear` : report.tire_size) : ''}
               </div>
-              {report && !report.dually && <div className="car" style={{ maxWidth: '360px', margin: '0 auto' }}><CarSummary report={report} /></div>}
-              <div style={{ textAlign: 'center', fontSize: '12px', color: '#64748b' }}>Lowest reading at each wheel, in 32nds of an inch</div>
+
+              {/* Car on the left, what we recommend boxed on the right. Holding the
+                  recommendations together in one place is what lets the sheet land on one page
+                  (Sean, 2026-09-24) — they used to be two more full-width cards below. */}
+              <div className="summaryGrid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.85fr) minmax(0, 1.15fr)', gap: '14px', alignItems: 'start' }}>
+                <div>
+                  {report && !report.dually && <div className="car" style={{ maxWidth: '300px', margin: '0 auto' }}><CarSummary report={report} /></div>}
+                  <div style={{ textAlign: 'center', fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                    Lowest reading at each wheel, in 32nds of an inch
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {rotation && (
+                    <div className="rec" style={recStyle}>
+                      <div className="heading" style={{ ...heading, marginBottom: '5px' }}>TIRE ROTATION</div>
+                      <div style={{ fontSize: '13px', color: '#334155', lineHeight: 1.45 }}>{rotation.text}</div>
+                    </div>
+                  )}
+
+                  <div className="rec" style={recStyle}>
+                    <div className="heading" style={{ ...heading, marginBottom: '5px' }}>
+                      {services.has('pressure') && !services.has('alignment') ? 'TIRE PRESSURE' : 'ALIGNMENT'}
+                    </div>
+                    {services.has('alignment') && (
+                      <div style={{ fontSize: '13px', color: '#334155', lineHeight: 1.45, marginBottom: services.has('pressure') ? '7px' : 0 }}>
+                        One edge is wearing faster than the rest of the tread, which usually means the alignment is out.
+                      </div>
+                    )}
+                    {services.has('pressure') && (
+                      <div style={{ fontSize: '13px', color: '#334155', lineHeight: 1.45 }}>
+                        {services.has('alignment') ? <strong>Tire pressure: </strong> : null}
+                        The wear across the tread suggests the pressure is off.
+                      </div>
+                    )}
+                    {services.size === 0 && (
+                      <div style={{ fontSize: '13px', color: '#334155', lineHeight: 1.45 }}>
+                        Every tread is wearing evenly across its width. Nothing here points at alignment today.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="card" style={cardStyle}>
@@ -226,33 +270,8 @@ export default function InspectionView({ code }) {
               </div>
             )}
 
-            {rotation && (
-              <div className="card" style={cardStyle}>
-                <div className="heading" style={heading}>TIRE ROTATION</div>
-                <div style={{ fontSize: '14px', color: '#334155', lineHeight: 1.5 }}>{rotation.text}</div>
-              </div>
-            )}
-
-            {services.size > 0 && (
-              <div className="card" style={cardStyle}>
-                <div className="heading" style={heading}>WORTH ASKING ABOUT</div>
-                {services.has('alignment') && (
-                  <div style={{ marginBottom: services.has('pressure') ? '10px' : 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Alignment check</div>
-                    <div style={{ fontSize: '12.5px', color: '#64748b', lineHeight: 1.45 }}>One edge is wearing faster than the rest of the tread.</div>
-                  </div>
-                )}
-                {services.has('pressure') && (
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Tire pressure</div>
-                    <div style={{ fontSize: '12.5px', color: '#64748b', lineHeight: 1.45 }}>The wear across the tread suggests the pressure is off.</div>
-                  </div>
-                )}
-              </div>
-            )}
-
             {data.quotes?.length > 0 && (
-              <div className="no-print" className="card" style={cardStyle}>
+              <div className="no-print card" style={cardStyle}>
                 <div className="heading" style={heading}>QUOTES FROM THIS INSPECTION</div>
                 {data.quotes.map((q) => (
                   <a key={q.short_code} href={`#/quote/${q.short_code}`} style={{ display: 'block', color: MAROON, fontWeight: 700, textDecoration: 'none', padding: '4px 0' }}>
