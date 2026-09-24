@@ -26,7 +26,7 @@ const JL_LOGO = '/images/JL_Multicare_Horz_1C.png';
 const MAROON = '#8b1538';
 const PURPLE = '#9b59b6';
 
-const DOT = { red: '#dc2626', yellow: '#d97706', green: '#16a34a' };
+const DOT = { red: '#dc2626', yellow: '#eab308', green: '#16a34a' };
 
 // ─── Dates ───────────────────────────────────────────────────────────────────
 
@@ -116,7 +116,7 @@ function visitSummary(colors, axles) {
   if (!flagged.length) return { text: 'All good', color: '#64748b' };
 
   const reds = colors.filter((c) => c === 'red').length;
-  const worst = reds ? DOT.red : DOT.yellow;
+  const worst = reds ? DOT.red : '#a16207';
   // When everything flagged sits on one axle, say which — that is the part a guest can act on.
   const axlesHit = new Set(flagged.map((x) => x.axle));
   if (axlesHit.size === 1) {
@@ -253,7 +253,7 @@ export default function TireCheck({ greetId }) {
                             </div>
                           )}
                         </div>
-                        <TreadProfile tread={t} color={r?.color || '#94a3b8'} deepest={deepest} side={side} />
+                        <TreadProfile tread={t} color={r?.fill || '#cbd5e1'} deepest={deepest} side={side} />
                         {note && <div style={{ fontSize: '13px', color: '#475569', lineHeight: 1.45, marginTop: '4px' }}>{note.text}</div>}
                         {reasons.length > 0 && (
                           <div style={{ fontSize: '12px', color: '#b91c1c', fontWeight: 600, marginTop: '6px' }}>

@@ -18,7 +18,8 @@ import {
   RATING, VERDICT, REASONS,
   scaleFor, wearNote, rotationVerdict,
   TreadProfile, CarSummary,
-  reportFromHandoff, tilesFor, tileData,
+  reportFromHandoff, tilesFor, tileData, lowestOf,
+  StoppingDistance, AAA_TEST_DEPTH,
 } from './treadReport';
 
 const JL_LOGO = '/images/JL_Multicare_Horz_1C.png';
@@ -29,12 +30,25 @@ const PURPLE = '#9b59b6';
 // only useful on a screen is marked no-print and disappears.
 const PRINT_CSS = `
 @media print {
-  @page { size: letter portrait; margin: 0.5in; }
+  @page { size: letter portrait; margin: 0.4in; }
   body { background: white !important; }
+
+  /* Browsers drop background colours when printing by default, which took the status chips,
+     the rating colours and the stopping-distance bars off the page — the whole point of it. */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
   .no-print { display: none !important; }
-  .sheet { box-shadow: none !important; border: none !important; margin: 0 !important; max-width: none !important; }
-  .tile { break-inside: avoid; page-break-inside: avoid; }
-  a { text-decoration: none !important; color: inherit !important; }
+  .sheet {
+    box-shadow: none !important; border: none !important;
+    margin: 0 !important; padding: 0 !important; max-width: none !important; border-radius: 0 !important;
+  }
+
+  /* One page. The screen can breathe; paper cannot. */
+  .card { padding: 10px !important; margin-bottom: 8px !important; border-radius: 6px !important; }
+  .tiles { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .tile { break-inside: avoid; page-break-inside: avoid; padding: 8px !important; }
+  .car { max-width: 250px !important; }
+  h1, h2, .heading { margin-bottom: 6px !important; }
 }
 `;
 
@@ -99,6 +113,14 @@ export default function InspectionView({ code }) {
   const deepest = report ? scaleFor(report) : 6;
   const rotation = report ? rotationVerdict(report) : null;
 
+  // The worst tire on the car decides whether AAA's tested figure applies at all.
+  const lowestOnCar = report
+    ? tiles.reduce((worst, tile) => {
+        const low = lowestOf(tileData(report, tile).tread);
+        return low === null ? worst : worst === null ? low : Math.min(worst, low);
+      }, null)
+    : null;
+
   const services = new Set();
   if (report) {
     tiles.forEach((tile) => {
@@ -110,7 +132,7 @@ export default function InspectionView({ code }) {
   const v = insp?.vehicle;
   const vehicle = v ? (v.display || [v.year, v.make, v.model].filter(Boolean).join(' ')) : null;
 
-  const card = { backgroundColor: 'white', borderRadius: '12px', padding: '18px', marginBottom: '14px', border: '1px solid #e2e8f0' };
+  const cardStyle = { backgroundColor: 'white', borderRadius: '12px', padding: '18px', marginBottom: '14px', border: '1px solid #e2e8f0' };
   const heading = { fontSize: '11px', letterSpacing: '2px', color: MAROON, fontWeight: 700, marginBottom: '10px' };
 
   return (
@@ -134,15 +156,25 @@ export default function InspectionView({ code }) {
         {data && insp && (
           <>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', borderBottom: `3px solid ${MAROON}`, paddingBottom: '14px', marginBottom: '16px' }}>
-              <img src={JL_LOGO} alt="Jiffy Lube Multicare" style={{ height: '34px' }} />
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                <img src={JL_LOGO} alt="Jiffy Lube Multicare" style={{ height: '34px' }} />
+                <div style={{ fontSize: '12px', color: '#475569', lineHeight: 1.45 }}>
+                  <div style={{ fontWeight: 700, color: '#1e293b' }}>{data.store?.name || `Jiffy Lube #${insp.store_id}`}</div>
+                  {data.store?.address && <div>{data.store.address}</div>}
+                  {(data.store?.city || data.store?.state) && (
+                    <div>{[data.store.city, data.store.state].filter(Boolean).join(', ')} {data.store.zip || ''}</div>
+                  )}
+                  {data.store?.phone && <div>{formatPhone(data.store.phone)}</div>}
+                </div>
+              </div>
               <div style={{ textAlign: 'right', fontSize: '12px', color: '#475569' }}>
                 <div style={{ fontSize: '17px', fontWeight: 800, color: '#1e293b' }}>Tire Inspection</div>
-                <div>Store {insp.store_id} · {formatDate(insp.finalized_at || insp.created_at)}</div>
+                <div>{formatDate(insp.finalized_at || insp.created_at)}</div>
                 <div>#{insp.short_code}{insp.finalized_by_username ? ` · ${insp.finalized_by_username}` : ''}</div>
               </div>
             </div>
 
-            <div style={{ ...card, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px' }}>
+            <div className="card" style={{ ...cardStyle, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px' }}>
               <Field label="Vehicle">{vehicle}</Field>
               <Field label="Plate">{v?.plate ? `${v.plate}${v.plate_state ? ` · ${v.plate_state}` : ''}` : null}</Field>
               <Field label="VIN">{v?.vin}</Field>
@@ -151,20 +183,20 @@ export default function InspectionView({ code }) {
               <Field label="Check-in">{data.greet?.short_code ? `#${data.greet.short_code}` : null}</Field>
             </div>
 
-            <div style={card}>
+            <div className="card" style={cardStyle}>
               <div style={{ textAlign: 'center', fontSize: '19px', fontWeight: 800, color: RATING[insp.overall_status]?.color || '#1e293b' }}>
                 {VERDICT[insp.overall_status] || 'Tire results'}
               </div>
               <div style={{ textAlign: 'center', fontSize: '12px', color: '#64748b', marginTop: '2px', marginBottom: '10px' }}>
                 {report?.tire_size ? (report.tire_size_rear ? `${report.tire_size} front, ${report.tire_size_rear} rear` : report.tire_size) : ''}
               </div>
-              {report && !report.dually && <div style={{ maxWidth: '360px', margin: '0 auto' }}><CarSummary report={report} /></div>}
+              {report && !report.dually && <div className="car" style={{ maxWidth: '360px', margin: '0 auto' }}><CarSummary report={report} /></div>}
               <div style={{ textAlign: 'center', fontSize: '12px', color: '#64748b' }}>Lowest reading at each wheel, in 32nds of an inch</div>
             </div>
 
-            <div style={card}>
-              <div style={heading}>TIRE BY TIRE</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
+            <div className="card" style={cardStyle}>
+              <div className="heading" style={heading}>TIRE BY TIRE</div>
+              <div className="tiles" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
                 {tiles.map((tile) => {
                   const { label, side } = tile;
                   const { tread: t, rating, reasons } = tileData(report, tile);
@@ -180,7 +212,7 @@ export default function InspectionView({ code }) {
                           </div>
                         )}
                       </div>
-                      <TreadProfile tread={t} color={r?.color || '#94a3b8'} deepest={deepest} side={side} />
+                      <TreadProfile tread={t} color={r?.fill || '#cbd5e1'} deepest={deepest} side={side} />
                       {note && <div style={{ fontSize: '13px', color: '#475569', lineHeight: 1.45, marginTop: '4px' }}>{note.text}</div>}
                       {reasons.length > 0 && (
                         <div style={{ fontSize: '12px', color: '#b91c1c', fontWeight: 600, marginTop: '6px' }}>
@@ -193,16 +225,23 @@ export default function InspectionView({ code }) {
               </div>
             </div>
 
+            {lowestOnCar !== null && lowestOnCar <= AAA_TEST_DEPTH && (
+              <div className="card" style={cardStyle}>
+                <div className="heading" className="heading" style={heading}>STOPPING DISTANCE</div>
+                <StoppingDistance lowest={lowestOnCar} />
+              </div>
+            )}
+
             {rotation && (
-              <div style={card}>
-                <div style={heading}>TIRE ROTATION</div>
+              <div className="card" style={cardStyle}>
+                <div className="heading" style={heading}>TIRE ROTATION</div>
                 <div style={{ fontSize: '14px', color: '#334155', lineHeight: 1.5 }}>{rotation.text}</div>
               </div>
             )}
 
             {services.size > 0 && (
-              <div style={card}>
-                <div style={heading}>WORTH ASKING ABOUT</div>
+              <div className="card" style={cardStyle}>
+                <div className="heading" style={heading}>WORTH ASKING ABOUT</div>
                 {services.has('alignment') && (
                   <div style={{ marginBottom: services.has('pressure') ? '10px' : 0 }}>
                     <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Alignment check</div>
@@ -219,8 +258,8 @@ export default function InspectionView({ code }) {
             )}
 
             {data.quotes?.length > 0 && (
-              <div className="no-print" style={card}>
-                <div style={heading}>QUOTES FROM THIS INSPECTION</div>
+              <div className="no-print" className="card" style={cardStyle}>
+                <div className="heading" style={heading}>QUOTES FROM THIS INSPECTION</div>
                 {data.quotes.map((q) => (
                   <a key={q.short_code} href={`#/quote/${q.short_code}`} style={{ display: 'block', color: MAROON, fontWeight: 700, textDecoration: 'none', padding: '4px 0' }}>
                     #{q.short_code} →

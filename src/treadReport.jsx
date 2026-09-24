@@ -12,10 +12,13 @@
 
 import React from 'react';
 
+// `color` is for text and chips, where it has to carry contrast against white; `fill` is for the
+// blocks — tread profiles, wheels, dots — where a brighter, yellower amber reads better and
+// contrast does not apply. Yellow-700 behind white text is 5.4:1; yellow-500 would be 1.9:1.
 export const RATING = {
-  good: { label: 'Good', color: '#16a34a', bg: '#f0fdf4' },
-  consider: { label: 'Consider', color: '#d97706', bg: '#fffbeb' },
-  replace: { label: 'Replace', color: '#dc2626', bg: '#fef2f2' },
+  good: { label: 'Good', color: '#16a34a', fill: '#16a34a', bg: '#f0fdf4' },
+  consider: { label: 'Consider', color: '#a16207', fill: '#eab308', bg: '#fefce8' },
+  replace: { label: 'Replace', color: '#dc2626', fill: '#dc2626', bg: '#fef2f2' },
 };
 
 
@@ -247,7 +250,7 @@ export function CarSummary({ report }) {
   const corner = (key) => {
     const t = report.treads?.[key];
     const r = RATING[report.ratings?.[key]] || null;
-    return { low: lowestOf(t), color: r?.color || '#94a3b8', label: r?.label || '' };
+    return { low: lowestOf(t), color: r?.color || '#94a3b8', fill: r?.fill || '#cbd5e1', label: r?.label || '' };
   };
   const lf = corner('lf'), rf = corner('rf'), lr = corner('lr'), rr = corner('rr');
   const wheel = (x, yy, c) => <rect x={x} y={yy} width="20" height="46" rx="7" fill={c} />;
@@ -259,8 +262,8 @@ export function CarSummary({ report }) {
       <rect x="112" y="22" width="106" height="162" rx="32" fill="#e8eef5" stroke="#cbd5e1" strokeWidth="1.5" />
       <rect x="126" y="40" width="78" height="30" rx="12" fill="#dbe3ec" />
       <rect x="126" y="136" width="78" height="26" rx="11" fill="#dbe3ec" />
-      {wheel(88, 44, lf.color)}{wheel(222, 44, rf.color)}
-      {wheel(88, 118, lr.color)}{wheel(222, 118, rr.color)}
+      {wheel(88, 44, lf.fill)}{wheel(222, 44, rf.fill)}
+      {wheel(88, 118, lr.fill)}{wheel(222, 118, rr.fill)}
       {[[80, 62, 77, lf, 'end'], [250, 62, 77, rf, 'start'], [80, 136, 151, lr, 'end'], [250, 136, 151, rr, 'start']].map(([x, yy, ly, c, anchor], i) => (
         <g key={i}>
           <text x={x} y={yy} textAnchor={anchor} fontSize="19" fontWeight="700" fill={c.color}>{c.low ?? '—'}</text>
@@ -301,4 +304,47 @@ export function tileData(report, { key, pair }) {
     rating: pair ? own?.rating : report.ratings?.[key],
     reasons: (pair ? own?.reasons : report.reasons?.[key]) || [],
   };
+}
+
+// ─── Stopping distance ───────────────────────────────────────────────────────
+
+/**
+ * AAA's tested figure, not a calculation of ours.
+ *
+ * AAA and the Automobile Club of Southern California's Automotive Research Center compared new
+ * all-season tires against tires worn to 4/32" on wet pavement at highway speed: 87 feet further
+ * to stop for a passenger car, 43% longer. Braking from 60 mph, the worn set was still doing
+ * nearly 40 mph where the new set had already stopped.
+ *
+ * It is shown only once a tire is at or below the 4/32" they tested. Above that the number does
+ * not describe the car in front of us, and interpolating a curve AAA never published would be
+ * inventing a safety claim.
+ */
+export const AAA_SOURCE = 'AAA and the Automobile Club of Southern California, 2018 — new all-season tires against tires worn to 4/32" on wet pavement.';
+export const AAA_TEST_DEPTH = 4;
+
+export function StoppingDistance({ lowest, compact = false }) {
+  if (typeof lowest !== 'number' || lowest > AAA_TEST_DEPTH) return null;
+  const bar = (label, width, color, caption) => (
+    <div style={{ marginBottom: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: compact ? '11px' : '12px', fontWeight: 700, color: '#334155', marginBottom: '3px' }}>
+        <span>{label}</span><span>{caption}</span>
+      </div>
+      <div style={{ backgroundColor: '#eef2f7', borderRadius: '4px', height: compact ? '12px' : '16px' }}>
+        <div style={{ width, backgroundColor: color, height: '100%', borderRadius: '4px' }} />
+      </div>
+    </div>
+  );
+  return (
+    <div>
+      {bar('New tires', '58%', '#16a34a', 'stopped')}
+      {bar('Worn to 4/32"', '100%', '#dc2626', '87 ft further')}
+      <div style={{ fontSize: compact ? '10.5px' : '11.5px', color: '#64748b', lineHeight: 1.5 }}>
+        Braking from 60 mph on a wet road, tires worn to 4/32" travel 87 feet further before
+        stopping — still moving at nearly 40 mph at the point new tires have stopped.
+        <br />
+        <span style={{ color: '#94a3b8' }}>{AAA_SOURCE}</span>
+      </div>
+    </div>
+  );
 }
