@@ -173,7 +173,11 @@ function edgeWearOf(t) {
 function rotationVerdict(scan) {
   if (scan.dually) return null;                       // six tires; not this diagram's problem
   if (scan.tire_size_rear && scan.tire_size_rear !== scan.tire_size) {
-    return { kind: 'sizes', text: 'Your front and rear tires are different sizes, so they can\u2019t be rotated front to back.' };
+    return {
+      kind: 'sizes',
+      warranty: true,
+      text: 'Your front and rear tires are different sizes, so they can\u2019t be rotated front to back.',
+    };
   }
 
   const treads = scan.tires?.treads || {};
@@ -193,6 +197,7 @@ function rotationVerdict(scan) {
   if (rear - front > EVEN_32NDS) {
     return {
       kind: 'hold',
+      warranty: true,
       text: `Your rear tires have about ${gap}/32" more tread than the fronts, and the deeper pair belongs on the back. Rotating would move your more worn tires there, so we\u2019d leave them where they are.`,
     };
   }
@@ -511,6 +516,13 @@ export default function TireCheck({ greetId }) {
                         <div style={{ fontSize: '14px', color: '#334155', lineHeight: 1.5 }}>{rotation.text}</div>
                         {rotationHistoryLine(data) && (
                           <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '6px' }}>{rotationHistoryLine(data)}</div>
+                        )}
+                        {/* We are the ones declining the rotation here, so the guest should hear
+                            the other half: their tread warranty may still expect one. */}
+                        {rotation.warranty && (
+                          <div style={{ fontSize: '12.5px', color: '#8a4b00', marginTop: '6px', lineHeight: 1.45 }}>
+                            Most tread warranties expect regular rotations, so ask your service advisor what yours needs.
+                          </div>
                         )}
                       </div>
                     </div>
