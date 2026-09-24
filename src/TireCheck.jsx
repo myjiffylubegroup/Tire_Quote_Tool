@@ -143,20 +143,23 @@ function wearNote(t) {
  * you choose a rotation and your tires won't benefit from it, we'll let you know." This page shows
  * the guest the only measurement we take, so it is where that promise lands.
  *
- * The point of a rotation is to get ahead of uneven wear, not to answer it once it has happened
- * (Sean, 2026-09-24). So the bar is low: more than 1/32" between the best and worst tire and it is
- * worth doing. Within 1/32" they are wearing together and the honest answer is to stay the course
- * — which means keeping to the normal schedule, NOT skipping the service. An earlier draft said a
- * rotation "wouldn't change much today", which reads as permission to skip one and would quietly
- * argue against the warranty the kiosk tells them to protect.
+ * Two rules from Sean (2026-09-24), in this order:
  *
- * Edge wear is judged separately: fronts scrub their shoulders in every turn, so shoulders that
- * are dropping away faster at the front are a reason to rotate even while the lowest readings
- * still look level. (A single low edge is alignment, which the per-tire notes raise on their own —
- * rotating a misaligned car moves the problem rather than fixing it.)
+ * 1. THE BEST TIRES BELONG ON THE REAR. A front-to-rear rotation moves today's fronts to the back,
+ *    so it only helps when the fronts are the deeper pair. When the REARS are already deeper,
+ *    rotating would put the more worn tires on the axle that lets go first in the wet — so the
+ *    answer is no, however uneven the wear looks. Safety outranks evening out the set.
+ * 2. Rotate BEFORE there is a problem. Within 1/32" the tires are wearing together and the answer
+ *    is to stay the course — keep to the schedule, not skip it. (An earlier draft said a rotation
+ *    "wouldn't change much today", which reads as permission to skip one and quietly argues
+ *    against the warranty the kiosk two screens earlier tells them to protect.)
+ *
+ * Edge wear is only allowed to call for a rotation while the depths are level, where rule 1 can't
+ * be broken either way. A single low edge stays an alignment matter, raised by the per-tire notes:
+ * rotating a misaligned car moves the problem to a different corner rather than fixing it.
  */
-const EVEN_32NDS = 1;     // spread across the four tires before a rotation is worth doing
-const EDGE_32NDS = 1;     // how much more shoulder wear the front axle needs before it counts
+const EVEN_32NDS = 1;     // depth difference between the axles before a rotation is worth doing
+const EDGE_32NDS = 1;     // extra shoulder wear on the front axle before it counts on its own
 
 const CORNERS = ['lf', 'rf', 'lr', 'rr'];
 
@@ -174,15 +177,35 @@ function rotationVerdict(scan) {
   }
 
   const treads = scan.tires?.treads || {};
-  const lows = CORNERS.map((k) => lowestOf(treads[k]));
-  if (lows.some((v) => v === null)) return null;
+  const lows = Object.fromEntries(CORNERS.map((k) => [k, lowestOf(treads[k])]));
+  if (CORNERS.some((k) => lows[k] === null)) return null;
 
   const ratings = scan.tires?.ratings || {};
   if (CORNERS.some((k) => ratings[k] === 'replace')) {
     return { kind: 'replace', text: 'With tires this worn, a rotation won\u2019t bring the tread back. Replacing them is the fix.' };
   }
 
-  // Shoulder wear, front axle against rear.
+  const front = (lows.lf + lows.rf) / 2;
+  const rear = (lows.lr + lows.rr) / 2;
+  const gap = Math.round(Math.abs(front - rear) * 10) / 10;
+
+  // Rule 1 — rears already deeper: rotating would move the worse pair to the back.
+  if (rear - front > EVEN_32NDS) {
+    return {
+      kind: 'hold',
+      text: `Your rear tires have about ${gap}/32" more tread than the fronts, and the deeper pair belongs on the back. Rotating would move your more worn tires there, so we\u2019d leave them where they are.`,
+    };
+  }
+
+  // Rule 1 the other way — fronts deeper: a rotation puts the better pair on the back.
+  if (front - rear > EVEN_32NDS) {
+    return {
+      kind: 'helps',
+      text: `Your front tires have about ${gap}/32" more tread than the rears. Rotating moves the deeper pair to the back where it belongs and evens the set out.`,
+    };
+  }
+
+  // Depths are level, so either direction is safe — shoulder wear can decide.
   const edges = Object.fromEntries(CORNERS.map((k) => [k, edgeWearOf(treads[k])]));
   const pairAvg = (a, b) => (edges[a] === null || edges[b] === null ? null : (edges[a] + edges[b]) / 2);
   const frontEdge = pairAvg('lf', 'rf');
@@ -194,21 +217,24 @@ function rotationVerdict(scan) {
     };
   }
 
-  const spread = Math.round((Math.max(...lows) - Math.min(...lows)) * 10) / 10;
-  if (spread > EVEN_32NDS) {
-    const front = (lows[0] + lows[1]) / 2;
-    const rear = (lows[2] + lows[3]) / 2;
-    const worn = front < rear ? 'front' : 'rear';
-    return {
-      kind: 'helps',
-      text: `There\u2019s about ${spread}/32" between your most and least worn tire, with the ${worn} pair ahead. A rotation would even that out and make the set last longer.`,
-    };
-  }
-
   return {
     kind: 'even',
     text: 'Your tires are within 1/32" of each other, so they\u2019re wearing evenly \u2014 keep to your normal rotation schedule and they\u2019ll stay that way.',
   };
+}
+
+/** The rotation record, as a sentence — only ever about work done here. */
+function rotationHistoryLine(data) {
+  const r = data.last_rotation;
+  if (r) {
+    if (typeof r.miles_since === 'number') {
+      return `Last rotated with us ${r.miles_since.toLocaleString()} miles ago, on ${formatDay(r.date)}.`;
+    }
+    return `Last rotated with us on ${formatDay(r.date)}.`;
+  }
+  const visits = data.rotation_visits_checked || 0;
+  if (visits >= 2) return `No rotation on your last ${visits} visits with us.`;
+  return null;
 }
 
 // ─── The tread profile ───────────────────────────────────────────────────────
@@ -481,7 +507,12 @@ export default function TireCheck({ greetId }) {
                         strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '1px' }} aria-hidden="true">
                         <path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 3v6h-6" />
                       </svg>
-                      <div style={{ fontSize: '14px', color: '#334155', lineHeight: 1.5 }}>{rotation.text}</div>
+                      <div>
+                        <div style={{ fontSize: '14px', color: '#334155', lineHeight: 1.5 }}>{rotation.text}</div>
+                        {rotationHistoryLine(data) && (
+                          <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '6px' }}>{rotationHistoryLine(data)}</div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
