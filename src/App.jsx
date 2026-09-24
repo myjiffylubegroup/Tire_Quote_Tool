@@ -18,6 +18,7 @@ import MechanicalReports from './MechanicalReports';
 import GreetsReports from './GreetsReports';
 import GreetsBoard from './GreetsBoard';
 import InspectionHandoff from './InspectionHandoff';
+import InspectionView from './InspectionView';
 import TireCheck from './TireCheck';
 
 // Simple hash-based router (no additional dependencies needed)
@@ -126,12 +127,18 @@ export default function App() {
     );
   }
 
-  // #/inspection/<short_code> — start a quote from a Jiffy Pitstop inspection
+  // #/inspection/<short_code>        — read and print the inspection
+  // #/inspection/<short_code>/quote  — hand it to the quote builder
+  //
+  // The bare route used to be the handoff, so looking at an inspection started a quote and there
+  // was no way to just see one (Sean, 2026-09-24). Quoting is now a button on the sheet.
   if (path.startsWith('/inspection/')) {
-    const code = decodeURIComponent(path.replace('/inspection/', ''));
+    const rest = path.replace('/inspection/', '');
+    const toQuote = rest.endsWith('/quote');
+    const code = decodeURIComponent(toQuote ? rest.slice(0, -'/quote'.length) : rest);
     return (
       <StaffPinGate>
-        <InspectionHandoff code={code} />
+        {toQuote ? <InspectionHandoff code={code} /> : <InspectionView code={code} />}
       </StaffPinGate>
     );
   }
