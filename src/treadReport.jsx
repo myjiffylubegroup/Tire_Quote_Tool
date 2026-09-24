@@ -317,7 +317,9 @@ export function tileData(report, { key, pair }) {
  * and then a quote minutes later must not be given two different answers about the same tires.
  */
 export function StoppingDistance({ currentFt, newFt = 195 }) {
-  if (!currentFt) return null;
+  // Nothing to say when the tires are already in the top band: two identical bars and no
+  // saving is noise on a staff sheet and a soft upsell on a guest's page.
+  if (!currentFt || currentFt <= newFt) return null;
   const MAX = 400;
   const difference = currentFt - newFt;
   const row = (label, ft, pct, track, fill) => (

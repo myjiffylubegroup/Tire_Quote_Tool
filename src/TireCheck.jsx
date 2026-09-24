@@ -19,7 +19,7 @@ import {
   RATING, VERDICT, REASONS, FLOOR,
   scaleFor, wearNote, rotationVerdict,
   TreadProfile, CarSummary,
-  tilesFor, tileData,
+  tilesFor, tileData, StoppingDistance,
 } from './treadReport';
 
 const JL_LOGO = '/images/JL_Multicare_Horz_1C.png';
@@ -264,6 +264,15 @@ export default function TireCheck({ greetId }) {
                     );
                   })}
                 </div>
+
+                {data.stopping_distance && (
+                  <div style={card}>
+                    <StoppingDistance
+                      currentFt={data.stopping_distance.current_ft}
+                      newFt={data.stopping_distance.new_ft}
+                    />
+                  </div>
+                )}
 
                 {rotation && (
                   <div style={card}>
