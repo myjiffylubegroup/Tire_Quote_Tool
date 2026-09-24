@@ -400,7 +400,9 @@ export default function TireCheck({ greetId }) {
 
             {(data.history?.length > 0 || data.visit_history?.length > 0) && (
               <div style={card}>
-                <div style={{ ...heading, marginBottom: '10px' }}>YOUR TIRE HISTORY WITH US</div>
+                {/* Not "tread depth": the prior-visit rows are a colour per tire from the bay
+                    inspection, with no measurement behind them. Only a scanned visit has depths. */}
+                <div style={{ ...heading, marginBottom: '10px' }}>TIRE CONDITION FROM PRIOR VISITS</div>
 
                 {(data.history || []).map((h, i) => (
                   <div key={`s${i}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 0', borderBottom: '1px solid #eef2f7' }}>
