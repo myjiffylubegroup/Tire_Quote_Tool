@@ -17,7 +17,7 @@ import React from 'react';
 // contrast does not apply. Yellow-700 behind white text is 5.4:1; yellow-500 would be 1.9:1.
 export const RATING = {
   good: { label: 'Good', color: '#16a34a', fill: '#16a34a', bg: '#f0fdf4' },
-  consider: { label: 'Consider', color: '#a16207', fill: '#eab308', bg: '#fefce8' },
+  consider: { label: 'Consider', color: '#a16207', fill: '#f1c40f', bg: '#fefce8' },
   replace: { label: 'Replace', color: '#dc2626', fill: '#dc2626', bg: '#fef2f2' },
 };
 
@@ -309,42 +309,39 @@ export function tileData(report, { key, pair }) {
 // ─── Stopping distance ───────────────────────────────────────────────────────
 
 /**
- * AAA's tested figure, not a calculation of ours.
+ * The same chart the quote view draws, from the same numbers.
  *
- * AAA and the Automobile Club of Southern California's Automotive Research Center compared new
- * all-season tires against tires worn to 4/32" on wet pavement at highway speed: 87 feet further
- * to stop for a passenger car, 43% longer. Braking from 60 mph, the worn set was still doing
- * nearly 40 mph where the new set had already stopped.
- *
- * It is shown only once a tire is at or below the 4/32" they tested. Above that the number does
- * not describe the car in front of us, and interpolating a curve AAA never published would be
- * inventing a safety claim.
+ * The distances are not computed here and never should be: they come from quote_config's
+ * tread_depth_chart (new 195ft, good 220, consider 290, replace 378 at 60 mph on a wet road),
+ * which the business sets and get-quote and get-inspection both read. A guest who sees this sheet
+ * and then a quote minutes later must not be given two different answers about the same tires.
  */
-export const AAA_SOURCE = 'AAA and the Automobile Club of Southern California, 2018 — new all-season tires against tires worn to 4/32" on wet pavement.';
-export const AAA_TEST_DEPTH = 4;
-
-export function StoppingDistance({ lowest, compact = false }) {
-  if (typeof lowest !== 'number' || lowest > AAA_TEST_DEPTH) return null;
-  const bar = (label, width, color, caption) => (
-    <div style={{ marginBottom: '10px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: compact ? '11px' : '12px', fontWeight: 700, color: '#334155', marginBottom: '3px' }}>
-        <span>{label}</span><span>{caption}</span>
+export function StoppingDistance({ currentFt, newFt = 195 }) {
+  if (!currentFt) return null;
+  const MAX = 400;
+  const difference = currentFt - newFt;
+  const row = (label, ft, pct, track, fill) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+      <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: 700, width: '70px', flexShrink: 0 }}>{label}</div>
+      <div style={{ flex: 1, height: '14px', borderRadius: '4px', overflow: 'hidden', backgroundColor: track }}>
+        <div style={{ width: `${pct}%`, height: '100%', borderRadius: '4px', backgroundColor: fill }} />
       </div>
-      <div style={{ backgroundColor: '#eef2f7', borderRadius: '4px', height: compact ? '12px' : '16px' }}>
-        <div style={{ width, backgroundColor: color, height: '100%', borderRadius: '4px' }} />
-      </div>
+      <div style={{ fontSize: '12px', fontWeight: 700, width: '42px', flexShrink: 0, textAlign: 'right', color: fill }}>{ft} ft</div>
     </div>
   );
   return (
-    <div>
-      {bar('New tires', '58%', '#16a34a', 'stopped')}
-      {bar('Worn to 4/32"', '100%', '#dc2626', '87 ft further')}
-      <div style={{ fontSize: compact ? '10.5px' : '11.5px', color: '#64748b', lineHeight: 1.5 }}>
-        Braking from 60 mph on a wet road, tires worn to 4/32" travel 87 feet further before
-        stopping — still moving at nearly 40 mph at the point new tires have stopped.
-        <br />
-        <span style={{ color: '#94a3b8' }}>{AAA_SOURCE}</span>
+    <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '12px' }}>
+      <div style={{ fontSize: '9px', fontWeight: 700, color: '#1e293b', letterSpacing: '1px', textAlign: 'center', marginBottom: '8px' }}>
+        STOPPING DISTANCE (60 MPH, WET ROAD)
       </div>
+      {row('Current', currentFt, (currentFt / MAX) * 100, '#fee2e2', '#dc2626')}
+      {row('New Tires', newFt, (newFt / MAX) * 100, '#dcfce7', '#16a34a')}
+      {difference > 0 && (
+        <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '6px', padding: '7px 10px', textAlign: 'center', fontSize: '11.5px', color: '#1e293b', fontWeight: 500, marginTop: '8px' }}>
+          New tires could reduce your stopping distance by <strong>{difference} feet</strong> — about{' '}
+          <strong>{(difference / 15).toFixed(1)} car lengths</strong>!
+        </div>
+      )}
     </div>
   );
 }

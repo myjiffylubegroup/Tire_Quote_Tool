@@ -18,8 +18,8 @@ import {
   RATING, VERDICT, REASONS,
   scaleFor, wearNote, rotationVerdict,
   TreadProfile, CarSummary,
-  reportFromHandoff, tilesFor, tileData, lowestOf,
-  StoppingDistance, AAA_TEST_DEPTH,
+  reportFromHandoff, tilesFor, tileData,
+  StoppingDistance,
 } from './treadReport';
 
 const JL_LOGO = '/images/JL_Multicare_Horz_1C.png';
@@ -112,14 +112,6 @@ export default function InspectionView({ code }) {
   const tiles = report ? tilesFor(report) : [];
   const deepest = report ? scaleFor(report) : 6;
   const rotation = report ? rotationVerdict(report) : null;
-
-  // The worst tire on the car decides whether AAA's tested figure applies at all.
-  const lowestOnCar = report
-    ? tiles.reduce((worst, tile) => {
-        const low = lowestOf(tileData(report, tile).tread);
-        return low === null ? worst : worst === null ? low : Math.min(worst, low);
-      }, null)
-    : null;
 
   const services = new Set();
   if (report) {
