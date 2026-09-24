@@ -136,6 +136,47 @@ function wearNote(t) {
   return null;
 }
 
+/**
+ * Would a rotation actually help this car?
+ *
+ * The kiosk promises it outright — "one of the first things we do is measure your tread depth. If
+ * you choose a rotation and your tires won't benefit from it, we'll let you know." This page is
+ * the only place that measurement is shown back to the guest, so it is where that promise lands.
+ *
+ * Front and rear are compared on the average of each end's lowest reading. Under EVEN_32NDS apart
+ * they are wearing together and swapping them changes little today; that is the answer the kiosk
+ * undertook to give, and it is the one worth saying plainly even though it sells nothing.
+ */
+const EVEN_32NDS = 2;
+
+function rotationVerdict(scan) {
+  if (scan.dually) return null;                       // six tires; not this diagram's problem
+  if (scan.tire_size_rear && scan.tire_size_rear !== scan.tire_size) {
+    return { kind: 'sizes', text: 'Your front and rear tires are different sizes, so they can’t be rotated front to back.' };
+  }
+
+  const low = (k) => lowestOf(scan.tires?.treads?.[k]);
+  const [lf, rf, lr, rr] = ['lf', 'rf', 'lr', 'rr'].map(low);
+  if ([lf, rf, lr, rr].some((v) => v === null)) return null;
+
+  const ratings = scan.tires?.ratings || {};
+  if (['lf', 'rf', 'lr', 'rr'].some((k) => ratings[k] === 'replace')) {
+    return { kind: 'replace', text: 'With tires this worn, a rotation won’t bring the tread back. Replacing them is the fix.' };
+  }
+
+  const front = (lf + rf) / 2;
+  const rear = (lr + rr) / 2;
+  const gap = Math.round(Math.abs(front - rear) * 10) / 10;
+  if (gap >= EVEN_32NDS) {
+    const worn = front < rear ? 'front' : 'rear';
+    return {
+      kind: 'helps',
+      text: `Your ${worn} tires are about ${gap}/32" more worn than the others. A rotation would even that out and make the set last longer.`,
+    };
+  }
+  return { kind: 'even', text: 'Your tires are wearing evenly, so a rotation wouldn’t change much today.' };
+}
+
 // ─── The tread profile ───────────────────────────────────────────────────────
 
 const BASE = 84;
@@ -213,22 +254,50 @@ function CarSummary({ scan }) {
 
 // ─── History rows ────────────────────────────────────────────────────────────
 
-function Dots({ colors }) {
+const dot = (c, i) => (
+  <span key={i} style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: DOT[c] || '#cbd5e1' }} />
+);
+
+/**
+ * Grouped front pair then rear pair, with a gap between them. Which wheel a dot is remains
+ * unknown — only its axle — so the groups are labelled and the dots inside one are not.
+ */
+function Dots({ colors, axles }) {
+  const known = (axles || []).some((a) => a === 'front' || a === 'rear');
+  if (!known) return <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>{colors.map(dot)}</div>;
+
+  const pick = (axle) => colors.filter((_, i) => axles[i] === axle);
+  const front = pick('front');
+  const rear = pick('rear');
+  const group = (label, cs) => cs.length > 0 && (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+      <div style={{ display: 'flex', gap: '5px' }}>{cs.map(dot)}</div>
+      <div style={{ fontSize: '9px', letterSpacing: '0.5px', color: '#94a3b8', fontWeight: 700 }}>{label}</div>
+    </div>
+  );
   return (
-    <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
-      {colors.map((c, i) => (
-        <span key={i} style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: DOT[c] || '#cbd5e1' }} />
-      ))}
+    <div style={{ display: 'flex', gap: '14px', flexShrink: 0 }}>
+      {group('FRONT', front)}
+      {group('REAR', rear)}
     </div>
   );
 }
 
-function visitSummary(colors) {
+function visitSummary(colors, axles) {
+  const flagged = colors.map((c, i) => ({ c, axle: (axles || [])[i] })).filter((x) => x.c !== 'green');
+  if (!flagged.length) return { text: 'All good', color: '#64748b' };
+
   const reds = colors.filter((c) => c === 'red').length;
-  const yellows = colors.filter((c) => c === 'yellow').length;
+  const worst = reds ? DOT.red : DOT.yellow;
+  // When everything flagged sits on one axle, say which — that is the part a guest can act on.
+  const axlesHit = new Set(flagged.map((x) => x.axle));
+  if (axlesHit.size === 1) {
+    const only = [...axlesHit][0];
+    if (only === 'front') return { text: 'fronts flagged', color: worst };
+    if (only === 'rear') return { text: 'rears flagged', color: worst };
+  }
   if (reds) return { text: `${reds} to replace`, color: DOT.red };
-  if (yellows) return { text: `${yellows} to watch`, color: DOT.yellow };
-  return { text: 'All good', color: '#64748b' };
+  return { text: `${flagged.length} to watch`, color: DOT.yellow };
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -269,6 +338,8 @@ export default function TireCheck({ greetId }) {
 
   const tiles = done ? (scan.dually && scan.rear_pairs ? DUALLY_TIRES : TIRES) : [];
   const deepest = done ? scaleFor(scan) : FLOOR;
+
+  const rotation = done ? rotationVerdict(scan) : null;
 
   // Services worth raising, gathered from the wear patterns actually found.
   const services = new Set();
@@ -367,6 +438,20 @@ export default function TireCheck({ greetId }) {
                   })}
                 </div>
 
+                {rotation && (
+                  <div style={card}>
+                    <div style={{ ...heading, marginBottom: '8px' }}>TIRE ROTATION</div>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                      <svg viewBox="0 0 24 24" width="22" height="22" fill="none"
+                        stroke={rotation.kind === 'helps' ? '#16a34a' : '#64748b'} strokeWidth="2"
+                        strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '1px' }} aria-hidden="true">
+                        <path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 3v6h-6" />
+                      </svg>
+                      <div style={{ fontSize: '14px', color: '#334155', lineHeight: 1.5 }}>{rotation.text}</div>
+                    </div>
+                  </div>
+                )}
+
                 {services.size > 0 && (
                   <div style={card}>
                     <div style={{ ...heading, marginBottom: '10px' }}>WORTH ASKING ABOUT</div>
@@ -416,14 +501,14 @@ export default function TireCheck({ greetId }) {
                 ))}
 
                 {(data.visit_history || []).map((v, i, arr) => {
-                  const s = visitSummary(v.colors);
+                  const s = visitSummary(v.colors, v.axles);
                   return (
                     <div key={`v${i}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 0', borderBottom: i < arr.length - 1 ? '1px solid #eef2f7' : 'none' }}>
                       <div style={{ width: '104px', flexShrink: 0 }}>
                         <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>{formatDay(v.date)}</div>
                         {v.mileage && <div style={{ fontSize: '11.5px', color: '#64748b' }}>{v.mileage.toLocaleString()} mi</div>}
                       </div>
-                      <Dots colors={v.colors} />
+                      <Dots colors={v.colors} axles={v.axles} />
                       <div style={{ flexGrow: 1, textAlign: 'right', fontSize: '12px', fontWeight: 600, color: s.color }}>{s.text}</div>
                     </div>
                   );
