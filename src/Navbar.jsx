@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import StaffLoginModal from './StaffLoginModal';
 import FeedbackModal from './FeedbackModal';
+import NoticeBanner from './NoticeBanner';
 import { staffLogout } from './StaffPinGate';
 import { isEmbedded } from './embed';
 
@@ -548,6 +549,9 @@ export default function Navbar({
           )}
         </div>
       </nav>
+
+      {/* ── Ops notices from staff_notices (staff only; see NoticeBanner) ── */}
+      {isAuthenticated && <NoticeBanner />}
       </>)}
 
       {/* ── Staff Login Modal (rendered here so any page using Navbar gets it) ── */}
