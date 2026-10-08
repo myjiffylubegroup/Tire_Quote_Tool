@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import StaffLoginModal from './StaffLoginModal';
 import FeedbackModal from './FeedbackModal';
 import NoticeBanner from './NoticeBanner';
+import FleetDropoffBanner from './FleetDropoffBanner';
 import { staffLogout } from './StaffPinGate';
 import { isEmbedded } from './embed';
 
@@ -552,6 +553,8 @@ export default function Navbar({
 
       {/* ── Ops notices from staff_notices (staff only; see NoticeBanner) ── */}
       {isAuthenticated && <NoticeBanner />}
+      {/* ── Fleet drop-offs waiting to be received (staff only; see FleetDropoffBanner) ── */}
+      {isAuthenticated && <FleetDropoffBanner selectedStore={selectedStore} />}
       </>)}
 
       {/* ── Staff Login Modal (rendered here so any page using Navbar gets it) ── */}
