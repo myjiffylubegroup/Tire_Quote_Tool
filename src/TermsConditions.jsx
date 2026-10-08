@@ -110,7 +110,7 @@ const TermsConditions = () => {
           <a href="#/" style={pageStyles.backLink}>← Back to Tire Finder</a>
 
           <p style={{ ...pageStyles.paragraph, fontStyle: 'italic', color: '#64748b' }}>
-            Last Updated: May 2026
+            Last Updated: October 2026
           </p>
 
           {/* Introduction */}
@@ -217,9 +217,11 @@ const TermsConditions = () => {
             <h2 style={pageStyles.sectionTitle}>6. Intellectual Property</h2>
             <p style={pageStyles.paragraph}>
               The Jiffy Lube® name, logo, and related trademarks are the property of Jiffy Lube International, 
-              Inc. and are used under franchise agreement. All content on this website, including text, graphics, 
-              and software, is the property of P.C.J.L., Inc. or its licensors and is protected by applicable 
-              intellectual property laws.
+              Inc. and are used under franchise agreement. The Tire Finder and MechanicalFinder software,
+              including its source code, design, and user interface, is &copy; 2025&ndash;2026 REV Your Cause LLC
+              and is used here under license. All other content on this website, including text and graphics, is
+              the property of P.C.J.L., Inc. or its licensors and is protected by applicable intellectual property
+              laws.
             </p>
             <p style={pageStyles.paragraph}>
               You may not reproduce, duplicate, copy, sell, resell, or exploit any portion of the Service 
