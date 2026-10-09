@@ -28,7 +28,41 @@ const PURPLE = '#9b59b6';
 
 const DOT = { red: '#dc2626', yellow: '#eab308', green: '#16a34a' };
 
+// Battery verdict -> how it reads to the customer. The server classifies the
+// string (get-tire-check batteryStatus) so the CSA's screen and this page can
+// never disagree; this only decides wording and colour.
+//
+// 'unknown' exists because Autel's live verdicts differ from its documentation
+// ("Replace battery", "Good & Recharge" — not "Replace", "Good-Recharge"). A
+// string we do not recognise is shown as-is in neutral grey rather than being
+// guessed into a reassuring colour.
+const BATTERY_VIEW = {
+  good:     { title: 'Your battery looks good', color: '#15803d', bg: '#dcfce7', icon: '🔋' },
+  recharge: { title: 'Your battery needs a charge', color: '#92400e', bg: '#fef3c7', icon: '🔋' },
+  replace:  { title: 'Your battery needs replacing', color: '#b91c1c', bg: '#fee2e2', icon: '🔋' },
+  unknown:  { title: 'Your battery was tested', color: '#334155', bg: '#f1f5f9', icon: '🔋' },
+};
+
 // ─── Dates ───────────────────────────────────────────────────────────────────
+
+// Time of day in store-local Pacific. The BT608's own printed clock is 13
+// hours out (PST with no DST, 12-hour with no AM/PM), which is exactly why
+// this uses the server timestamp the sync stores, never the tool's string.
+function formatTime(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('en-US', {
+    timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+}
+
+function Fact({ label, value }) {
+  return (
+    <div style={{ flex: '1 1 30%', backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+      <div style={{ fontSize: '10px', color: '#64748b', letterSpacing: '0.5px' }}>{label.toUpperCase()}</div>
+      <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{value}</div>
+    </div>
+  );
+}
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -318,6 +352,78 @@ export default function TireCheck({ greetId }) {
                   </div>
                 )}
               </>
+            )}
+
+            {/* Battery — only when this store has an Autel tester (get-tire-check
+                gates on battery_testers). Same contract as the tire panel: the
+                link is handed out at check-in, so until a test exists this says
+                so and the page's Refresh button fills it in. Only THIS visit's
+                test is ever shown; an older one would be misleading here. */}
+            {data.battery?.enabled && (
+              <div style={card}>
+                <div style={{ ...heading, marginBottom: '8px' }}>YOUR BATTERY CHECK</div>
+                {!data.battery.test ? (
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '28px' }}>🔋</div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#1e293b', marginTop: '6px' }}>
+                      Your battery check will appear here
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                      Once your technician tests your battery, the result shows up on this page.
+                    </div>
+                  </div>
+                ) : (() => {
+                  const t = data.battery.test;
+                  const v = BATTERY_VIEW[t.status] || BATTERY_VIEW.unknown;
+                  const pct = t.rated_capacity ? Math.round((t.measured_capacity / t.rated_capacity) * 100) : null;
+                  return (
+                    <>
+                      <div style={{ textAlign: 'center', backgroundColor: v.bg, borderRadius: '10px', padding: '12px' }}>
+                        <div style={{ fontSize: '26px' }}>{v.icon}</div>
+                        <div style={{ fontSize: '17px', fontWeight: 800, color: v.color, marginTop: '2px' }}>{v.title}</div>
+                        {t.status === 'unknown' && t.decision && (
+                          <div style={{ fontSize: '13px', color: '#334155', marginTop: '2px' }}>{t.decision}</div>
+                        )}
+                      </div>
+
+                      {/* The measured number is the point. A customer told their battery is
+                          weak hears a sales pitch; a customer shown 409 of 760 cold-cranking
+                          amps is reading a measurement. */}
+                      {t.measured_capacity != null && t.rated_capacity != null && (
+                        <div style={{ marginTop: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
+                            <span>Cranking power measured</span>
+                            <span style={{ fontWeight: 700, color: '#1e293b' }}>
+                              {t.measured_capacity} of {t.rated_capacity} {t.capacity_unit || ''}
+                            </span>
+                          </div>
+                          <div style={{ height: '10px', backgroundColor: '#e2e8f0', borderRadius: '5px', marginTop: '5px', overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.max(2, Math.min(100, pct ?? 0))}%`, height: '100%', backgroundColor: v.color }} />
+                          </div>
+                          {pct != null && (
+                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px', textAlign: 'right' }}>
+                              {pct}% of what this battery is rated for
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
+                        {t.soc_percent != null && <Fact label="Charge" value={`${t.soc_percent}%`} />}
+                        {t.voltage != null && <Fact label="Voltage" value={`${Number(t.voltage).toFixed(2)} V`} />}
+                        {t.battery_type && <Fact label="Type" value={t.battery_type} />}
+                      </div>
+
+                      {t.advice && (
+                        <div style={{ fontSize: '13px', color: '#334155', marginTop: '12px', lineHeight: 1.5 }}>{t.advice}</div>
+                      )}
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '8px' }}>
+                        Tested {formatTime(t.tested_at)}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
             )}
 
             {data.quotes?.length > 0 && (
