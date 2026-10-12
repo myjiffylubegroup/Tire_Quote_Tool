@@ -112,7 +112,7 @@ const PrivacyPolicy = () => {
           <a href="#/" style={pageStyles.backLink}>← Back to Tire Finder</a>
 
           <p style={{ ...pageStyles.paragraph, fontStyle: 'italic', color: '#64748b' }}>
-            Last Updated: May 2026
+            Last Updated: October 2026
           </p>
 
           {/* Introduction */}
@@ -177,6 +177,7 @@ const PrivacyPolicy = () => {
               <li>Process payments through our PayPal invoice service</li>
               <li>Manage your customer relationship and provide customer service</li>
               <li>Communicate with you about your vehicle service needs, appointments, and service updates</li>
+              <li>Show you ads for our services on Google, or leave you out of ads you don’t need, as described in Section 3</li>
               <li>Perform research and analysis to improve our products and services</li>
               <li>Comply with legal and regulatory requirements</li>
               <li>Perform functions as otherwise described to you at the time of collection</li>
@@ -198,6 +199,12 @@ const PrivacyPolicy = () => {
               on our behalf, including email delivery (SendGrid), SMS messaging (Telnyx), payment processing 
               (PayPal), and data hosting (Supabase). These providers may have access to personal information 
               needed to perform their functions but are not permitted to use it for any other purposes.
+            </p>
+
+            <h3 style={pageStyles.subsectionTitle}>Advertising on Google</h3>
+            <p style={pageStyles.paragraph}>
+              We may share your email address, first and last name, and ZIP code with Google LLC so that Google can recognize you as one of our customers and show you ads for our services on Google Search, YouTube, Gmail and Google’s partner sites, or leave you out of ads you don’t need. We send this information in hashed (encoded) form. We never share your phone number for advertising. Under California law this counts as “sharing” personal information for cross-context behavioral advertising, and you have the right to opt out of it. To opt out, see our{' '}
+              <a href="#/do-not-sell" style={{ color: '#8b1538' }}>Do Not Sell or Share My Personal Information</a> page.
             </p>
 
             <h3 style={pageStyles.subsectionTitle}>Jiffy Lube Franchise Network</h3>
@@ -284,9 +291,10 @@ const PrivacyPolicy = () => {
                 have collected from you, subject to certain legal exceptions.</li>
               <li><strong>Right to Correct:</strong> You may request that we correct inaccurate personal 
                 information we maintain about you.</li>
-              <li><strong>Right to Opt Out of Sale/Sharing:</strong> We do not sell your personal information. 
-                For more information, see our{' '}
-                <a href="#/do-not-sell" style={{ color: '#8b1538' }}>Do Not Sell My Personal Information</a> page.</li>
+              <li><strong>Right to Opt Out of Sale/Sharing:</strong> We do not sell your personal information.
+                We share limited information with Google for advertising, as described in Section 3, and you may
+                opt out of that sharing at any time. See our{' '}
+                <a href="#/do-not-sell" style={{ color: '#8b1538' }}>Do Not Sell or Share My Personal Information</a> page.</li>
               <li><strong>Right to Non-Discrimination:</strong> We will not discriminate against you for 
                 exercising any of your privacy rights.</li>
             </ul>

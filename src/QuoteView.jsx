@@ -1597,7 +1597,7 @@ const QuoteView = () => {
         <a href="#/privacy-policy" style={{ color: '#555', textDecoration: 'none', marginRight: '12px' }}>Privacy Policy</a>
         <a href="#/terms" style={{ color: '#555', textDecoration: 'none', marginRight: '12px' }}>Terms & Conditions</a>
         <a href="#/contact" style={{ color: '#555', textDecoration: 'none', marginRight: '12px' }}>Contact</a>
-        <a href="#/do-not-sell" style={{ color: '#555', textDecoration: 'none' }}>Do Not Sell My Info</a>
+        <a href="#/do-not-sell" style={{ color: '#555', textDecoration: 'none' }}>Do Not Sell or Share My Info</a>
         <p style={{ marginTop: '6px', marginBottom: '0' }}>© 2026 P.C.J.L., Inc. • Jiffy Lube MultiCare • tires.myjiffylube.ai</p>
       </div>
 

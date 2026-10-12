@@ -94,7 +94,7 @@ const DoNotSell = () => {
           <a href="#/">
             <img src={JL_LOGO} alt="Jiffy Lube MultiCare" style={pageStyles.logo} />
           </a>
-          <h1 style={pageStyles.title}>Do Not Sell My Personal Information</h1>
+          <h1 style={pageStyles.title}>Do Not Sell or Share My Personal Information</h1>
         </div>
 
         {/* Content */}
@@ -103,7 +103,7 @@ const DoNotSell = () => {
           <a href="#/" style={pageStyles.backLink}>← Back to Tire Finder</a>
 
           <p style={{ ...pageStyles.paragraph, fontStyle: 'italic', color: '#64748b' }}>
-            Last Updated: February 2026
+            Last Updated: October 2026
           </p>
 
           {/* Our Commitment */}
@@ -124,8 +124,9 @@ const DoNotSell = () => {
               fontWeight: '500',
               color: '#166534',
             }}>
-              <strong>We do not sell your personal information.</strong> We do not and will not sell, rent, 
-              or trade your personal information to third parties for monetary or other valuable consideration.
+              <strong>We do not sell your personal information.</strong> We do share limited information with
+              Google so we can show you ads for our services, as explained below, and you can opt out of that at
+              any time. We never share your phone number for advertising.
             </p>
           </section>
 
@@ -150,6 +151,9 @@ const DoNotSell = () => {
               them to perform their functions. These providers are contractually prohibited from using your 
               information for any other purpose.
             </p>
+            <p style={pageStyles.paragraph}>
+              <strong>Advertising on Google:</strong> We may share your email address, first and last name, and ZIP code with Google LLC so that Google can recognize you as one of our customers and show you ads for our services on Google Search, YouTube, Gmail and Google’s partner sites, or leave you out of ads you don’t need. We send this information in hashed (encoded) form. We never share your phone number for advertising. Under California law this counts as “sharing” personal information for cross-context behavioral advertising, and you have the right to opt out of it.
+            </p>
           </section>
 
           {/* Your Rights */}
@@ -162,8 +166,8 @@ const DoNotSell = () => {
               <li><strong>Know</strong> what personal information we collect, use, and share</li>
               <li><strong>Delete</strong> personal information we have collected from you</li>
               <li><strong>Correct</strong> inaccurate personal information we maintain about you</li>
-              <li><strong>Opt out</strong> of the sale or sharing of your personal information (we do not 
-                sell or share, but you may still submit a request)</li>
+              <li><strong>Opt out</strong> of the sale or sharing of your personal information (we do not
+                sell it; opting out stops the advertising sharing described above)</li>
               <li><strong>Non-discrimination</strong> for exercising your privacy rights</li>
             </ul>
             <p style={pageStyles.paragraph}>
@@ -189,6 +193,11 @@ const DoNotSell = () => {
               in enough detail so we can properly respond. We will aim to verify your identity based on 
               personal information we already hold about you. We will respond to your request within 45 days 
               as required by California law.
+            </p>
+            <p style={pageStyles.paragraph}>
+              To opt out of sharing, you do not need to verify your identity. Just tell us the email address,
+              name and ZIP code we may have on file, or your phone number, so we can find your record. We will
+              stop sharing your information within 15 business days and keep you out of every future upload.
             </p>
           </section>
 
@@ -220,7 +229,7 @@ const DoNotSell = () => {
             <a href="#/privacy-policy" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Privacy Policy</a>
             <a href="#/terms" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Terms & Conditions</a>
             <a href="#/sms-consent" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>SMS Terms</a>
-            <a href="#/do-not-sell" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Do Not Sell My Info</a>
+            <a href="#/do-not-sell" style={{ color: '#64748b', marginRight: '15px', textDecoration: 'none' }}>Do Not Sell or Share My Info</a>
             <a href="#/contact" style={{ color: '#64748b', textDecoration: 'none' }}>Contact Us</a>
           </p>
           <p style={{ margin: '0' }}>
