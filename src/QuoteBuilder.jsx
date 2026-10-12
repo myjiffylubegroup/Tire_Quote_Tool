@@ -726,6 +726,11 @@ export default function QuoteBuilder() {
     first_name: '', last_name: '', full_name: '', phone: '', email: '', vehicle_ymm: '', data_source: 'manual'
   });
 
+  // A quote with no plate and no way to reach the customer can't be followed up or matched to a
+  // sale. Phone-in price checks are the one legitimate case, so they're ticked explicitly and
+  // saved as data_source 'price_check' instead of passing as 'manual'.
+  const [priceCheckOnly, setPriceCheckOnly] = useState(false);
+
   // SMS opt-out warning
   const [smsOptedOut, setSmsOptedOut] = useState(null); // null = unchecked, { opted_out, store_number } if opted out
 
@@ -1211,6 +1216,12 @@ export default function QuoteBuilder() {
 
   const handleGenerateQuote = async () => {
     if (!tireData || !selectedEmployee) { setError('Please select a tire and employee'); return; }
+    if (!priceCheckOnly) {
+      const hasPhone = stripPhoneFormatting(customerData.phone || '').length >= 10;
+      const hasEmail = /\S+@\S+\.\S+/.test(customerData.email || '');
+      if (!licensePlate.trim()) { setError('Enter the license plate, or tick "Price check only" if the customer just wants a price.'); return; }
+      if (!hasPhone && !hasEmail) { setError('Add a phone number or email so we can send the quote and follow up, or tick "Price check only".'); return; }
+    }
     setGenerating(true);
     setError(null);
     const lowestTread = getLowestTread();
@@ -1228,7 +1239,7 @@ export default function QuoteBuilder() {
           email: customerData.email,
           license_plate: licensePlate || null, 
           license_state: licensePlate ? licenseState : null, 
-          data_source: customerData.data_source
+          data_source: priceCheckOnly ? 'price_check' : customerData.data_source
         },
         vehicle: vehicleData ? { 
           year: vehicleData.year, 
@@ -1815,6 +1826,10 @@ export default function QuoteBuilder() {
                     ⚠️ Customer previously opted out of SMS. Ask them to text <strong>START</strong> to <strong>{smsOptedOut.store_number || 'the store number'}</strong> to re-subscribe.
                   </div>
                 )}
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '10px', fontSize: '11px', color: '#666', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={priceCheckOnly} onChange={(e) => setPriceCheckOnly(e.target.checked)} />
+                  Price check only (no plate or contact needed)
+                </label>
                 {/* SMS Consent Notice */}
                 <div style={{ marginTop: '8px', fontSize: '9px', color: '#94a3b8', lineHeight: '1.4', textAlign: 'center' }}>
                   📱 By providing a phone number, customer consents to receive tire quote & service messages via SMS. Msg & data rates may apply. Reply STOP to opt out. <a href="#/sms-consent" style={{ color: '#9b59b6', textDecoration: 'underline' }}>SMS Terms</a>
