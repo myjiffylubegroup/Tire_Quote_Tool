@@ -136,7 +136,7 @@ const DoNotSell = () => {
             <p style={pageStyles.paragraph}>
               When you use any of our customer-facing applications (including tires.myjiffylube.ai and 
               greets.myjiffylube.ai) or visit one of our service centers, 
-              we collect personal information solely to provide you with our services. This information is 
+              we collect personal information to provide you with our services. This information is
               used to:
             </p>
             <ul style={pageStyles.list}>
@@ -144,6 +144,7 @@ const DoNotSell = () => {
               <li>Process service requests and payments</li>
               <li>Communicate with you about your vehicle service</li>
               <li>Improve our products and services</li>
+              <li>Show you ads for our services on Google (see below)</li>
             </ul>
             <p style={pageStyles.paragraph}>
               We share personal information only with service providers who help us deliver these services 
