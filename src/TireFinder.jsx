@@ -3,7 +3,12 @@ import Navbar from './Navbar';
 import useNarrow from './useNarrow';
 import CustomerVehicleLookup, { hasCustomerIdentity } from './CustomerVehicleLookup';
 import CustomerQuoteRequest from './CustomerQuoteRequest';
-import { isStaffAuthenticated } from './apiClient';
+import { isStaffAuthenticated, withStaffToken } from './apiClient';
+
+// The public price comes from tire-inventory-search (consumer_price, cost x 1.5
+// rounded up less a cent). Wholesale cost only reaches signed-in staff, so the
+// browser must never derive the price from it.
+const tirePrice = (tire) => tire.consumer_price || 0;
 
 import { API_BASE } from './config';
 const API_KEY = 'TIRES2026';
@@ -274,11 +279,11 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, on
     : results;
 
   if (sortMode === 'price') {
-    displayResults = [...displayResults].sort((a, b) => (a.cost || 0) - (b.cost || 0));
+    displayResults = [...displayResults].sort((a, b) => tirePrice(a) - tirePrice(b));
   } else if (sortMode === 'brand') {
     displayResults = [...displayResults].sort((a, b) => {
       const cmp = brandDisplay(a.brand_code).localeCompare(brandDisplay(b.brand_code));
-      return cmp !== 0 ? cmp : (a.cost || 0) - (b.cost || 0);
+      return cmp !== 0 ? cmp : tirePrice(a) - tirePrice(b);
     });
   }
   // sortMode === 'default' → keep backend order (Store stock → NEXEN → ADVANTA → Price)
@@ -424,8 +429,7 @@ const TireCard = ({ tire, primaryWarehouse, selections, onSelectionChange }) => 
   const secondaryQty = primaryWarehouse === 'fresno' ? tire.qty_santa_clarita : tire.qty_fresno;
   const hasStoreStock = tire.store_qty > 0;
   
-  // Consumer price: cost × 1.5, round up to whole dollar, minus $0.01
-  const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
+  const consumerPrice = tirePrice(tire);
 
   // Check which role this tire is assigned
   const isGood = selections.good?.part_number === tire.part_number;
@@ -1495,7 +1499,7 @@ export default function TireFinder() {
       
       const response = await fetch(`${API_BASE}/tire-inventory-search`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withStaffToken({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           tire_size: compressedSize,
           store_id: parseInt(selectedStore),
@@ -1536,7 +1540,7 @@ export default function TireFinder() {
       
       const response = await fetch(`${API_BASE}/tire-inventory-search`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withStaffToken({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           tire_size: compressedSize,
           store_id: parseInt(selectedStore),
@@ -1565,7 +1569,7 @@ export default function TireFinder() {
 
   // Staggered: handle front tire selection
   const handleFrontSelection = (tire) => {
-    const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
+    const consumerPrice = tirePrice(tire);
     const tireWithPrice = { ...tire, consumer_price: consumerPrice };
     
     // If clicking the same tire, deselect it
@@ -1587,7 +1591,7 @@ export default function TireFinder() {
 
   // Staggered: handle rear tire selection
   const handleRearSelection = (tire) => {
-    const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
+    const consumerPrice = tirePrice(tire);
     const tireWithPrice = { ...tire, consumer_price: consumerPrice };
     
     // If clicking the same tire, deselect it
@@ -1618,7 +1622,7 @@ export default function TireFinder() {
     try {
       const response = await fetch(`${API_BASE}/tire-inventory-search`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withStaffToken({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           part_number: partNumber.trim(),
           store_id: parseInt(selectedStore),
@@ -2380,7 +2384,7 @@ export default function TireFinder() {
                       const store = STORES.find(s => s.id === parseInt(selectedStore));
                       const primaryWarehouse = store?.warehouse || 'fresno';
                       const isFrontSelected = frontSelection?.part_number === tire.part_number;
-                      const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
+                      const consumerPrice = tirePrice(tire);
                       
                       return (
                         <StaggeredTireCard
@@ -2440,7 +2444,7 @@ export default function TireFinder() {
                       const store = STORES.find(s => s.id === parseInt(selectedStore));
                       const primaryWarehouse = store?.warehouse || 'fresno';
                       const isRearSelected = rearSelection?.part_number === tire.part_number;
-                      const consumerPrice = tire.cost > 0 ? Math.ceil(parseFloat(tire.cost) * 1.5) - 0.01 : 0;
+                      const consumerPrice = tirePrice(tire);
                       
                       return (
                         <StaggeredTireCard

@@ -160,6 +160,17 @@ export async function apiCallPublic(url, options = {}) {
 }
 
 /**
+ * Headers for a public endpoint that returns extra, staff-only fields when a
+ * staff JWT is present (tire-inventory-search, store-inventory: wholesale
+ * cost). Adds X-Staff-Token only when signed in; a customer sends none and
+ * gets the public response. Unlike apiCall, never forces a re-PIN.
+ */
+export function withStaffToken(headers = {}) {
+  const token = getStaffToken()
+  return token ? { ...headers, 'X-Staff-Token': token } : headers
+}
+
+/**
  * Whether the user currently has a valid (non-expired) staff JWT.
  */
 export function isStaffAuthenticated() {

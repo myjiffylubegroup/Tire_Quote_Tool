@@ -3,6 +3,7 @@ import Navbar from './Navbar';
 import CustomerVehicleLookup, { hasCustomerIdentity } from './CustomerVehicleLookup';
 
 import { API_BASE } from './config';
+import { withStaffToken } from './apiClient';
 const API_KEY = 'TIRES2026';
 
 // Enterprise brand colors
@@ -768,7 +769,7 @@ export default function EnterpriseTireFinder() {
       
       const response = await fetch(`${API_BASE}/tire-inventory-search`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withStaffToken({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           tire_size: compressedSize,
           store_id: parseInt(selectedStore),
@@ -811,7 +812,7 @@ export default function EnterpriseTireFinder() {
     try {
       const response = await fetch(`${API_BASE}/tire-inventory-search`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withStaffToken({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           part_number: partNumber.trim(),
           store_id: parseInt(selectedStore),

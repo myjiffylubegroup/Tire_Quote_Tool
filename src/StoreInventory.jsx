@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
-import { apiCall, isStaffAuthenticated } from './apiClient';
+import { apiCall, isStaffAuthenticated, withStaffToken } from './apiClient';
 import StaffLoginForm from './StaffLoginForm';
 import { getStaffEmployee } from './StaffPinGate';
 
@@ -160,7 +160,9 @@ export default function StoreInventory() {
 
       try {
         const response = await fetch(
-          `${API_BASE}/store-inventory?store_id=${selectedStore}&key=${API_KEY}`
+          `${API_BASE}/store-inventory?store_id=${selectedStore}&key=${API_KEY}`,
+          // cost is staff-only server-side; without the token it comes back null.
+          { headers: withStaffToken() }
         );
         const data = await response.json();
 
@@ -335,7 +337,7 @@ export default function StoreInventory() {
         item.quantity_on_hand,
         `"${(item.location_text || '').replace(/"/g, '""')}"`,
       ];
-      if (showCost) row.push(item.cost.toFixed(2));
+      if (showCost) row.push(item.cost != null ? item.cost.toFixed(2) : '');
       row.push(item.retail.toFixed(2));
       return row.join(',');
     });
@@ -1044,7 +1046,7 @@ export default function StoreInventory() {
 
                           {showCost && (
                             <td style={{ padding: '12px 10px', textAlign: 'right', color: '#666' }}>
-                              ${item.cost.toFixed(2)}
+                              {item.cost != null ? `$${item.cost.toFixed(2)}` : '—'}
                             </td>
                           )}
                           <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600' }}>
