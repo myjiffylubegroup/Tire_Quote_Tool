@@ -2,20 +2,22 @@ import React, { useState, useEffect, useRef } from 'react';
 import Navbar from './Navbar';
 import useNarrow from './useNarrow';
 import CustomerVehicleLookup, { hasCustomerIdentity } from './CustomerVehicleLookup';
+import CustomerQuoteRequest from './CustomerQuoteRequest';
+import { isStaffAuthenticated } from './apiClient';
 
 import { API_BASE } from './config';
 const API_KEY = 'TIRES2026';
 
 // Store list with warehouse assignments and city names
 const STORES = [
-  { id: 609, name: 'Santa Maria', warehouse: 'fresno' },
-  { id: 1002, name: 'San Luis Obispo', warehouse: 'fresno' },
-  { id: 1257, name: 'Goleta', warehouse: 'santa_clarita' },
-  { id: 1270, name: 'Arroyo Grande', warehouse: 'fresno' },
-  { id: 1396, name: 'Santa Barbara (Downtown)', warehouse: 'santa_clarita' },
-  { id: 1932, name: 'Atascadero', warehouse: 'fresno' },
-  { id: 2911, name: 'Paso Robles', warehouse: 'fresno' },
-  { id: 4182, name: 'Santa Barbara (Upper State)', warehouse: 'santa_clarita' },
+  { id: 609, name: 'Santa Maria', warehouse: 'fresno', phone: '805-922-1948' },
+  { id: 1002, name: 'San Luis Obispo', warehouse: 'fresno', phone: '805-544-6698' },
+  { id: 1257, name: 'Goleta', warehouse: 'santa_clarita', phone: '805-683-4100' },
+  { id: 1270, name: 'Arroyo Grande', warehouse: 'fresno', phone: '805-489-7802' },
+  { id: 1396, name: 'Santa Barbara (Downtown)', warehouse: 'santa_clarita', phone: '805-564-3393' },
+  { id: 1932, name: 'Atascadero', warehouse: 'fresno', phone: '805-461-4052' },
+  { id: 2911, name: 'Paso Robles', warehouse: 'fresno', phone: '805-237-8301' },
+  { id: 4182, name: 'Santa Barbara (Upper State)', warehouse: 'santa_clarita', phone: '805-845-2239' },
 ];
 
 // Quantity options
@@ -920,6 +922,8 @@ export default function TireFinder() {
   // result here via onLookupSuccess so the page can use it for handleContinueToQuote
   // (sessionStorage writes) and the TireSpecsResults vehicle label.
   const [plateLookupResult, setPlateLookupResult] = useState(null);
+  // Customer (not signed-in) quote request — see CustomerQuoteRequest.jsx
+  const [customerRequestOpen, setCustomerRequestOpen] = useState(false);
 
   // Results
   const [tireSpecs, setTireSpecs] = useState(null); // Now an array of specs
@@ -1127,6 +1131,12 @@ export default function TireFinder() {
   };
 
   const handleContinueToQuote = () => {
+    // Customers can't use the staff QuoteBuilder (it sits behind the PIN), so
+    // anyone not signed in gets the customer request instead.
+    if (!isStaffAuthenticated()) {
+      if (isStaggeredMode ? (frontSelection && rearSelection) : selections.chosen) setCustomerRequestOpen(true);
+      return;
+    }
     // ===== STAGGERED MODE =====
     if (isStaggeredMode) {
       if (!frontSelection || !rearSelection) return;
@@ -1696,6 +1706,27 @@ export default function TireFinder() {
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+      {customerRequestOpen && (
+        <CustomerQuoteRequest
+          tire={selections.chosen}
+          staggered={isStaggeredMode}
+          store={STORES.find(st => st.id === parseInt(selectedStore))}
+          defaultQty={qtyNeeded}
+          vehicle={
+            selectedYear && selectedMake && selectedModel
+              ? { year: parseInt(selectedYear), make: selectedMake, model: selectedModel,
+                  submodel: (selectedSubmodel && selectedSubmodel !== 'UNKNOWN') ? selectedSubmodel : null }
+              : plateLookupResult?.vehicle
+                ? { year: plateLookupResult.vehicle.year, make: plateLookupResult.vehicle.motor_make || plateLookupResult.vehicle.make,
+                    model: plateLookupResult.vehicle.motor_model || plateLookupResult.vehicle.model, display: plateLookupResult.vehicle.display }
+                : null
+          }
+          plate={plateLookupResult?.customer?.license_plate
+            ? { plate: plateLookupResult.customer.license_plate, state: plateLookupResult.customer.license_state || 'CA' }
+            : null}
+          onClose={() => setCustomerRequestOpen(false)}
+        />
+      )}
       <Navbar
         currentPage="tirefinder"
         selectedStore={selectedStore}

@@ -1233,6 +1233,7 @@ export default function QuoteLookup() {
                       onChange={setFilterStatus}
                       options={[
                         { value: 'all', label: 'All Quotes' },
+                        { value: 'customer_requests', label: '🛒 Customer requests' },
                         { value: 'needs_followup', label: '🔴🟡 Needs Follow-up' },
                         { value: 'purchased', label: '✅ Purchased' },
                         { value: 'not_purchased', label: '— Not Purchased' },
