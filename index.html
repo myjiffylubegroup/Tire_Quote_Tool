@@ -34,6 +34,9 @@
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'AW-723248694');
+      // Goals > Contact: "Tire Finder - Quote request". Fired by CustomerQuoteRequest.jsx only after
+      // request-tire-quote has created the quote (staff never reach that screen).
+      window.AW_QUOTE_REQUEST = 'AW-723248694/xZCnCP6u7aMdELbM79gC';
       (function () {
         var BOOK = 'Db8wCPODoZ8dELbM79gC', CALL = 'hVPDCPaDoZ8dELbM79gC';
         function isStaff() { try { return !!localStorage.getItem('jl_staff_auth'); } catch (e) { return false; } }
