@@ -31,28 +31,6 @@ const FALLBACK_WIDTHS = ['155','165','175','185','195','205','215','225','235','
 const FALLBACK_ASPECTS = ['25','30','35','40','45','50','55','60','65','70','75','80','85'];
 const FALLBACK_RIMS = ['13','14','15','16','17','18','19','20','21','22','24'];
 
-// Enterprise Pricing Matrix
-// Nexen: <100 = cost+5, 100-149 = cost+15, 150-199 = cost+20, 200+ = cost*1.10
-// Other brands: Add $15 to each tier
-const calculateEnterprisePrice = (cost, brandCode) => {
-  if (!cost || cost <= 0) return 0;
-  const c = parseFloat(cost);
-  const isNexen = brandCode === 'NEX';
-  
-  if (isNexen) {
-    if (c < 100) return c + 20;
-    if (c < 150) return c + 25;
-    if (c < 200) return c + 30;
-    return c * 1.20;
-  } else {
-    // Other brands: add $15 to each Nexen tier
-    if (c < 100) return c + 25;  // 20 + 5
-    if (c < 150) return c + 30;  // 15 + 15
-    if (c < 200) return c + 35;  // 20 + 15
-    return (c * 1.20) + 15;
-  }
-};
-
 // Styled Select Dropdown - Enterprise Green
 const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => (
   <select
@@ -335,7 +313,9 @@ const TireCard = ({ tire, primaryWarehouse, onQuote, showCost }) => {
   const hasStoreStock = tire.store_qty > 0;
   
   // ENTERPRISE PRICING instead of consumer pricing
-  const enterprisePrice = tire.cost > 0 ? calculateEnterprisePrice(tire.cost, tire.brand_code) : 0;
+  // Computed server-side (tire-inventory-search, staff only): the markup must
+  // not ship in the public JS bundle.
+  const enterprisePrice = tire.enterprise_price || 0;
 
   return (
     <div style={{

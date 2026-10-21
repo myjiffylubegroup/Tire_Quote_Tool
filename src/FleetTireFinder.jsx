@@ -32,21 +32,6 @@ const FALLBACK_WIDTHS = ['155','165','175','185','195','205','215','225','235','
 const FALLBACK_ASPECTS = ['25','30','35','40','45','50','55','60','65','70','75','80','85'];
 const FALLBACK_RIMS = ['13','14','15','16','17','18','19','20','21','22','24'];
 
-// Fleet Pricing Matrix
-// Nexen: cost × 1.25 (25% markup)
-// All other brands: cost × 1.30 (30% markup)
-const calculateFleetPrice = (cost, brandCode) => {
-  if (!cost || cost <= 0) return 0;
-  const c = parseFloat(cost);
-  const isNexen = brandCode === 'NEX';
-  
-  if (isNexen) {
-    return c * 1.25;
-  } else {
-    return c * 1.30;
-  }
-};
-
 // Styled Select Dropdown - Fleet Blue
 const SelectDropdown = ({ value, onChange, options, placeholder, disabled }) => (
   <select
@@ -330,7 +315,9 @@ const TireCard = ({ tire, primaryWarehouse, onQuote, showCost }) => {
   const hasStoreStock = tire.store_qty > 0;
   
   // FLEET PRICING instead of consumer pricing
-  const fleetPrice = tire.cost > 0 ? calculateFleetPrice(tire.cost, tire.brand_code) : 0;
+  // Computed server-side (tire-inventory-search, staff only): the markup must
+  // not ship in the public JS bundle.
+  const fleetPrice = tire.fleet_price || 0;
 
   return (
     <div style={{
