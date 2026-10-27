@@ -730,6 +730,9 @@ export default function QuoteBuilder() {
   // sale. Phone-in price checks are the one legitimate case, so they're ticked explicitly and
   // saved as data_source 'price_check' instead of passing as 'manual'.
   const [priceCheckOnly, setPriceCheckOnly] = useState(false);
+  // The missing plate/contact message, kept so the error box offers the price-check way out only
+  // while that message is the one showing (other setError calls replace it).
+  const [priceCheckError, setPriceCheckError] = useState(null);
 
   // SMS opt-out warning
   const [smsOptedOut, setSmsOptedOut] = useState(null); // null = unchecked, { opted_out, store_number } if opted out
@@ -1214,13 +1217,15 @@ export default function QuoteBuilder() {
     }
   };
 
-  const handleGenerateQuote = async () => {
+  // asPriceCheck lets the error's "Price check only" button tick the box and generate in one click,
+  // without waiting for the state update to land.
+  const handleGenerateQuote = async (asPriceCheck = priceCheckOnly) => {
     if (!tireData || !selectedEmployee) { setError('Please select a tire and employee'); return; }
-    if (!priceCheckOnly) {
+    if (!asPriceCheck) {
       const hasPhone = stripPhoneFormatting(customerData.phone || '').length >= 10;
       const hasEmail = /\S+@\S+\.\S+/.test(customerData.email || '');
-      if (!licensePlate.trim()) { setError('Enter the license plate, or tick "Price check only" if the customer just wants a price.'); return; }
-      if (!hasPhone && !hasEmail) { setError('Add a phone number or email so we can send the quote and follow up, or tick "Price check only".'); return; }
+      if (!licensePlate.trim()) { const m = 'Enter the license plate.'; setError(m); setPriceCheckError(m); return; }
+      if (!hasPhone && !hasEmail) { const m = 'Add a phone number or email so we can send the quote and follow up.'; setError(m); setPriceCheckError(m); return; }
     }
     setGenerating(true);
     setError(null);
@@ -1239,7 +1244,7 @@ export default function QuoteBuilder() {
           email: customerData.email,
           license_plate: licensePlate || null, 
           license_state: licensePlate ? licenseState : null, 
-          data_source: priceCheckOnly ? 'price_check' : customerData.data_source
+          data_source: asPriceCheck ? 'price_check' : customerData.data_source
         },
         vehicle: vehicleData ? { 
           year: vehicleData.year, 
@@ -2048,13 +2053,25 @@ export default function QuoteBuilder() {
           {error && (
             <div style={{ backgroundColor: '#fee', border: '1px solid #e74c3c', borderRadius: '10px', padding: '15px', marginTop: '25px', color: '#c0392b', fontSize: '13px', textAlign: 'center' }}>
               {error}
+              {error === priceCheckError && (
+                <div style={{ marginTop: '12px' }}>
+                  <div style={{ fontSize: '12px', color: '#6b5a78', marginBottom: '8px' }}>Customer just wants a price?</div>
+                  <button
+                    onClick={() => { setPriceCheckOnly(true); handleGenerateQuote(true); }}
+                    disabled={generating}
+                    style={{ backgroundColor: '#fff', color: '#9b59b6', border: '2px solid #9b59b6', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: generating ? 'not-allowed' : 'pointer' }}
+                  >
+                    PRICE CHECK ONLY: GENERATE QUOTE
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
           {/* Generate Button */}
           <div style={{ textAlign: 'center', marginTop: '30px' }}>
             <button 
-              onClick={handleGenerateQuote} 
+              onClick={() => handleGenerateQuote()} 
               disabled={generating || !selectedEmployee} 
               style={{ 
                 backgroundColor: generating || !selectedEmployee ? '#ccc' : '#9b59b6', 
