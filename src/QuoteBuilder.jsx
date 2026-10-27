@@ -1826,9 +1826,16 @@ export default function QuoteBuilder() {
                     ⚠️ Customer previously opted out of SMS. Ask them to text <strong>START</strong> to <strong>{smsOptedOut.store_number || 'the store number'}</strong> to re-subscribe.
                   </div>
                 )}
-                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '10px', fontSize: '11px', color: '#666', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={priceCheckOnly} onChange={(e) => setPriceCheckOnly(e.target.checked)} />
-                  Price check only (no plate or contact needed)
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px', padding: '10px 12px',
+                  border: `2px solid ${priceCheckOnly ? '#9b59b6' : '#d8c4e6'}`, borderRadius: '8px',
+                  backgroundColor: priceCheckOnly ? '#f5eefa' : '#fff', cursor: 'pointer'
+                }}>
+                  <input type="checkbox" checked={priceCheckOnly} onChange={(e) => setPriceCheckOnly(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#9b59b6', cursor: 'pointer', flexShrink: 0 }} />
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#4a2a5e', lineHeight: '1.3' }}>
+                    PRICE CHECK ONLY
+                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: '#6b5a78' }}>Customer just wants a price: no plate, phone or email needed</span>
+                  </span>
                 </label>
                 {/* SMS Consent Notice */}
                 <div style={{ marginTop: '8px', fontSize: '9px', color: '#94a3b8', lineHeight: '1.4', textAlign: 'center' }}>

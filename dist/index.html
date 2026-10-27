@@ -25,7 +25,32 @@
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-DaJQi8zy.js"></script>
+    <!-- Google tag: Google Ads conversions for CUSTOMERS (Goals > Book appointment / Phone call click).
+         Staff use this app all day; anyone who has signed in on this device (jl_staff_auth) is never
+         counted, or every CSA call to a customer would read as an ad conversion. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-723248694"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'AW-723248694');
+      // Goals > Contact: "Tire Finder - Quote request". Fired by CustomerQuoteRequest.jsx only after
+      // request-tire-quote has created the quote (staff never reach that screen).
+      window.AW_QUOTE_REQUEST = 'AW-723248694/xZCnCP6u7aMdELbM79gC';
+      (function () {
+        var BOOK = 'Db8wCPODoZ8dELbM79gC', CALL = 'hVPDCPaDoZ8dELbM79gC';
+        function isStaff() { try { return !!localStorage.getItem('jl_staff_auth'); } catch (e) { return false; } }
+        function conv(l) { if (!isStaff()) gtag('event', 'conversion', { send_to: 'AW-723248694/' + l, value: 1.0, currency: 'USD' }); }
+        document.addEventListener('click', function (e) {
+          var a = e.target.closest && e.target.closest('a'); if (!a) return;
+          var h = a.getAttribute('href') || '';
+          if (/^tel:/i.test(h)) conv(CALL);
+          // "Schedule Installation" on a customer's quote: stores.appointment_url (jiffy.win/...TireInstall)
+          else if (/jiffy\.win\/|yocale\.com/i.test(h)) conv(BOOK);
+        }, true);
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-CF2Lv27O.js"></script>
   </head>
   <body>
     <div id="root"></div>
