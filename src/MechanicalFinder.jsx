@@ -408,6 +408,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
             const params = new URLSearchParams({ base_vehicle_id: parsed.base_vehicle_id, mode: 'tree' });
             if (parsed.engine_config_id) params.set('engine_config_id', String(parsed.engine_config_id));
             if (parsed.vehicle_id)       params.set('vehicle_id',       String(parsed.vehicle_id));
+            if (driveTypeName)           params.set('drive_type',       driveTypeName);
             fetch(`${API_BASE}/ewt-labor-search?${params.toString()}&key=TIRES2026`)
               .then((r) => r.json())
               .then((d) => { if (d.success) setTree(d.data); });
@@ -554,10 +555,14 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
   // ─────────────────────────────────────────────────────────────────────────
   // Load operation tree when config selected
   // ─────────────────────────────────────────────────────────────────────────
-  const loadTree = useCallback((baseVehicleId, engineConfigId, vehicleId) => {
+  // driveType is the picked config's drive_type_name. One VCdb vehicle_id can
+  // carry several drive types (an Escape Active is FWD and AWD), so the server
+  // can't tell which config was picked from vehicle_id alone.
+  const loadTree = useCallback((baseVehicleId, engineConfigId, vehicleId, driveType) => {
     const treeParams = new URLSearchParams({ base_vehicle_id: baseVehicleId, mode: 'tree' });
     if (engineConfigId) treeParams.set('engine_config_id', engineConfigId);
     if (vehicleId)      treeParams.set('vehicle_id',       vehicleId);
+    if (driveType)      treeParams.set('drive_type',       driveType);
     fetch(`${API_BASE}/ewt-labor-search?${treeParams.toString()}&key=TIRES2026`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setTree(d.data); });
@@ -574,6 +579,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     const params = new URLSearchParams({ base_vehicle_id: selConfig.base_vehicle_id });
     if (selConfig.engine_config_id) params.set('engine_config_id', selConfig.engine_config_id);
     if (selConfig.vehicle_id)       params.set('vehicle_id',       selConfig.vehicle_id);
+    if (selConfig.drive_type_name)  params.set('drive_type',       selConfig.drive_type_name);
     if (searchTerm && searchTerm.trim().length >= 3) {
       params.set('search', searchTerm.trim());
     } else {
@@ -598,7 +604,7 @@ export default function MechanicalFinder({ revisionMode: revisionModeProp = fals
     setOperations([]);
     setSelSection(''); setSelGroup(''); setSelSubgroup('');
     setSearchTerm('');
-    loadTree(cfg.base_vehicle_id, cfg.engine_config_id, cfg.vehicle_id);
+    loadTree(cfg.base_vehicle_id, cfg.engine_config_id, cfg.vehicle_id, cfg.drive_type_name);
   };
 
   const handleTreeClick = (section, group, subgroup) => {
