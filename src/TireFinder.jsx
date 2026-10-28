@@ -247,6 +247,9 @@ const InventoryResults = ({ results, storeId, loading, qtyNeeded, selections, on
   // Hooks must run before any early return.
   const [brandFilter, setBrandFilter] = useState('');
   const [sortMode, setSortMode] = useState('default');
+  // This component stays mounted between searches, so a brand picked for one car would
+  // silently filter the next car's results too. Every new search starts on "All brands".
+  useEffect(() => { setBrandFilter(''); }, [results]);
 
   if (loading) {
     return (
